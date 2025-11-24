@@ -5,10 +5,9 @@ import { getFirestore } from "firebase/firestore";
 
 // --- CONFIGURAÇÃO DO SEU APP ---
 const firebaseConfig = {
-  // ATENÇÃO: COLOQUE A CHAVE CORRETA QUE VOCÊ PEGOU NO CONSOLE
-  apiKey: "AIzaSyCD0MUk6azoj-cp1v5TP5Q0QP80SKNq-ds", 
-  authDomain: "inventario-bobina2.firebaseapp.com",
-  projectId: "inventario-bobina2",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: "inventario-bobina2.appspot.com",
   messagingSenderId: "628276135464",
   appId: "1:628276135464:web:e33c84479c8fccb0c7171d",
