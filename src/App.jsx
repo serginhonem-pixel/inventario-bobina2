@@ -113,7 +113,7 @@ const App = () => {
     const q = query(
       collection(db, inventoryPath),
       orderBy("timestamp", "desc"),
-      limit(50)
+      limit(5000)
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
