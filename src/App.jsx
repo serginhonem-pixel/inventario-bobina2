@@ -1,10 +1,11 @@
-// src/App.jsx
-import React, { useState, useEffect, useMemo } from "react";
+﻿// src/App.jsx
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import "./App.css";
 import { auth, db } from "./firebase";
 import { initialInventoryCatalog } from "./inventoryCatalog";
 // IMPORTANTE: Importamos o novo catálogo que acabamos de criar
 import { profilesCatalog } from "./profilesCatalog";
+import { buildCatalogModel, searchCatalog } from "./catalogUtils";
 
 import {
   signInAnonymously,
@@ -43,9 +44,7 @@ const LoginComponent = ({ setUserName }) => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-indigo-50 p-4">
       <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-2xl">
-        <h2 className="text-2xl font-bold text-indigo-700 mb-6 text-center">
-          Identificação
-        </h2>
+        <h2 className="text-2xl font-bold text-indigo-700 mb-6 text-center">Identificação</h2>
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="text"
@@ -68,6 +67,119 @@ const LoginComponent = ({ setUserName }) => {
 };
 
 // ===============================
+// LEITOR QR CODE (BarcodeDetector)
+// ===============================
+const QrScanner = ({ isOpen, onDetected, onClose }) => {
+  const videoRef = useRef(null);
+  const lastScanRef = useRef({ value: "", time: 0 });
+  const [status, setStatus] = useState("Iniciando câmera...");
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    let stream = null;
+    let detector = null;
+    let rafId = null;
+    let active = true;
+
+    const start = async () => {
+      if (!("BarcodeDetector" in window)) {
+        setStatus("Navegador sem suporte a leitor de QR.");
+        return;
+      }
+
+      try {
+        detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+      } catch (err) {
+        setStatus("Não foi possível iniciar o leitor.");
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+      } catch (err) {
+        setStatus("Permissão de câmera negada.");
+        return;
+      }
+
+      if (!videoRef.current) return;
+
+      videoRef.current.srcObject = stream;
+      videoRef.current.setAttribute("playsinline", true);
+
+      try {
+        await videoRef.current.play();
+      } catch (err) {
+        setStatus("Não foi possível iniciar o vídeo.");
+        return;
+      }
+
+      setStatus("Aponte a câmera para o QR code.");
+
+      const scan = async () => {
+        if (!active || !videoRef.current) return;
+
+        try {
+          const barcodes = await detector.detect(videoRef.current);
+          if (barcodes && barcodes.length) {
+            const rawValue = barcodes[0].rawValue || barcodes[0].data;
+            const now = Date.now();
+            if (
+              rawValue &&
+              (rawValue !== lastScanRef.current.value ||
+                now - lastScanRef.current.time > 1500)
+            ) {
+              lastScanRef.current = { value: rawValue, time: now };
+              onDetected(rawValue);
+            }
+          }
+        } catch (err) {
+          // Ignora erros de leitura intermitentes.
+        }
+
+        rafId = requestAnimationFrame(scan);
+      };
+
+      rafId = requestAnimationFrame(scan);
+    };
+
+    start();
+
+    return () => {
+      active = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [isOpen, onDetected]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="mt-3 rounded-xl border bg-gray-50 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-gray-600">{status}</p>
+        <button
+          type="button"
+          className="text-xs text-red-500 underline"
+          onClick={onClose}
+        >
+          Fechar
+        </button>
+      </div>
+      <div className="relative w-full overflow-hidden rounded-lg border bg-black">
+        <video ref={videoRef} className="w-full h-56 object-cover" muted />
+        <div className="absolute inset-4 border-2 border-dashed border-indigo-300 pointer-events-none" />
+      </div>
+    </div>
+  );
+};
+
+// ===============================
 // APP PRINCIPAL
 // ===============================
 const App = () => {
@@ -82,6 +194,7 @@ const App = () => {
   const [weight, setWeight] = useState("");
   const [message, setMessage] = useState("");
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isQrOpen, setIsQrOpen] = useState(false);
   const [inventoryLaunches, setInventoryLaunches] = useState([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
 
@@ -133,7 +246,59 @@ const App = () => {
     setSelectedItem(null);
     setSearchTerm("");
     setIsSelecting(false);
+    setIsQrOpen(false);
   }, [inventoryType]);
+
+  const parseNumericValue = (value) => {
+    if (!value) return null;
+    const numeric = parseFloat(value.toString().replace(",", "."));
+    if (Number.isNaN(numeric) || numeric <= 0) return null;
+    return numeric;
+  };
+
+  const parseQrPayload = (payload) => {
+    if (!payload) return null;
+    const text = payload.toString().trim();
+    if (!text) return null;
+
+    const parts = text.split(/[;|,]/).map((part) => part.trim()).filter(Boolean);
+    const id = parts[0]?.toUpperCase();
+    const numeric = parseNumericValue(parts[1]);
+
+    return { id, numeric };
+  };
+
+  const submitLaunch = async (item, numeric) => {
+    if (!item) {
+      setMessage("Selecione o item.");
+      return;
+    }
+    if (!numeric) {
+      setMessage("Informe o valor.");
+      return;
+    }
+
+    try {
+      await addDoc(
+        collection(db, `artifacts/${appId}/users/${uid}/cyclic_inventory_weight`),
+        {
+          itemId: item.id,
+          description: item.description,
+          weightKg: numeric, // Mantemos o nome weightKg para compatibilidade, mas pode ser qtd
+          type: inventoryType, // Salvamos se 'coil' ou 'profile'
+          timestamp: serverTimestamp(),
+          userName,
+          uid,
+        }
+      );
+
+      setWeight("");
+      setIsSelecting(false);
+      setMessage(`Lançado: ${numeric} (${item.id})`);
+    } catch (err) {
+      setMessage("Erro ao salvar no Firestore.");
+    }
+  };
 
   // ENVIAR PESO
   const handleSubmit = async (e) => {
@@ -148,32 +313,13 @@ const App = () => {
       return;
     }
 
-    const numeric = parseFloat(weight.replace(",", "."));
-    if (isNaN(numeric) || numeric <= 0) {
+    const numeric = parseNumericValue(weight);
+    if (!numeric) {
       setMessage("Valor inválido.");
       return;
     }
 
-    try {
-      await addDoc(
-        collection(db, `artifacts/${appId}/users/${uid}/cyclic_inventory_weight`),
-        {
-          itemId: selectedItem.id,
-          description: selectedItem.description,
-          weightKg: numeric, // Mantemos o nome weightKg para compatibilidade, mas pode ser qtd
-          type: inventoryType, // Salvamos se é 'coil' ou 'profile'
-          timestamp: serverTimestamp(),
-          userName,
-          uid,
-        }
-      );
-
-      setWeight("");
-      setIsSelecting(false);
-      setMessage(`Lançado: ${numeric} (${selectedItem.id})`);
-    } catch (err) {
-      setMessage("Erro ao salvar no Firestore.");
-    }
+    await submitLaunch(selectedItem, numeric);
   };
 
   // EXCLUIR
@@ -214,20 +360,48 @@ const App = () => {
   };
 
   // FILTRO INTELIGENTE (Define qual catálogo usar)
-  const filteredCatalog = useMemo(() => {
-    // Escolhe a lista base dependendo da aba selecionada
-    const baseList = inventoryType === "coil" ? initialInventoryCatalog : profilesCatalog;
+  const coilCatalogModel = useMemo(
+    () => buildCatalogModel(initialInventoryCatalog, "bobinas"),
+    []
+  );
+  const profileCatalogModel = useMemo(
+    () => buildCatalogModel(profilesCatalog, "perfis"),
+    []
+  );
 
-    if (!searchTerm) return baseList;
+  const activeCatalogModel =
+    inventoryType === "coil" ? coilCatalogModel : profileCatalogModel;
 
-    const s = searchTerm.toLowerCase();
+  const filteredCatalog = useMemo(
+    () => searchCatalog(activeCatalogModel, searchTerm),
+    [activeCatalogModel, searchTerm]
+  );
 
-    return baseList.filter(
-      (i) =>
-        i.id.toLowerCase().includes(s) ||
-        i.description.toLowerCase().includes(s)
-    );
-  }, [searchTerm, inventoryType]);
+  const handleQrDetected = async (payload) => {
+    const parsed = parseQrPayload(payload);
+    if (!parsed || !parsed.id) {
+      setMessage("QR inválido.");
+      return;
+    }
+
+    const itemIndex = activeCatalogModel.byId.get(parsed.id);
+    if (itemIndex === undefined) {
+      setMessage(`Item não encontrado: ${parsed.id}`);
+      return;
+    }
+
+    const item = activeCatalogModel.items[itemIndex];
+    setWeight("");
+    setSelectedItem(item);
+    setIsSelecting(false);
+    setIsQrOpen(false);
+
+    if (parsed.numeric) {
+      await submitLaunch(item, parsed.numeric);
+    } else {
+      setMessage(`Selecionado via QR: ${item.id}`);
+    }
+  };
 
 
   if (!userName) return <LoginComponent setUserName={setUserName} />;
@@ -236,9 +410,7 @@ const App = () => {
     <div className="min-h-screen p-4 bg-gray-100">
 
       <header className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-indigo-700">
-          Inventário Cíclico
-        </h1>
+        <h1 className="text-2xl font-bold text-indigo-700">Inventário Cíclico</h1>
         <p className="text-sm text-gray-500">
           Usuário: <strong>{userName}</strong>
         </p>
@@ -280,10 +452,23 @@ const App = () => {
 
         {isSelecting && (
           <div className="bg-white p-6 rounded-xl shadow-xl">
-            <h2 className="text-lg font-bold text-indigo-600 mb-2">
-              Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})
-            </h2>
+            <h2 className="text-lg font-bold text-indigo-600 mb-2">Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
 
+            <div className="flex items-center justify-between mb-2">
+              <button
+                type="button"
+                className="text-xs text-indigo-600 underline"
+                onClick={() => setIsQrOpen((open) => !open)}
+              >
+                {isQrOpen ? "Fechar leitor QR" : "Ler QR code"}
+              </button>
+            </div>
+
+            <QrScanner
+              isOpen={isQrOpen}
+              onDetected={handleQrDetected}
+              onClose={() => setIsQrOpen(false)}
+            />
             <input
               className="w-full border p-2 rounded mb-3"
               placeholder={`Buscar código ou descrição...`}
@@ -320,6 +505,15 @@ const App = () => {
                 onClick={() => setIsSelecting(true)}
               >
                 Selecionar {inventoryType === "coil" ? "Bobina" : "Perfil"}
+              </button>
+              <button
+                className="w-full mt-3 border border-indigo-200 text-indigo-700 p-3 rounded-xl text-sm font-semibold"
+                onClick={() => {
+                  setIsSelecting(true);
+                  setIsQrOpen(true);
+                }}
+              >
+                Ler QR code
               </button>
             </div>
           ) : (
@@ -362,9 +556,7 @@ const App = () => {
                 />
               </div>
 
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl shadow font-bold text-lg">
-                CONFIRMAR LANÇAMENTO
-              </button>
+              <button className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl shadow font-bold text-lg">CONFIRMAR LANÇAMENTO</button>
             </form>
           )}
         </div>
@@ -373,9 +565,7 @@ const App = () => {
 
       <section className="max-w-5xl mx-auto mt-8 bg-white p-6 rounded-xl shadow-xl">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="font-bold text-indigo-600 text-lg">
-            Histórico de Lançamentos
-          </h2>
+          <h2 className="font-bold text-indigo-600 text-lg">Histórico de Lançamentos</h2>
 
           <button
             onClick={handleExport}
@@ -386,9 +576,7 @@ const App = () => {
         </div>
 
         {!inventoryLaunches.length ? (
-          <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">
-            Nenhum lançamento realizado ainda.
-          </p>
+          <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">Nenhum lançamento realizado ainda.</p>
         ) : (
           <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             {inventoryLaunches.map((item) => (
@@ -412,16 +600,14 @@ const App = () => {
                   <p className="text-xs text-gray-600 mt-0.5">{item.description}</p>
                   <p className="text-xs mt-1">
                     <strong>{item.weightKg.toFixed(2).replace('.', ',')}</strong>
-                    <span className="text-gray-400"> • {item.userName}</span>
+                    <span className="text-gray-400"> - {item.userName}</span>
                   </p>
                 </div>
 
                 <button
                   className="text-red-400 hover:text-red-600 text-sm px-2 py-1"
                   onClick={() => handleDelete(item.id)}
-                >
-                  ✕
-                </button>
+                >Excluir</button>
               </div>
             ))}
           </div>
@@ -433,3 +619,11 @@ const App = () => {
 };
 
 export default App;
+
+
+
+
+
+
+
+
