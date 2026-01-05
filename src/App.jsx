@@ -505,11 +505,6 @@ const App = () => {
               </button>
             </div>
 
-            <QrScanner
-              isOpen={isQrOpen}
-              onDetected={handleQrDetected}
-              onClose={() => setIsQrOpen(false)}
-            />
             <input
               className="w-full border p-2 rounded mb-3"
               placeholder={`Buscar código ou descrição...`}
@@ -603,6 +598,28 @@ const App = () => {
         </div>
 
       </main>
+
+      {isQrOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl sm:p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-indigo-700">Leitor de QR</h3>
+              <button
+                type="button"
+                className="text-sm text-red-600 underline"
+                onClick={() => setIsQrOpen(false)}
+              >
+                Fechar
+              </button>
+            </div>
+            <QrScanner
+              isOpen={isQrOpen}
+              onDetected={handleQrDetected}
+              onClose={() => setIsQrOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl">
         <div className="flex justify-between items-center mb-4">
