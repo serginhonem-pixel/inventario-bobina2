@@ -256,10 +256,22 @@ const App = () => {
     return numeric;
   };
 
-  const parseQrPayload = (payload) => {
+    const parseQrPayload = (payload) => {
     if (!payload) return null;
     const text = payload.toString().trim();
     if (!text) return null;
+
+    if (text.startsWith("{") && text.endsWith("}")) {
+      try {
+        const data = JSON.parse(text);
+        const id = (data.code || data.id || "").toString().trim().toUpperCase();
+        const qtyRaw = (data.qtd || data.qty || data.peso || "").toString();
+        const numeric = parseNumericValue(qtyRaw.replace(/[^0-9,.-]/g, ""));
+        return { id, numeric };
+      } catch (err) {
+        // Continua para parser simples.
+      }
+    }
 
     const parts = text.split(/[;|,]/).map((part) => part.trim()).filter(Boolean);
     const id = parts[0]?.toUpperCase();
@@ -407,9 +419,9 @@ const App = () => {
   if (!userName) return <LoginComponent setUserName={setUserName} />;
 
   return (
-    <div className="min-h-screen p-4 bg-gray-100">
+    <div className="min-h-screen bg-gray-100 px-2 py-3 sm:p-4">
 
-      <header className="text-center mb-6">
+      <header className="text-center mb-4 sm:mb-6">
         <h1 className="text-2xl font-bold text-indigo-700">Inventário Cíclico</h1>
         <p className="text-sm text-gray-500">
           Usuário: <strong>{userName}</strong>
@@ -423,7 +435,7 @@ const App = () => {
       </header>
 
       {/* SELETOR DE ABAS (BOBINAS vs PERFIS) */}
-      <div className="max-w-5xl mx-auto mb-6 flex justify-center">
+      <div className="w-full max-w-5xl mx-auto mb-4 sm:mb-6 flex justify-center">
         <div className="bg-white p-1 rounded-xl shadow flex space-x-1">
           <button
             onClick={() => setInventoryType("coil")}
@@ -448,10 +460,10 @@ const App = () => {
         </div>
       </div>
 
-      <main className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <main className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
 
         {isSelecting && (
-          <div className="bg-white p-6 rounded-xl shadow-xl">
+          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
             <h2 className="text-lg font-bold text-indigo-600 mb-2">Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
 
             <div className="flex items-center justify-between mb-2">
@@ -496,7 +508,7 @@ const App = () => {
           </div>
         )}
 
-        <div className="bg-white p-6 rounded-xl shadow-xl h-fit">
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl h-fit">
           {!selectedItem ? (
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">O que vamos contar agora?</p>
@@ -563,7 +575,7 @@ const App = () => {
 
       </main>
 
-      <section className="max-w-5xl mx-auto mt-8 bg-white p-6 rounded-xl shadow-xl">
+      <section className="w-full max-w-5xl mx-auto mt-6 sm:mt-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold text-indigo-600 text-lg">Histórico de Lançamentos</h2>
 
@@ -619,6 +631,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
