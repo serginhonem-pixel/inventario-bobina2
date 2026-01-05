@@ -491,7 +491,7 @@ const App = () => {
 
       <main className="w-full max-w-none sm:max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
 
-        {isSelecting && (
+        {isSelecting && !isQrOpen && (
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
             <h2 className="text-lg font-bold text-indigo-600 mb-2">Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
 
@@ -612,6 +612,11 @@ const App = () => {
                 Fechar
               </button>
             </div>
+            {message && messageType === "success" && (
+              <div className="mb-3 rounded-lg bg-green-100 p-3 text-center text-sm font-bold text-green-700">
+                Lançamento OK
+              </div>
+            )}
             <QrScanner
               isOpen={isQrOpen}
               onDetected={handleQrDetected}
