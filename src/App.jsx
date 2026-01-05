@@ -160,7 +160,7 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="mt-3 rounded-xl border bg-gray-50 p-3">
+    <div className="mt-3 w-full rounded-xl border bg-gray-50 p-3">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs text-gray-600">{status}</p>
         <button
@@ -171,8 +171,13 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
           Fechar
         </button>
       </div>
-      <div className="relative w-full overflow-hidden rounded-lg border bg-black">
-        <video ref={videoRef} className="w-full h-56 object-cover" muted />
+      <div className="relative w-full aspect-[4/3] min-h-[240px] sm:min-h-[320px] overflow-hidden rounded-lg border bg-black">
+        <video
+          ref={videoRef}
+          className="absolute inset-0 h-full w-full object-cover"
+          muted
+          playsInline
+        />
         <div className="absolute inset-4 border-2 border-dashed border-indigo-300 pointer-events-none" />
       </div>
     </div>
@@ -193,10 +198,12 @@ const App = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [weight, setWeight] = useState("");
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("info");
   const [isSelecting, setIsSelecting] = useState(false);
   const [isQrOpen, setIsQrOpen] = useState(false);
   const [inventoryLaunches, setInventoryLaunches] = useState([]);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const messageTimerRef = useRef(null);
 
   const appId = "inventario-bobina2";
 
@@ -206,7 +213,7 @@ const App = () => {
     if (saved) setUserName(saved);
 
     signInAnonymously(auth).catch(() =>
-      setMessage("Erro ao autenticar no Firebase.")
+      pushMessage("Erro ao autenticar no Firebase.", "error", 3000)
     );
 
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -249,6 +256,19 @@ const App = () => {
     setIsQrOpen(false);
   }, [inventoryType]);
 
+  const pushMessage = (text, type = "info", timeoutMs = 2000) => {
+    setMessage(text);
+    setMessageType(type);
+    if (messageTimerRef.current) {
+      clearTimeout(messageTimerRef.current);
+    }
+    if (timeoutMs) {
+      messageTimerRef.current = setTimeout(() => {
+        setMessage("");
+      }, timeoutMs);
+    }
+  };
+
   const parseNumericValue = (value) => {
     if (!value) return null;
     const numeric = parseFloat(value.toString().replace(",", "."));
@@ -280,13 +300,14 @@ const App = () => {
     return { id, numeric };
   };
 
-  const submitLaunch = async (item, numeric) => {
+  const submitLaunch = async (item, numeric, options = {}) => {
+    const { keepSelecting = false } = options;
     if (!item) {
-      setMessage("Selecione o item.");
+      pushMessage("Selecione o item.", "error", 2500);
       return;
     }
     if (!numeric) {
-      setMessage("Informe o valor.");
+      pushMessage("Informe o valor.", "error", 2500);
       return;
     }
 
@@ -305,10 +326,13 @@ const App = () => {
       );
 
       setWeight("");
-      setIsSelecting(false);
-      setMessage(`Lançado: ${numeric} (${item.id})`);
+      if (!keepSelecting) {
+        setIsSelecting(false);
+      }
+      pushMessage(`Lançado: ${numeric} (${item.id})`, "success", 1500);
+      if (navigator.vibrate) navigator.vibrate(80);
     } catch (err) {
-      setMessage("Erro ao salvar no Firestore.");
+      pushMessage("Erro ao salvar no Firestore.", "error", 3000);
     }
   };
 
@@ -317,17 +341,17 @@ const App = () => {
     e.preventDefault();
 
     if (!selectedItem) {
-      setMessage("Selecione o item.");
+      pushMessage("Selecione o item.", "error", 2500);
       return;
     }
     if (!weight) {
-      setMessage("Informe o valor.");
+      pushMessage("Informe o valor.", "error", 2500);
       return;
     }
 
     const numeric = parseNumericValue(weight);
     if (!numeric) {
-      setMessage("Valor inválido.");
+      pushMessage("Valor inválido.", "error", 2500);
       return;
     }
 
@@ -341,7 +365,7 @@ const App = () => {
         doc(db, `artifacts/${appId}/users/${uid}/cyclic_inventory_weight`, id)
       );
     } catch (err) {
-      setMessage("Erro ao excluir.");
+      pushMessage("Erro ao excluir.", "error", 3000);
     }
   };
 
@@ -392,29 +416,34 @@ const App = () => {
   const handleQrDetected = async (payload) => {
     const parsed = parseQrPayload(payload);
     if (!parsed || !parsed.id) {
-      setMessage("QR inválido.");
+      pushMessage("QR inválido.", "error", 2500);
       return;
     }
 
     const itemIndex = activeCatalogModel.byId.get(parsed.id);
     if (itemIndex === undefined) {
-      setMessage(`Item não encontrado: ${parsed.id}`);
+      pushMessage(`Item não encontrado: ${parsed.id}`, "error", 2500);
       return;
     }
 
     const item = activeCatalogModel.items[itemIndex];
     setWeight("");
-    setSelectedItem(item);
-    setIsSelecting(false);
-    setIsQrOpen(false);
-
     if (parsed.numeric) {
-      await submitLaunch(item, parsed.numeric);
-    } else {
-      setMessage(`Selecionado via QR: ${item.id}`);
+      await submitLaunch(item, parsed.numeric, { keepSelecting: true });
+      setSelectedItem(null);
+      return;
     }
+
+    setSelectedItem(item);
+    pushMessage(`Selecionado via QR: ${item.id}`, "info", 1500);
   };
 
+  const messageStyle =
+    messageType === "success"
+      ? "bg-green-100 text-green-700"
+      : messageType === "error"
+      ? "bg-red-100 text-red-700"
+      : "bg-indigo-100 text-indigo-700";
 
   if (!userName) return <LoginComponent setUserName={setUserName} />;
 
@@ -428,14 +457,14 @@ const App = () => {
         </p>
 
         {message && (
-          <div className="mt-3 bg-indigo-100 text-indigo-700 p-2 rounded-lg text-sm">
+          <div className={`mt-3 p-2 rounded-lg text-sm ${messageStyle}`}>
             {message}
           </div>
         )}
       </header>
 
       {/* SELETOR DE ABAS (BOBINAS vs PERFIS) */}
-      <div className="w-full max-w-5xl mx-auto mb-4 sm:mb-6 flex justify-center">
+      <div className="w-full max-w-none sm:max-w-5xl mx-auto mb-4 sm:mb-6 flex justify-center">
         <div className="bg-white p-1 rounded-xl shadow flex space-x-1">
           <button
             onClick={() => setInventoryType("coil")}
@@ -460,7 +489,7 @@ const App = () => {
         </div>
       </div>
 
-      <main className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+      <main className="w-full max-w-none sm:max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
 
         {isSelecting && (
           <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
@@ -497,7 +526,7 @@ const App = () => {
                   onClick={() => {
                     setSelectedItem(item);
                     setIsSelecting(false);
-                    setMessage(`Selecionado: ${item.id}`);
+                    pushMessage(`Selecionado: ${item.id}`, "info", 1500);
                   }}
                 >
                   <p className="font-bold text-sm">{item.id}</p>
@@ -575,7 +604,7 @@ const App = () => {
 
       </main>
 
-      <section className="w-full max-w-5xl mx-auto mt-6 sm:mt-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl">
+      <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold text-indigo-600 text-lg">Histórico de Lançamentos</h2>
 
@@ -631,6 +660,7 @@ const App = () => {
 };
 
 export default App;
+
 
 
 
