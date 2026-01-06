@@ -1,7 +1,27 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
 
 @layer base {
+  :root {
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-gray-100 text-gray-800;
+    font-family: "Space Grotesk", "Segoe UI", Tahoma, sans-serif;
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgba(16,185,129,0.22), transparent 60%),
+      radial-gradient(900px 500px at 90% 0%, rgba(34,211,238,0.18), transparent 55%),
+      #050507;
+    color: #e4e4e7;
+    min-height: 100vh;
+  }
+
+  * {
+    scrollbar-color: #27272a #0a0a0c;
+  }
+
+  ::selection {
+    background: rgba(16,185,129,0.35);
+    color: #f4f4f5;
   }
 }
