@@ -42,22 +42,22 @@ const LoginComponent = ({ setUserName }) => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-indigo-50 p-4">
-      <div className="w-full max-w-sm bg-white p-8 rounded-xl shadow-2xl">
-        <h2 className="text-2xl font-bold text-indigo-700 mb-6 text-center">Identificação</h2>
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <div className="w-full max-w-sm bg-zinc-950/80 border border-zinc-800/80 p-8 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur">
+        <h2 className="text-2xl font-bold text-emerald-300 mb-6 text-center tracking-wide">Identificação</h2>
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="text"
             placeholder="Seu nome"
-            className="w-full border p-3 rounded-lg shadow-sm"
+            className="w-full border border-zinc-800 bg-zinc-900/60 p-3 rounded-xl text-zinc-100 placeholder:text-zinc-500 shadow-inner"
             value={name}
             onChange={(e) => {
               setName(e.target.value);
               setError("");
             }}
           />
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-          <button className="w-full bg-indigo-600 text-white p-3 rounded-xl shadow hover:bg-indigo-700">
+          {error && <p className="text-rose-400 text-sm">{error}</p>}
+          <button className="w-full bg-emerald-500/90 text-black p-3 rounded-xl font-bold shadow hover:bg-emerald-400">
             Entrar
           </button>
         </form>
@@ -160,25 +160,25 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="mt-3 w-full rounded-xl border bg-gray-50 p-3">
+    <div className="mt-3 w-full rounded-xl border border-zinc-800 bg-zinc-950/70 p-3">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-gray-600">{status}</p>
+        <p className="text-xs text-zinc-400">{status}</p>
         <button
           type="button"
-          className="text-xs text-red-500 underline"
+          className="text-xs text-rose-300 underline hover:text-rose-200"
           onClick={onClose}
         >
           Fechar
         </button>
       </div>
-      <div className="relative w-full aspect-[4/3] min-h-[240px] sm:min-h-[320px] overflow-hidden rounded-lg border bg-black">
+      <div className="relative w-full aspect-[4/3] min-h-[240px] sm:min-h-[320px] overflow-hidden rounded-lg border border-zinc-800 bg-black">
         <video
           ref={videoRef}
           className="absolute inset-0 h-full w-full object-cover"
           muted
           playsInline
         />
-        <div className="absolute inset-4 border-2 border-dashed border-indigo-300 pointer-events-none" />
+        <div className="absolute inset-4 border-2 border-dashed border-emerald-400/60 pointer-events-none" />
       </div>
     </div>
   );
@@ -440,19 +440,19 @@ const App = () => {
 
   const messageStyle =
     messageType === "success"
-      ? "bg-green-100 text-green-700"
+      ? "bg-emerald-500/15 text-emerald-200 border border-emerald-500/30"
       : messageType === "error"
-      ? "bg-red-100 text-red-700"
-      : "bg-indigo-100 text-indigo-700";
+      ? "bg-rose-500/15 text-rose-200 border border-rose-500/30"
+      : "bg-cyan-500/10 text-cyan-200 border border-cyan-500/30";
 
   if (!userName) return <LoginComponent setUserName={setUserName} />;
 
   return (
-    <div className="min-h-screen bg-gray-100 px-2 py-3 sm:p-4">
+    <div className="min-h-screen px-2 py-3 sm:p-4 text-zinc-100">
 
       <header className="text-center mb-4 sm:mb-6">
-        <h1 className="text-2xl font-bold text-indigo-700">Inventário Cíclico</h1>
-        <p className="text-sm text-gray-500">
+        <h1 className="text-2xl font-bold text-zinc-100 tracking-wide">Inventário Cíclico</h1>
+        <p className="text-sm text-zinc-400">
           Usuário: <strong>{userName}</strong>
         </p>
 
@@ -465,13 +465,13 @@ const App = () => {
 
       {/* SELETOR DE ABAS (BOBINAS vs PERFIS) */}
       <div className="w-full max-w-none sm:max-w-5xl mx-auto mb-4 sm:mb-6 flex justify-center">
-        <div className="bg-white p-1 rounded-xl shadow flex space-x-1">
+        <div className="bg-zinc-950/80 border border-zinc-800/80 p-1 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex space-x-1">
           <button
             onClick={() => setInventoryType("coil")}
             className={`px-6 py-2 rounded-lg font-bold transition-colors ${
               inventoryType === "coil"
-                ? "bg-indigo-600 text-white shadow-md"
-                : "text-gray-500 hover:bg-gray-100"
+                ? "bg-emerald-500 text-black shadow-[0_8px_18px_rgba(16,185,129,0.4)]"
+                : "text-zinc-400 hover:bg-zinc-800/60"
             }`}
           >
             Bobinas
@@ -480,8 +480,8 @@ const App = () => {
             onClick={() => setInventoryType("profile")}
             className={`px-6 py-2 rounded-lg font-bold transition-colors ${
               inventoryType === "profile"
-                ? "bg-indigo-600 text-white shadow-md"
-                : "text-gray-500 hover:bg-gray-100"
+                ? "bg-emerald-500 text-black shadow-[0_8px_18px_rgba(16,185,129,0.4)]"
+                : "text-zinc-400 hover:bg-zinc-800/60"
             }`}
           >
             Perfis (P.A.)
@@ -492,13 +492,13 @@ const App = () => {
       <main className="w-full max-w-none sm:max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
 
         {isSelecting && !isQrOpen && (
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl">
-            <h2 className="text-lg font-bold text-indigo-600 mb-2">Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
+          <div className="bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
+            <h2 className="text-lg font-bold text-emerald-300 mb-2">Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
 
             <div className="flex items-center justify-between mb-2">
               <button
                 type="button"
-                className="text-xs text-indigo-600 underline"
+                className="text-xs text-emerald-300 underline hover:text-emerald-200"
                 onClick={() => setIsQrOpen((open) => !open)}
               >
                 {isQrOpen ? "Fechar leitor QR" : "Ler QR code"}
@@ -506,7 +506,7 @@ const App = () => {
             </div>
 
             <input
-              className="w-full border p-2 rounded mb-3"
+              className="w-full border border-zinc-800 bg-zinc-900/70 p-2 rounded-lg mb-3 text-zinc-100 placeholder:text-zinc-500"
               placeholder={`Buscar código ou descrição...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -517,7 +517,7 @@ const App = () => {
               {filteredCatalog.map((item) => (
                 <div
                   key={item.id}
-                  className="p-3 bg-gray-50 hover:bg-indigo-50 border rounded-lg cursor-pointer"
+                  className="p-3 bg-zinc-900/60 hover:bg-zinc-800/70 border border-zinc-800 rounded-lg cursor-pointer"
                   onClick={() => {
                     setSelectedItem(item);
                     setIsSelecting(false);
@@ -532,18 +532,18 @@ const App = () => {
           </div>
         )}
 
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-xl h-fit">
+        <div className="bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)] h-fit">
           {!selectedItem ? (
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">O que vamos contar agora?</p>
+              <p className="text-zinc-400 mb-4">O que vamos contar agora?</p>
               <button
-                className="w-full bg-indigo-600 text-white p-4 rounded-xl shadow text-lg font-semibold animate-pulse"
+                className="w-full bg-emerald-500/90 text-black p-4 rounded-xl shadow-[0_12px_30px_rgba(16,185,129,0.35)] text-lg font-semibold hover:bg-emerald-400"
                 onClick={() => setIsSelecting(true)}
               >
                 Selecionar {inventoryType === "coil" ? "Bobina" : "Perfil"}
               </button>
               <button
-                className="w-full mt-3 border border-indigo-200 text-indigo-700 p-3 rounded-xl text-sm font-semibold"
+                className="w-full mt-3 border border-zinc-700 text-zinc-200 bg-zinc-900/40 hover:bg-zinc-800/60 p-3 rounded-xl text-sm font-semibold"
                 onClick={() => {
                   setIsSelecting(true);
                   setIsQrOpen(true);
@@ -554,19 +554,19 @@ const App = () => {
             </div>
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit}>
-              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                <span className="text-xs font-bold text-indigo-400 uppercase tracking-wide">
+              <div className="bg-zinc-900/70 p-4 rounded-lg border border-zinc-800">
+                <span className="text-xs font-bold text-emerald-300 uppercase tracking-wide">
                   {inventoryType === "coil" ? "Bobina Selecionada" : "Perfil Selecionado"}
                 </span>
-                <p className="text-lg text-indigo-800 font-bold mt-1">
+                <p className="text-lg text-zinc-100 font-bold mt-1">
                   {selectedItem.id}
                 </p>
-                <p className="text-sm text-indigo-600">
+                <p className="text-sm text-zinc-300">
                   {selectedItem.description}
                 </p>
                 <button
                   type="button"
-                  className="text-xs text-red-500 underline mt-2 hover:text-red-700"
+                  className="text-xs text-rose-300 underline hover:text-rose-200 mt-2"
                   onClick={() => {
                     setSelectedItem(null);
                     setWeight("");
@@ -578,21 +578,21 @@ const App = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-zinc-300 mb-1">
                   {inventoryType === "coil" ? "Peso (kg)" : "Quantidade ou Peso"}
                 </label>
                 <input
                   type="text" // Mantemos text para permitir vírgula fácil
                   inputMode="decimal" // Teclado numérico no celular
                   placeholder={inventoryType === "coil" ? "Ex: 1250,5" : "Ex: 50"}
-                  className="w-full border p-3 rounded-lg text-lg"
+                  className="w-full border border-zinc-800 bg-zinc-900/70 p-3 rounded-xl text-lg text-zinc-100 placeholder:text-zinc-500"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
                   autoFocus
                 />
               </div>
 
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl shadow font-bold text-lg">CONFIRMAR LANÇAMENTO</button>
+              <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-black p-4 rounded-xl shadow font-bold text-lg">CONFIRMAR LANÇAMENTO</button>
             </form>
           )}
         </div>
@@ -601,19 +601,19 @@ const App = () => {
 
       {isQrOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl sm:p-6">
+          <div className="w-full max-w-md rounded-2xl bg-zinc-950/90 border border-zinc-800/80 p-4 shadow-2xl sm:p-6">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-indigo-700">Leitor de QR</h3>
+              <h3 className="text-lg font-bold text-emerald-300">Leitor de QR</h3>
               <button
                 type="button"
-                className="text-sm text-red-600 underline"
+                className="text-sm text-rose-300 underline hover:text-rose-200"
                 onClick={() => setIsQrOpen(false)}
               >
                 Fechar
               </button>
             </div>
             {message && messageType === "success" && (
-              <div className="mb-3 rounded-lg bg-green-100 p-3 text-center text-sm font-bold text-green-700">
+              <div className="mb-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 p-3 text-center text-sm font-bold text-emerald-200">
                 Lançamento OK
               </div>
             )}
@@ -626,20 +626,20 @@ const App = () => {
         </div>
       )}
 
-      <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-white p-4 sm:p-6 rounded-xl shadow-xl">
+      <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="font-bold text-indigo-600 text-lg">Histórico de Lançamentos</h2>
+          <h2 className="font-bold text-emerald-300 text-lg">Histórico de Lançamentos</h2>
 
           <button
             onClick={handleExport}
-            className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-green-700"
+            className="bg-emerald-500 text-black px-4 py-2 rounded-xl text-sm hover:bg-emerald-400"
           >
             Exportar CSV
           </button>
         </div>
 
         {!inventoryLaunches.length ? (
-          <p className="text-gray-500 text-center py-4 bg-gray-50 rounded-lg">Nenhum lançamento realizado ainda.</p>
+          <p className="text-zinc-400 text-center py-4 bg-zinc-900/60 border border-zinc-800 rounded-lg">Nenhum lançamento realizado ainda.</p>
         ) : (
           <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             {inventoryLaunches.map((item) => (
@@ -647,28 +647,28 @@ const App = () => {
                 key={item.id}
                 className={`p-3 border-l-4 rounded flex justify-between items-center ${
                   item.type === "profile" 
-                    ? "bg-blue-50 border-blue-500" // Cor diferente para perfil
-                    : "bg-green-50 border-green-500" // Cor original para bobina
+                    ? "bg-cyan-500/10 border-cyan-400/50" // Cor diferente para perfil
+                    : "bg-emerald-500/10 border-emerald-400/50" // Cor original para bobina
                 }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full text-white ${
-                      item.type === "profile" ? "bg-blue-400" : "bg-green-400"
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full text-black ${
+                      item.type === "profile" ? "bg-cyan-400/80 text-black" : "bg-emerald-400/80 text-black"
                     }`}>
                       {item.type === "profile" ? "PERFIL" : "BOBINA"}
                     </span>
-                    <span className="font-bold text-sm text-gray-800">{item.itemId}</span>
+                    <span className="font-bold text-sm text-zinc-100">{item.itemId}</span>
                   </div>
-                  <p className="text-xs text-gray-600 mt-0.5">{item.description}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">{item.description}</p>
                   <p className="text-xs mt-1">
                     <strong>{item.weightKg.toFixed(2).replace('.', ',')}</strong>
-                    <span className="text-gray-400"> - {item.userName}</span>
+                    <span className="text-zinc-500"> - {item.userName}</span>
                   </p>
                 </div>
 
                 <button
-                  className="text-red-400 hover:text-red-600 text-sm px-2 py-1"
+                  className="text-rose-300 hover:text-rose-200 text-sm px-2 py-1"
                   onClick={() => handleDelete(item.id)}
                 >Excluir</button>
               </div>
