@@ -1463,10 +1463,10 @@ const App = () => {
             <img
               src="/logo.png"
               alt="QtdApp"
-              className="h-[240px] w-[240px] object-contain"
+              className="h-[180px] w-[180px] sm:h-[240px] sm:w-[240px] object-contain"
             />
           </div>
-          <p className="text-sm text-zinc-400 whitespace-nowrap">
+          <p className="text-xs sm:text-sm text-zinc-400 break-words text-center">
             Usuário: <strong>{userName}</strong>
           </p>
 
@@ -1480,7 +1480,7 @@ const App = () => {
         <nav className="mb-4 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
               activeMenu === "inventory"
                 ? "bg-emerald-500 text-black"
                 : "bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800/70"
@@ -1491,7 +1491,7 @@ const App = () => {
           </button>
           <button
             type="button"
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
               activeMenu === "label-editor"
                 ? "bg-emerald-500 text-black"
                 : "bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800/70"
@@ -1502,7 +1502,7 @@ const App = () => {
           </button>
           <button
             type="button"
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
+            className={`w-full sm:w-auto px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition ${
               activeMenu === "labels"
                 ? "bg-emerald-500 text-black"
                 : "bg-zinc-900/60 text-zinc-200 hover:bg-zinc-800/70"
@@ -1710,7 +1710,7 @@ const App = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Largura (cm)</label>
                   <input
@@ -1773,7 +1773,7 @@ const App = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Alinhamento texto</label>
                   <select
@@ -1796,7 +1796,7 @@ const App = () => {
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className="flex items-center gap-2 text-xs text-zinc-200">
                         <input
                           type="checkbox"
@@ -1818,7 +1818,7 @@ const App = () => {
                         Rodape
                       </label>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className="flex items-center gap-2 text-xs text-zinc-200">
                         <input
                           type="checkbox"
@@ -1846,7 +1846,7 @@ const App = () => {
                         Logo no rodape
                       </label>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input
                         type="text"
                         className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
@@ -1862,7 +1862,7 @@ const App = () => {
                         onChange={(e) => updateLabelSetting("footerText", e.target.value)}
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-zinc-400 mb-1">
                           Fonte cabecalho (px)
@@ -1896,7 +1896,7 @@ const App = () => {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-zinc-400 mb-1">
                           Texto cabecalho
@@ -1926,7 +1926,7 @@ const App = () => {
                         </select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs text-zinc-400 mb-1">
                           Logo cabecalho
@@ -1977,7 +1977,7 @@ const App = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Fonte código (px)</label>
                   <input
@@ -2205,7 +2205,7 @@ const App = () => {
               <p className="text-[11px] text-zinc-500 mb-3">
                 {labelSettings.widthCm}x{labelSettings.heightCm}cm
               </p>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 overflow-visible">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 overflow-visible flex justify-center">
                     <div className={`rounded-xl border border-zinc-300 bg-white ${labelContentClass}`} style={previewLabelStyle}>
                   {renderLabelLayout(labelItems[0] || {}, previewQrSrc)}
                 </div>
