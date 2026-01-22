@@ -279,10 +279,10 @@ const App = () => {
   const [labelItems, setLabelItems] = useState([]);
   const [labelBatch, setLabelBatch] = useState([]);
   const [labelSettings, setLabelSettings] = useState({
-    preset: "60x40",
-    widthCm: 6,
-    heightCm: 4,
-    qrCm: 3,
+    preset: "100x150",
+    widthCm: 10,
+    heightCm: 15,
+    qrCm: 6,
     paddingCm: 0.4,
     paddingXCm: 0.4,
     paddingYCm: 0.4,
@@ -300,34 +300,64 @@ const App = () => {
     footerLogoAlign: "right",
     headerLogoEnabled: true,
     footerLogoEnabled: false,
+    headerBoxXcm: 0,
+    headerBoxYcm: 0,
+    headerBoxWcm: 10,
+    headerBoxHcm: 1.8,
+    footerBoxXcm: 0,
+    footerBoxYcm: 0,
+    footerBoxWcm: 10,
+    footerBoxHcm: 1.6,
+    headerLogoXcm: 0,
+    headerLogoYcm: 0,
+    headerLogoWcm: 2.5,
+    headerLogoHcm: 1.4,
+    headerRows: 2,
+    headerBorder: false,
+    headerBorderColor: "#1f2937",
+    footerLogoXcm: 0,
+    footerLogoYcm: 0,
+    footerLogoWcm: 2.2,
+    footerLogoHcm: 1.2,
+    footerRows: 2,
+    footerBorder: false,
+    footerBorderColor: "#1f2937",
     testCode: "CODIGO TESTE",
     testDescription: "Descricao de teste",
     testQty: "1",
     testWeight: "0",
     testLocation: "A1",
     customFieldValues: {},
-    fontTitle: 12,
-    fontDesc: 9,
-    fontMeta: 8,
-    fontLabel: 10,
+    fontTitle: 18,
+    fontDesc: 13,
+    fontMeta: 11,
+    fontLabel: 12,
   });
   const [labelLayout, setLabelLayout] = useState({
-    qrPosition: "top",
     align: "center",
+    gridSizeCm: 0.5,
+    blocks: {},
   });
+  const [selectedBlockKey, setSelectedBlockKey] = useState(null);
+  const [draggingBlockKey, setDraggingBlockKey] = useState(null);
+  const [selectedHeaderSection, setSelectedHeaderSection] = useState(null);
+  const gridRef = useRef(null);
+  const dragStateRef = useRef(null);
+  const suppressClickRef = useRef(false);
   const defaultLabelFields = [
-    { key: "qr", label: "QR Code", enabled: true, showLabel: false, emphasize: false, highlight: false, labelFontSize: 10, boldLabel: true, boldValue: false },
-    { key: "id", label: "Codigo", enabled: true, showLabel: false, emphasize: true, highlight: false, labelFontSize: 10, boldLabel: true, boldValue: true },
-    { key: "description", label: "Descricao", enabled: true, showLabel: false, emphasize: false, highlight: false, labelFontSize: 10, boldLabel: true, boldValue: false },
-    { key: "qty", label: "Quantidade", enabled: true, showLabel: true, emphasize: false, highlight: false, labelFontSize: 10, boldLabel: true, boldValue: false },
-    { key: "weight", label: "Peso", enabled: true, showLabel: true, emphasize: false, highlight: false, labelFontSize: 10, boldLabel: true, boldValue: false },
-    { key: "location", label: "Local", enabled: true, showLabel: true, emphasize: false, highlight: false, labelFontSize: 10, boldLabel: true, boldValue: false },
+    { key: "qr", label: "QR Code", enabled: true, showLabel: false, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "center" },
+    { key: "id", label: "Codigo", enabled: true, showLabel: false, emphasize: true, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: true, align: "center" },
+    { key: "description", label: "Descricao", enabled: true, showLabel: false, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "left" },
+    { key: "qty", label: "Quantidade", enabled: true, showLabel: true, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "left" },
+    { key: "weight", label: "Peso", enabled: true, showLabel: true, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "left" },
+    { key: "location", label: "Local", enabled: true, showLabel: true, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "left" },
   ];
   const [labelFields, setLabelFields] = useState(defaultLabelFields);
   const [labelFieldInput, setLabelFieldInput] = useState("");
   const [bulkInput, setBulkInput] = useState("");
   const [qrCache, setQrCache] = useState({});
   const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [isBatchStale, setIsBatchStale] = useState(false);
   const labelInitRef = useRef(true);
   const [extraFields, setExtraFields] = useState([]);
@@ -417,6 +447,10 @@ const App = () => {
     );
   }, [extraFields]);
 
+  const resolveFieldAlign = (value, fallback) => {
+    if (value === "left" || value === "center" || value === "right") return value;
+    return fallback;
+  };
   const sanitizeLabelFields = (fields) => {
     const base = [...defaultLabelFields];
     if (!Array.isArray(fields)) return base;
@@ -432,8 +466,16 @@ const App = () => {
       showLabel: field.showLabel ?? true,
       emphasize: field.emphasize ?? false,
       highlight: field.highlight ?? false,
+      highlightColor:
+        typeof field.highlightColor === "string" && field.highlightColor.length > 0
+          ? field.highlightColor
+          : "#e5e7eb",
       boldLabel: field.boldLabel ?? true,
       boldValue: field.boldValue ?? false,
+      align: resolveFieldAlign(field.align, labelLayout.align),
+      valueFontSize: Number.isFinite(Number(field.valueFontSize))
+        ? Number(field.valueFontSize)
+        : null,
       labelFontSize: Number.isFinite(Number(field.labelFontSize))
         ? Number(field.labelFontSize)
         : labelSettings.fontLabel,
@@ -649,6 +691,17 @@ const App = () => {
     () => searchCatalog(activeCatalogModel, labelSearch),
     [activeCatalogModel, labelSearch]
   );
+  const batchExtraFields = useMemo(() => {
+    const customFields = labelFields
+      .filter((field) => field.key.startsWith("custom:"))
+      .map((field) => ({ key: field.key, label: field.label }));
+    const map = new Map();
+    extraFields.forEach((field) => map.set(field.key, field));
+    customFields.forEach((field) => {
+      if (!map.has(field.key)) map.set(field.key, field);
+    });
+    return Array.from(map.values());
+  }, [extraFields, labelFields]);
 
   const handleQrDetected = async (payload) => {
     const parsed = parseQrPayload(payload);
@@ -680,7 +733,8 @@ const App = () => {
       const next = [...prev];
       const index = next.findIndex((entry) => entry.id === item.id);
       if (index >= 0) {
-        next[index] = { ...next[index], qty: next[index].qty + qty };
+        const currentPrintQty = next[index].printQty ?? next[index].qty ?? 1;
+        next[index] = { ...next[index], printQty: currentPrintQty + qty };
         return next;
       }
       const extraValues = extraFields.reduce((acc, field) => {
@@ -691,7 +745,8 @@ const App = () => {
         ...next,
         {
           ...item,
-          qty,
+          qty: 1,
+          printQty: qty,
           weight: "",
           location: "",
           extraFields: extraValues,
@@ -704,7 +759,7 @@ const App = () => {
     const numericQty = Number.isNaN(qty) ? 1 : Math.max(1, qty);
     setLabelItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, qty: numericQty } : item
+        item.id === id ? { ...item, printQty: numericQty } : item
       )
     );
   };
@@ -812,9 +867,10 @@ const App = () => {
 
     await ensureQrForItems(labelItems);
 
-    const nextBatch = labelItems.flatMap((item) =>
-      Array.from({ length: item.qty }).map(() => item)
-    );
+    const nextBatch = labelItems.flatMap((item) => {
+      const count = item.printQty ?? item.qty ?? 1;
+      return Array.from({ length: count }).map(() => item);
+    });
     setLabelBatch(nextBatch);
     setIsBatchStale(false);
     pushMessage(`Lote gerado: ${nextBatch.length} etiquetas.`, "success", 2000);
@@ -847,8 +903,8 @@ const App = () => {
     let added = 0;
     const missing = [];
 
-    setLabelItems((prev) => {
-      const map = new Map(prev.map((item) => [item.id, item]));
+      setLabelItems((prev) => {
+        const map = new Map(prev.map((item) => [item.id, item]));
 
       lines.forEach((line) => {
         const parts = line.split(/[;|,]/).map((part) => part.trim());
@@ -869,12 +925,13 @@ const App = () => {
         if (existing) {
           map.set(item.id, {
             ...existing,
-            qty: existing.qty + qty,
+            qty: qty,
+            printQty: (existing.printQty ?? existing.qty ?? 1) + qty,
             weight: weight || existing.weight || "",
             location: location || existing.location || "",
           });
         } else {
-          map.set(item.id, { ...item, qty, weight, location });
+          map.set(item.id, { ...item, qty, printQty: qty, weight, location });
         }
         added += qty;
       });
@@ -977,6 +1034,7 @@ const App = () => {
           ...catalogItem,
           description,
           qty,
+          printQty: qty,
           weight,
           location,
           extraFields: extraValues,
@@ -1052,117 +1110,127 @@ const App = () => {
         return item.location || labelSettings.testLocation || "-";
       default:
         if (field.key.startsWith("custom:")) {
+          const itemValue = item.extraFields?.[field.key];
           const customValue = labelSettings.customFieldValues?.[field.key];
-          return customValue || "-";
+          return itemValue || customValue || "-";
         }
         return "";
     }
   };
 
-  const renderLabelFields = (item, qrSrc, options = {}) => {
-    const { includeQr = true } = options;
-    return labelFields
-      .filter((field) => field.enabled)
-      .filter((field) => field.key !== "test" && normalizeKey(field.label || "") !== "texto_teste")
-      .filter((field) => (includeQr ? true : field.key !== "qr"))
-      .map((field) => {
-      const rawValue = getFieldValue(field, item);
-      const hasValue = rawValue !== null && rawValue !== undefined && rawValue !== "";
-      if (!hasValue) return null;
-      const labelFontSize = getLabelFontSize(field);
-      const labelPrefix = (
-        <span
-          className={`text-black ${field.boldLabel ? "font-semibold" : "font-normal"}`}
-          style={{ fontSize: `${labelFontSize}px` }}
-        >
-          {field.label}:
-        </span>
-      );
-      if (field.key === "qr") {
-        return (
-          <div key={field.key} className="flex justify-center">
-            <div className="rounded-lg bg-white p-2">
-              {qrSrc ? (
-                <img
-                  src={qrSrc}
-                  alt="QR"
-                  style={{ width: qrImageSize, height: qrImageSize }}
-                />
-              ) : (
-                <div
-                  className="flex items-center justify-center text-xs text-zinc-500"
-                  style={{ width: qrImageSize, height: qrImageSize }}
-                >
-                  QR
-                </div>
-              )}
-            </div>
+  const renderLabelBlockContent = (field, item, qrSrc, blockSizeCm, align) => {
+    const rawValue = getFieldValue(field, item);
+    const hasValue = rawValue !== null && rawValue !== undefined && rawValue !== "";
+    if (!hasValue) return null;
+    const labelFontSize = getLabelFontSize(field);
+    const valueFontSize =
+      Number.isFinite(Number(field.valueFontSize)) && Number(field.valueFontSize) > 0
+        ? Number(field.valueFontSize)
+        : null;
+    const fieldAlign = resolveFieldAlign(align, labelLayout.align);
+    const textAlignClass =
+      fieldAlign === "left" ? "text-left" : fieldAlign === "right" ? "text-right" : "text-center";
+    const labelPrefix = (
+      <span
+        className={`text-black ${field.boldLabel ? "font-semibold" : "font-normal"} ${textAlignClass}`}
+        style={{ fontSize: `${labelFontSize}px` }}
+      >
+        {field.label}:
+      </span>
+    );
+    if (field.key === "qr") {
+      const qrSize = Math.min(blockSizeCm.widthCm, blockSizeCm.heightCm);
+      return (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="rounded-lg bg-white p-2">
+            {qrSrc ? (
+              <img
+                src={qrSrc}
+                alt="QR"
+                style={{ width: `${qrSize}cm`, height: `${qrSize}cm` }}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center text-xs text-zinc-500"
+                style={{ width: `${qrSize}cm`, height: `${qrSize}cm` }}
+              >
+                QR
+              </div>
+            )}
           </div>
-        );
-      }
-      const emphasizeClass = field.emphasize ? "border border-black/40 rounded px-2 py-1" : "";
-      const highlightClass = field.highlight ? "bg-[#e5e7eb] rounded px-2 py-1" : "";
-      const valueWeightClass = field.boldValue ? "font-semibold text-black" : "font-normal text-zinc-700";
-      if (field.key === "id") {
-        return (
-          <p
-            key={field.key}
-            className={`${field.boldValue ? "font-semibold" : "font-normal"} text-black ${emphasizeClass} ${highlightClass}`}
-            style={labelTitleStyle}
-          >
-            {field.showLabel ? (
-              <>
-                {labelPrefix} {rawValue}
-              </>
-            ) : (
-              rawValue
-            )}
-          </p>
-        );
-      }
-      if (field.key === "description") {
-        return (
-          <p
-            key={field.key}
-            className={`${valueWeightClass} ${emphasizeClass} ${highlightClass}`}
-            style={labelDescStyle}
-          >
-            {field.showLabel ? (
-              <>
-                {labelPrefix} {rawValue}
-              </>
-            ) : (
-              rawValue
-            )}
-          </p>
-        );
-      }
+        </div>
+      );
+    }
+    const emphasizeClass = field.emphasize ? "rounded px-2 py-1" : "";
+    const highlightClass = field.highlight ? "rounded px-2 py-1" : "";
+    const valueWeightClass = field.boldValue ? "font-semibold text-black" : "font-normal text-zinc-700";
+    if (field.key === "id") {
       return (
         <p
-          key={field.key}
-          className={`${valueWeightClass} ${emphasizeClass} ${highlightClass}`}
-          style={labelMetaStyle}
+          className={`w-full ${field.boldValue ? "font-semibold" : "font-normal"} text-black ${emphasizeClass} ${highlightClass} ${textAlignClass}`}
+          style={{ ...labelTitleStyle, ...(valueFontSize ? { fontSize: `${valueFontSize}px` } : {}) }}
         >
           {field.showLabel ? (
             <>
-              {labelPrefix}{" "}
-              {rawValue}
+              {labelPrefix} {rawValue}
             </>
           ) : (
             rawValue
           )}
         </p>
       );
-    });
+    }
+    if (field.key === "description") {
+      return (
+        <p
+          className={`w-full ${valueWeightClass} ${emphasizeClass} ${highlightClass} ${textAlignClass}`}
+          style={{ ...labelDescStyle, ...(valueFontSize ? { fontSize: `${valueFontSize}px` } : {}) }}
+        >
+          {field.showLabel ? (
+            <>
+              {labelPrefix} {rawValue}
+            </>
+          ) : (
+            rawValue
+          )}
+        </p>
+      );
+    }
+    return (
+      <p
+        className={`w-full ${valueWeightClass} ${emphasizeClass} ${highlightClass} ${textAlignClass}`}
+        style={{ ...labelMetaStyle, ...(valueFontSize ? { fontSize: `${valueFontSize}px` } : {}) }}
+      >
+        {field.showLabel ? (
+          <>
+            {labelPrefix} {rawValue}
+          </>
+        ) : (
+          rawValue
+        )}
+      </p>
+    );
   };
 
-  const renderLabelLayout = (item, qrSrc) => {
-    const alignItems =
-      labelLayout.align === "left"
-        ? "items-start"
-        : labelLayout.align === "right"
-        ? "items-end"
-        : "items-center";
+  const renderLabelLayout = (item, qrSrc, options = {}) => {
+    const {
+      showGuides = false,
+      highlightKey = null,
+      onBlockClick,
+      onGridClick,
+      gridRef: gridElementRef,
+      onGridPointerMove,
+      onGridPointerUp,
+      onBlockPointerDown,
+    } = options;
+    const layout = normalizeLabelLayout(labelLayout, labelFields);
+    const metrics = getLabelGridMetrics(layout.gridSizeCm);
+    const gridWidthCm = metrics.cols * metrics.cellWidthCm;
+    const gridHeightCm = metrics.rows * metrics.rowHeightCm;
+    const resolveAlignClass = (align) =>
+      align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start";
+    const resolveTextClass = (align) =>
+      align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
     const showHeader = canUseHeaderFooter && labelSettings.headerEnabled;
     const showFooter = canUseHeaderFooter && labelSettings.footerEnabled;
     const headerFooterTextStyle = {
@@ -1177,57 +1245,484 @@ const App = () => {
         labelSettings.footerFont ?? labelSettings.headerFooterFont ?? labelSettings.fontLabel
       )}px`,
     };
-    const resolveAlignClass = (align) =>
-      align === "center" ? "justify-center" : align === "right" ? "justify-end" : "justify-start";
-    const resolveTextClass = (align) =>
-      align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
     const headerRowClass = resolveAlignClass(labelSettings.headerLogoAlign);
     const footerRowClass = resolveAlignClass(labelSettings.footerLogoAlign);
     const headerTextClass = resolveTextClass(labelSettings.headerTextAlign);
     const footerTextClass = resolveTextClass(labelSettings.footerTextAlign);
+    const gridBackground = showGuides
+      ? {
+          backgroundImage:
+            "linear-gradient(to right, rgba(15, 23, 42, 0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(15, 23, 42, 0.12) 1px, transparent 1px)",
+          backgroundSize: `${metrics.cellWidthPx}px ${metrics.rowHeightPx}px`,
+        }
+      : {};
     return (
-      <div className={`flex flex-col ${alignItems} h-full`}>
-        {showHeader && (
-          <div className="w-full space-y-1 mb-1">
-            {labelSettings.logoDataUrl && labelSettings.headerLogoEnabled && (
-              <div className={`flex ${headerRowClass} w-full`}>
-                <img
-                  src={labelSettings.logoDataUrl}
-                  alt="Logo"
-                  className="object-contain"
-                  style={{ height: "1.4cm" }}
+      <div className="flex flex-col h-full">
+        <div
+          ref={gridElementRef}
+          className={`relative ${onGridClick ? "cursor-crosshair" : ""}`}
+          style={{
+            width: `${gridWidthCm}cm`,
+            height: `${gridHeightCm}cm`,
+            ...gridBackground,
+          }}
+          onClick={onGridClick}
+          onPointerMove={onGridPointerMove}
+          onPointerUp={onGridPointerUp}
+          onPointerLeave={onGridPointerUp}
+          onClick={(event) => {
+            if (suppressClickRef.current) return;
+            if (event.target === event.currentTarget) {
+              if (highlightKey && onBlockClick) onBlockClick(null);
+              setSelectedHeaderSection(null);
+            }
+          }}
+        >
+          {showHeader && (
+            <div
+              className={`absolute overflow-hidden cursor-pointer ${selectedHeaderSection === "header" ? "ring-2 ring-emerald-400 bg-emerald-200/20" : ""}`}
+              style={{
+                left: `0cm`,
+                top: `0cm`,
+                width: `${innerWidthCm}cm`,
+                height: `${labelSettings.headerBoxHcm}cm`,
+                border: labelSettings.headerBorder
+                  ? `1px solid ${labelSettings.headerBorderColor || "#1f2937"}`
+                  : "none",
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setSelectedHeaderSection("header");
+                setSelectedBlockKey(null);
+              }}
+            >
+              {labelSettings.logoDataUrl && labelSettings.headerLogoEnabled && (
+                <div
+                  className={`absolute ${headerRowClass}`}
+                  style={{
+                    left: `${labelSettings.headerLogoXcm}cm`,
+                    top: `${labelSettings.headerLogoYcm}cm`,
+                    width: `${labelSettings.headerLogoWcm}cm`,
+                    height: `${labelSettings.headerLogoHcm}cm`,
+                  }}
+                >
+                  <img
+                    src={labelSettings.logoDataUrl}
+                    alt="Logo"
+                    className="object-contain w-full h-full"
+                  />
+                </div>
+              )}
+              {labelSettings.headerText && (
+                <p
+                  className={`text-black font-semibold ${headerTextClass}`}
+                  style={headerFooterTextStyle}
+                >
+                  {labelSettings.headerText}
+                </p>
+              )}
+            </div>
+          )}
+          {labelFields
+            .filter((field) => field.enabled)
+            .filter((field) => field.key !== "test" && normalizeKey(field.label || "") !== "texto_teste")
+            .map((field) => {
+              const block = layout.blocks?.[field.key];
+              if (!block) return null;
+              const blockSizeCm = {
+                widthCm: block.w * metrics.cellWidthCm,
+                heightCm: block.h * metrics.rowHeightCm,
+              };
+              const fieldAlign = resolveFieldAlign(field.align, labelLayout.align);
+              const alignItemsClass =
+                fieldAlign === "left"
+                  ? "justify-start"
+                  : fieldAlign === "right"
+                  ? "justify-end"
+                  : "justify-center";
+              const blockHighlightStyle = field.highlight
+                ? { backgroundColor: field.highlightColor || "#e5e7eb" }
+                : {};
+              const blockBorderStyle = field.emphasize
+                ? { border: "1px solid rgba(15, 23, 42, 0.55)" }
+                : {};
+              return (
+                <div
+                  key={field.key}
+                  className={`absolute ${labelContentClass} ${showGuides ? "border border-dashed border-zinc-400/60" : ""} ${
+                    highlightKey === field.key ? "ring-2 ring-emerald-400" : ""
+                  } flex items-center overflow-hidden ${alignItemsClass} ${onBlockClick ? "cursor-pointer" : ""}`}
+                  style={{
+                    left: `${block.x * metrics.cellWidthCm}cm`,
+                    top: `${block.y * metrics.rowHeightCm}cm`,
+                    width: `${block.w * metrics.cellWidthCm}cm`,
+                    height: `${block.h * metrics.rowHeightCm}cm`,
+                    ...blockHighlightStyle,
+                    ...blockBorderStyle,
+                  }}
+                  onClick={(event) => {
+                    if (onBlockClick) {
+                      event.stopPropagation();
+                      onBlockClick(field.key);
+                    }
+                  }}
+                  onPointerDown={(event) => {
+                    if (onBlockPointerDown) {
+                      onBlockPointerDown(event, field.key);
+                    }
+                  }}
+                >
+                  <div className="w-full h-full flex items-center px-1">
+                    {renderLabelBlockContent(field, item, qrSrc, blockSizeCm, field.align)}
+                  </div>
+                </div>
+              );
+            })}
+          {highlightKey && (() => {
+            const activeField = labelFields.find((field) => field.key === highlightKey);
+            const activeBlock = layout.blocks?.[highlightKey];
+            if (!activeField || !activeBlock) return null;
+            const panelWidthCm = 3.8;
+            const blockLeftCm = activeBlock.x * metrics.cellWidthCm;
+            const blockTopCm = activeBlock.y * metrics.rowHeightCm;
+            const panelLeft = Math.min(
+              gridWidthCm - panelWidthCm,
+              Math.max(0, blockLeftCm)
+            );
+            const panelTop = Math.max(0, blockTopCm - 0.9);
+            const alignValue = resolveFieldAlign(activeField.align, labelLayout.align);
+            return (
+              <div
+                className="absolute z-10 rounded-lg border border-zinc-300 bg-white/95 shadow-md px-2 py-1 flex items-center gap-1"
+                style={{
+                  left: `${panelLeft}cm`,
+                  top: `${panelTop}cm`,
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  title="Mostrar titulo"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${activeField.showLabel ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                  onClick={() => toggleFieldOption(activeField.key, "showLabel")}
+                >
+                  T
+                </button>
+                <button
+                  type="button"
+                  title="Negrito titulo"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${activeField.boldLabel ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                  onClick={() => toggleFieldOption(activeField.key, "boldLabel")}
+                >
+                  BL
+                </button>
+                <button
+                  type="button"
+                  title="Negrito valor"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${activeField.boldValue ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                  onClick={() => toggleFieldOption(activeField.key, "boldValue")}
+                >
+                  BV
+                </button>
+                <button
+                  type="button"
+                  title="Borda"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${activeField.emphasize ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                  onClick={() => toggleFieldOption(activeField.key, "emphasize")}
+                >
+                  []
+                </button>
+                <button
+                  type="button"
+                  title="Fundo"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${activeField.highlight ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                  onClick={() => {
+                    if (!activeField.highlight) {
+                      updateLabelFieldHighlightColor(
+                        activeField.key,
+                        activeField.highlightColor || "#e5e7eb"
+                      );
+                    }
+                    toggleFieldOption(activeField.key, "highlight");
+                  }}
+                >
+                  BG
+                </button>
+                <input
+                  type="color"
+                  title="Cor do fundo"
+                  className="h-5 w-5 border border-zinc-300 rounded"
+                  value={activeField.highlightColor || "#e5e7eb"}
+                  onChange={(event) =>
+                    updateLabelFieldHighlightColor(activeField.key, event.target.value)
+                  }
                 />
+                <div className="flex items-center gap-1 border-l border-zinc-200 pl-2">
+                  <button
+                    type="button"
+                    title="Esquerda"
+                    className={`text-[10px] px-1 py-0.5 rounded border ${alignValue === "left" ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                    onClick={() => updateLabelFieldAlign(activeField.key, "left")}
+                  >
+                    E
+                  </button>
+                  <button
+                    type="button"
+                    title="Centro"
+                    className={`text-[10px] px-1 py-0.5 rounded border ${alignValue === "center" ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                    onClick={() => updateLabelFieldAlign(activeField.key, "center")}
+                  >
+                    C
+                  </button>
+                  <button
+                    type="button"
+                    title="Direita"
+                    className={`text-[10px] px-1 py-0.5 rounded border ${alignValue === "right" ? "border-emerald-400 text-emerald-700" : "border-zinc-300 text-zinc-500"}`}
+                    onClick={() => updateLabelFieldAlign(activeField.key, "right")}
+                  >
+                    D
+                  </button>
+                </div>
+                <div className="flex items-center gap-1 border-l border-zinc-200 pl-2">
+                  <span className="text-[10px] text-zinc-500">F</span>
+                  <input
+                    type="number"
+                    min="6"
+                    className="w-12 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                    value={activeField.valueFontSize ?? activeField.labelFontSize ?? labelSettings.fontLabel}
+                    onChange={(e) =>
+                      updateLabelFieldValueSize(
+                        activeField.key,
+                        parseInt(e.target.value, 10) || 0
+                      )
+                    }
+                  />
+                </div>
+                {activeField.showLabel && (
+                  <div className="flex items-center gap-1 border-l border-zinc-200 pl-2">
+                    <span className="text-[10px] text-zinc-500">FT</span>
+                    <input
+                      type="number"
+                      min="6"
+                      className="w-12 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                      value={activeField.labelFontSize ?? labelSettings.fontLabel}
+                      onChange={(e) =>
+                        updateLabelFieldTitleSize(
+                          activeField.key,
+                          parseInt(e.target.value, 10) || 0
+                        )
+                      }
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-1 border-l border-zinc-200 pl-2">
+                  <span className="text-[10px] text-zinc-500">W</span>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-8 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                    value={activeBlock.w}
+                    onChange={(e) =>
+                      updateLabelBlock(activeField.key, {
+                        w: parseInt(e.target.value, 10) || 1,
+                      })
+                    }
+                  />
+                  <span className="text-[10px] text-zinc-500">H</span>
+                  <input
+                    type="number"
+                    min="1"
+                    className="w-8 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                    value={activeBlock.h}
+                    onChange={(e) =>
+                      updateLabelBlock(activeField.key, {
+                        h: parseInt(e.target.value, 10) || 1,
+                      })
+                    }
+                  />
+                  <span className="text-[10px] text-zinc-500">Pos</span>
+                  <span className="text-[10px] text-zinc-400">
+                    {activeBlock.x},{activeBlock.y}
+                  </span>
+                </div>
+                {activeField.key.startsWith("custom:") && (
+                  <button
+                    type="button"
+                    title="Remover"
+                    className="text-[10px] px-1.5 py-0.5 rounded border border-rose-300 text-rose-500"
+                    onClick={() => removeLabelField(activeField.key)}
+                  >
+                    X
+                  </button>
+                )}
               </div>
-            )}
-            {labelSettings.headerText && (
-              <p className={`text-black font-semibold ${headerTextClass}`} style={headerFooterTextStyle}>
-                {labelSettings.headerText}
-              </p>
-            )}
-          </div>
-        )}
-        <div className={`flex flex-col ${alignItems} space-y-1`}>
-          {renderLabelFields(item, qrSrc, { includeQr: true })}
+            );
+          })()}
+          {selectedHeaderSection && (() => {
+            const isHeader = selectedHeaderSection === "header";
+            const boxX = 0;
+            const boxY = isHeader ? 0 : Math.max(0, innerHeightCm - labelSettings.footerBoxHcm);
+            const boxW = innerWidthCm;
+            const boxH = isHeader ? labelSettings.headerBoxHcm : labelSettings.footerBoxHcm;
+            const logoX = isHeader ? labelSettings.headerLogoXcm : labelSettings.footerLogoXcm;
+            const logoY = isHeader ? labelSettings.headerLogoYcm : labelSettings.footerLogoYcm;
+            const logoW = isHeader ? labelSettings.headerLogoWcm : labelSettings.footerLogoWcm;
+            const logoH = isHeader ? labelSettings.headerLogoHcm : labelSettings.footerLogoHcm;
+            const panelWidthCm = 4.6;
+            const panelHeightCm = 0.8;
+            const panelLeft = Math.min(
+              gridWidthCm - panelWidthCm,
+              Math.max(0, boxX)
+            );
+            const panelTop = Math.max(0, boxY - 0.9);
+            return (
+              <div
+                className="absolute z-10 rounded-lg border border-zinc-300 bg-white/95 shadow-md px-2 py-1 flex items-center gap-1"
+                style={{
+                  left: `${panelLeft}cm`,
+                  top: `${panelTop}cm`,
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <span className="text-[10px] text-zinc-500">{isHeader ? "H" : "R"}</span>
+                <span className="text-[10px] text-zinc-500">H</span>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-10 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                  value={isHeader ? labelSettings.headerRows : labelSettings.footerRows}
+                  onChange={(e) =>
+                    updateLabelSetting(
+                      isHeader ? "headerRows" : "footerRows",
+                      parseInt(e.target.value, 10) || 1
+                    )
+                  }
+                />
+                <span className="text-[10px] text-zinc-500">Lin</span>
+                <span className="text-[10px] text-zinc-400">
+                  {isHeader ? labelSettings.headerRows : labelSettings.footerRows}
+                </span>
+                <span className="text-[10px] text-zinc-500">Lx</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-10 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                  value={logoX}
+                  onChange={(e) =>
+                    updateLabelSetting(
+                      isHeader ? "headerLogoXcm" : "footerLogoXcm",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                />
+                <span className="text-[10px] text-zinc-500">Ly</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-10 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                  value={logoY}
+                  onChange={(e) =>
+                    updateLabelSetting(
+                      isHeader ? "headerLogoYcm" : "footerLogoYcm",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                />
+                <span className="text-[10px] text-zinc-500">Lw</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-10 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                  value={logoW}
+                  onChange={(e) =>
+                    updateLabelSetting(
+                      isHeader ? "headerLogoWcm" : "footerLogoWcm",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                />
+                <span className="text-[10px] text-zinc-500">Lh</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="w-10 text-[10px] border border-zinc-300 rounded px-1 py-0.5 text-zinc-700"
+                  value={logoH}
+                  onChange={(e) =>
+                    updateLabelSetting(
+                      isHeader ? "headerLogoHcm" : "footerLogoHcm",
+                      parseFloat(e.target.value) || 0
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  title="Borda"
+                  className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                    isHeader
+                      ? labelSettings.headerBorder
+                        ? "border-emerald-400 text-emerald-700"
+                        : "border-zinc-300 text-zinc-500"
+                      : labelSettings.footerBorder
+                      ? "border-emerald-400 text-emerald-700"
+                      : "border-zinc-300 text-zinc-500"
+                  }`}
+                  onClick={() =>
+                    updateLabelSetting(
+                      isHeader ? "headerBorder" : "footerBorder",
+                      isHeader ? !labelSettings.headerBorder : !labelSettings.footerBorder
+                    )
+                  }
+                >
+                  []
+                </button>
+              </div>
+            );
+          })()}
+          {showFooter && (
+            <div
+              className={`absolute overflow-hidden cursor-pointer ${selectedHeaderSection === "footer" ? "ring-2 ring-emerald-400 bg-emerald-200/20" : ""}`}
+              style={{
+                left: `0cm`,
+                top: `${Math.max(0, innerHeightCm - labelSettings.footerBoxHcm)}cm`,
+                width: `${innerWidthCm}cm`,
+                height: `${labelSettings.footerBoxHcm}cm`,
+                border: labelSettings.footerBorder
+                  ? `1px solid ${labelSettings.footerBorderColor || "#1f2937"}`
+                  : "none",
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                setSelectedHeaderSection("footer");
+                setSelectedBlockKey(null);
+              }}
+            >
+              {labelSettings.footerText && (
+                <p className={`text-black font-semibold ${footerTextClass}`} style={footerTextStyle}>
+                  {labelSettings.footerText}
+                </p>
+              )}
+              {labelSettings.logoDataUrl && labelSettings.footerLogoEnabled && (
+                <div
+                  className={`absolute ${footerRowClass}`}
+                  style={{
+                    left: `${labelSettings.footerLogoXcm}cm`,
+                    top: `${labelSettings.footerLogoYcm}cm`,
+                    width: `${labelSettings.footerLogoWcm}cm`,
+                    height: `${labelSettings.footerLogoHcm}cm`,
+                  }}
+                >
+                  <img
+                    src={labelSettings.logoDataUrl}
+                    alt="Logo"
+                    className="object-contain w-full h-full"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        {showFooter && (
-          <div className="w-full space-y-1 pt-1 mt-auto">
-            {labelSettings.footerText && (
-              <p className={`text-black font-semibold ${footerTextClass}`} style={footerTextStyle}>
-                {labelSettings.footerText}
-              </p>
-            )}
-            {labelSettings.logoDataUrl && labelSettings.footerLogoEnabled && (
-              <div className={`flex ${footerRowClass} w-full`}>
-                <img
-                  src={labelSettings.logoDataUrl}
-                  alt="Logo"
-                  className="object-contain"
-                  style={{ height: "1.2cm" }}
-                />
-              </div>
-            )}
-          </div>
-        )}
       </div>
     );
   };
@@ -1272,11 +1767,46 @@ const App = () => {
     applyAutoSizing(next.widthCm, next.heightCm);
   };
   const updateLabelSetting = (field, value) => {
-    setLabelSettings((prev) => ({
-      ...prev,
-      preset: "personalizado",
-      [field]: value,
-    }));
+    setLabelSettings((prev) => {
+      const paddingX = prev.paddingXCm ?? prev.paddingCm;
+      const paddingY = prev.paddingYCm ?? prev.paddingCm;
+      const innerWidthCm = Math.max(0.5, prev.widthCm - paddingX * 2);
+      const innerHeightCm = Math.max(0.5, prev.heightCm - paddingY * 2);
+      const next = {
+        ...prev,
+        preset: "personalizado",
+        [field]: value,
+      };
+      if (field === "headerEnabled" && value) {
+        next.headerBoxXcm = 0;
+        next.headerBoxYcm = 0;
+        next.headerBoxWcm = innerWidthCm;
+        next.headerBoxHcm = 1.8;
+        next.headerLogoXcm = 0;
+        next.headerLogoYcm = 0;
+        next.headerLogoWcm = 2.5;
+        next.headerLogoHcm = 1.4;
+        next.headerRows = Math.max(1, next.headerRows || 2);
+      }
+      if (field === "footerEnabled" && value) {
+        next.footerBoxXcm = 0;
+        next.footerBoxYcm = Math.max(0, innerHeightCm - 1.6);
+        next.footerBoxWcm = innerWidthCm;
+        next.footerBoxHcm = 1.6;
+        next.footerLogoXcm = 0;
+        next.footerLogoYcm = 0;
+        next.footerLogoWcm = 2.2;
+        next.footerLogoHcm = 1.2;
+        next.footerRows = Math.max(1, next.footerRows || 2);
+      }
+      if (field === "headerBoxHcm") {
+        next.headerBoxYcm = 0;
+      }
+      if (field === "footerBoxHcm") {
+        next.footerBoxYcm = Math.max(0, innerHeightCm - (value || 0));
+      }
+      return next;
+    });
     if (field === "widthCm" || field === "heightCm") {
       const nextWidth = field === "widthCm" ? value : labelSettings.widthCm;
       const nextHeight = field === "heightCm" ? value : labelSettings.heightCm;
@@ -1288,6 +1818,406 @@ const App = () => {
       ...prev,
       [field]: value,
     }));
+  };
+  const normalizeGridSizeCm = (value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0.5;
+    return Math.min(2, Math.max(0.2, Math.round(parsed * 10) / 10));
+  };
+  const getLabelGridMetrics = (gridSizeCm) => {
+    const sizeCm = normalizeGridSizeCm(gridSizeCm ?? labelLayout.gridSizeCm);
+    const paddingX = labelSettings.paddingXCm ?? labelSettings.paddingCm;
+    const paddingY = labelSettings.paddingYCm ?? labelSettings.paddingCm;
+    const innerWidthCm = Math.max(0.5, labelSettings.widthCm - paddingX * 2);
+    const innerHeightCm = Math.max(0.5, labelSettings.heightCm - paddingY * 2);
+    const cols = 3;
+    const cellWidthCm = innerWidthCm / cols;
+    const maxFontPx = Math.max(
+      8,
+      labelSettings.fontTitle || 0,
+      labelSettings.fontDesc || 0,
+      labelSettings.fontMeta || 0,
+      labelSettings.fontLabel || 0,
+      labelSettings.headerFont || 0,
+      labelSettings.footerFont || 0,
+      labelSettings.headerFooterFont || 0
+    );
+    const minRowHeightCm = (maxFontPx * 2.2) / 37.795;
+    const rowHeightCm = Math.max(sizeCm, minRowHeightCm);
+    const rows = Math.max(1, Math.round(innerHeightCm / rowHeightCm));
+    const cellWidthPx = cmToPx(cellWidthCm);
+    const rowHeightPx = cmToPx(rowHeightCm);
+    return {
+      gridSizeCm: sizeCm,
+      cols,
+      rows,
+      cellWidthCm,
+      rowHeightCm,
+      cellWidthPx,
+      rowHeightPx,
+      innerWidthCm,
+      innerHeightCm,
+    };
+  };
+  const clampBlockToGrid = (block, cols, rows) => {
+    const w = Math.max(1, Math.min(cols, Math.round(block.w || 1)));
+    const h = Math.max(1, Math.min(rows, Math.round(block.h || 1)));
+    const x = Math.max(0, Math.min(cols - w, Math.round(block.x || 0)));
+    const y = Math.max(0, Math.min(rows - h, Math.round(block.y || 0)));
+    return { x, y, w, h };
+  };
+  const blocksOverlap = (a, b) =>
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y;
+  const getReservedRects = (metrics) => {
+    const canUseHeaderFooterLocal =
+      Math.min(labelSettings.widthCm, labelSettings.heightCm) >= 10 &&
+      Math.max(labelSettings.widthCm, labelSettings.heightCm) >= 15;
+    const rects = [];
+    if (canUseHeaderFooterLocal && labelSettings.headerEnabled) {
+      const x = Math.max(0, Math.floor(labelSettings.headerBoxXcm / metrics.cellWidthCm));
+      const y = Math.max(0, Math.floor(labelSettings.headerBoxYcm / metrics.rowHeightCm));
+      const w = Math.max(1, Math.ceil(labelSettings.headerBoxWcm / metrics.cellWidthCm));
+      const h = Math.max(1, Math.ceil(labelSettings.headerBoxHcm / metrics.rowHeightCm));
+      rects.push({ x, y, w, h });
+    }
+    if (canUseHeaderFooterLocal && labelSettings.footerEnabled) {
+      const x = Math.max(0, Math.floor(labelSettings.footerBoxXcm / metrics.cellWidthCm));
+      const y = Math.max(0, Math.floor(labelSettings.footerBoxYcm / metrics.rowHeightCm));
+      const w = Math.max(1, Math.ceil(labelSettings.footerBoxWcm / metrics.cellWidthCm));
+      const h = Math.max(1, Math.ceil(labelSettings.footerBoxHcm / metrics.rowHeightCm));
+      rects.push({ x, y, w, h });
+    }
+    return rects;
+  };
+  const overlapsReserved = (block, reserved) =>
+    reserved.some((rect) => blocksOverlap(block, rect));
+  const findFreeSpotForBlock = (block, blocks, cols, rows, reserved, ignoreKeys = []) => {
+    if (!block) return null;
+    const maxX = Math.max(0, cols - block.w);
+    const maxY = Math.max(0, rows - block.h);
+    for (let y = 0; y <= maxY; y += 1) {
+      for (let x = 0; x <= maxX; x += 1) {
+        const candidate = { ...block, x, y };
+        if (overlapsReserved(candidate, reserved)) continue;
+        const collision = Object.entries(blocks).some(([blockKey, other]) => {
+          if (!other || ignoreKeys.includes(blockKey)) return false;
+          return blocksOverlap(candidate, other);
+        });
+        if (!collision) return { x, y };
+      }
+    }
+    return null;
+  };
+  const hasBlockCollision = (nextBlock, blocks, key, reserved = []) => {
+    if (!blocks) return false;
+    if (overlapsReserved(nextBlock, reserved)) return true;
+    return Object.entries(blocks).some(([blockKey, block]) => {
+      if (blockKey === key || !block) return false;
+      return blocksOverlap(nextBlock, block);
+    });
+  };
+  const getDefaultBlockSize = (key, cols, gridSizeCm) => {
+    const cmToCells = (cm) => Math.max(1, Math.round(cm / gridSizeCm));
+    if (key === "qr") {
+      const size = Math.max(2, cmToCells(labelSettings.qrCm));
+      return { w: Math.min(cols, size), h: Math.min(cols, size) };
+    }
+    if (key === "id") {
+      return { w: cols, h: Math.max(2, cmToCells(1)) };
+    }
+    if (key === "description") {
+      return { w: cols, h: Math.max(2, cmToCells(1)) };
+    }
+    return { w: cols, h: Math.max(1, cmToCells(0.6)) };
+  };
+  const buildDefaultBlocks = (fields, cols, rows, gridSizeCm, reserved = []) => {
+    const blocks = {};
+    let cursorY = 0;
+    const findFreeSpot = (size, startY = 0) => {
+      const maxX = Math.max(0, cols - size.w);
+      const maxY = Math.max(0, rows - size.h);
+      for (let y = Math.max(0, startY); y <= maxY; y += 1) {
+        for (let x = 0; x <= maxX; x += 1) {
+          const candidate = { x, y, w: size.w, h: size.h };
+          if (overlapsReserved(candidate, reserved)) continue;
+          const collision = Object.values(blocks).some((block) =>
+            blocksOverlap(candidate, block)
+          );
+          if (!collision) return candidate;
+        }
+      }
+      return { x: 0, y: maxY, w: size.w, h: size.h };
+    };
+    fields.forEach((field) => {
+      if (field.key === "qr") {
+        const size = getDefaultBlockSize("qr", cols, gridSizeCm);
+        const centered = {
+          x: Math.max(0, Math.floor((cols - size.w) / 2)),
+          y: 0,
+          w: size.w,
+          h: size.h,
+        };
+        const fallback = findFreeSpot(size, 0) || centered;
+        blocks[field.key] = clampBlockToGrid(fallback, cols, rows);
+        cursorY = Math.min(rows - 1, centered.h + 1);
+      }
+    });
+    fields
+      .filter((field) => field.key !== "qr")
+      .forEach((field) => {
+        const size = getDefaultBlockSize(field.key, cols, gridSizeCm);
+        const next = findFreeSpot(size, cursorY);
+        blocks[field.key] = clampBlockToGrid(next, cols, rows);
+        cursorY = Math.min(rows, next.y + size.h + 1);
+      });
+    return blocks;
+  };
+  const buildNiceTemplateBlocks = (fields, metrics, reserved = []) => {
+    const blocks = {};
+    const cols = metrics.cols;
+    const rows = metrics.rows;
+    const placeBlock = (key, block) => {
+      if (!fields.some((field) => field.key === key)) return;
+      const clamped = clampBlockToGrid(block, cols, rows);
+      if (!overlapsReserved(clamped, reserved) && !hasBlockCollision(clamped, blocks, key, reserved)) {
+        blocks[key] = clamped;
+        return;
+      }
+      const spot = findFreeSpotForBlock(clamped, blocks, cols, rows, reserved, [key]);
+      blocks[key] = spot ? { ...clamped, ...spot } : clamped;
+    };
+    const safeTop = reserved.reduce((acc, rect) => Math.max(acc, rect.y + rect.h), 0);
+    const safeBottom = reserved.reduce((acc, rect) => Math.min(acc, rect.y), rows);
+    const contentTop = Math.min(rows - 1, Math.max(0, safeTop));
+    const contentBottom = Math.max(contentTop + 1, Math.min(rows, safeBottom));
+    const contentRows = Math.max(1, contentBottom - contentTop);
+
+    const qrW = Math.min(2, cols);
+    const qrH = Math.min(5, Math.max(3, Math.round(contentRows * 0.25)));
+    const qrX = Math.max(0, Math.floor((cols - qrW) / 2));
+    const qrY = contentTop;
+    placeBlock("qr", { x: qrX, y: qrY, w: qrW, h: qrH });
+
+    const titleY = Math.min(rows - 1, qrY + qrH + 1);
+    placeBlock("id", { x: 0, y: titleY, w: cols, h: 2 });
+    placeBlock("description", { x: 0, y: titleY + 2, w: cols, h: 2 });
+
+    const metaY = Math.min(rows - 1, titleY + 4);
+    placeBlock("qty", { x: 0, y: metaY, w: 1, h: 1 });
+    placeBlock("weight", { x: 1, y: metaY, w: 1, h: 1 });
+    placeBlock("location", { x: 2, y: metaY, w: 1, h: 1 });
+    fields
+      .filter(
+        (field) =>
+          !["id", "description", "qr", "qty", "weight", "location"].includes(field.key)
+      )
+      .forEach((field) => {
+        const next = findFreeSpotForBlock(
+          { x: 0, y: metaY + 1, w: cols, h: 1 },
+          blocks,
+          cols,
+          rows,
+          reserved,
+          [field.key]
+        );
+        if (next) {
+          blocks[field.key] = { x: next.x, y: next.y, w: cols, h: 1 };
+        }
+      });
+    return blocks;
+  };
+  const normalizeLabelLayout = (layout, fields) => {
+    const safeLayout = layout && typeof layout === "object" ? layout : {};
+    const metrics = getLabelGridMetrics(safeLayout.gridSizeCm);
+    const reserved = getReservedRects(metrics);
+    const blocks = { ...(safeLayout.blocks || {}) };
+    const normalizedFields = Array.isArray(fields) ? fields : [];
+    const defaults = buildDefaultBlocks(
+      normalizedFields,
+      metrics.cols,
+      metrics.rows,
+      metrics.gridSizeCm,
+      reserved
+    );
+    normalizedFields.forEach((field) => {
+      const current = blocks[field.key];
+      const candidate = clampBlockToGrid(
+        current || defaults[field.key],
+        metrics.cols,
+        metrics.rows
+      );
+      if (overlapsReserved(candidate, reserved)) {
+        const spot = findFreeSpotForBlock(candidate, blocks, metrics.cols, metrics.rows, reserved, [field.key]);
+        blocks[field.key] = spot ? { ...candidate, ...spot } : candidate;
+      } else {
+        blocks[field.key] = candidate;
+      }
+    });
+    return {
+      align: safeLayout.align || "center",
+      gridSizeCm: metrics.gridSizeCm,
+      blocks,
+    };
+  };
+  const updateLabelBlock = (key, patch, options = {}) => {
+    const { silent = false, allowSwap = false } = options;
+    setLabelLayout((prev) => {
+      const metrics = getLabelGridMetrics(prev.gridSizeCm);
+      const reserved = getReservedRects(metrics);
+      const blocks = { ...(prev.blocks || {}) };
+      const current =
+        blocks[key] ||
+        buildDefaultBlocks(labelFields, metrics.cols, metrics.rows, metrics.gridSizeCm, reserved)[key];
+      const next = clampBlockToGrid({ ...current, ...patch }, metrics.cols, metrics.rows);
+      if (hasBlockCollision(next, blocks, key, reserved)) {
+        if (allowSwap) {
+          const collidingKeys = Object.entries(blocks)
+            .filter(([blockKey, block]) => blockKey !== key && block && blocksOverlap(next, block))
+            .map(([blockKey]) => blockKey);
+          if (collidingKeys.length) {
+            const nextBlocks = { ...blocks, [key]: next };
+            let resolved = true;
+            collidingKeys.forEach((collidedKey) => {
+              if (!resolved) return;
+              const collidedBlock = nextBlocks[collidedKey];
+              const spot = findFreeSpotForBlock(
+                collidedBlock,
+                nextBlocks,
+                metrics.cols,
+                metrics.rows,
+                reserved,
+                [key, collidedKey]
+              );
+              if (!spot) {
+                resolved = false;
+                return;
+              }
+              nextBlocks[collidedKey] = {
+                ...collidedBlock,
+                x: spot.x,
+                y: spot.y,
+              };
+            });
+            if (resolved) {
+              return {
+                ...prev,
+                gridSizeCm: metrics.gridSizeCm,
+                blocks: nextBlocks,
+              };
+            }
+          }
+        }
+        if (!silent) {
+          pushMessage("Posicao ocupada por outro bloco.", "error", 1800);
+        }
+        return prev;
+      }
+      if (allowSwap) {
+        const updatedBlocks = { ...blocks, [key]: next };
+        const allKeys = Object.keys(updatedBlocks);
+        let moved = true;
+        const maxIterations = allKeys.length * 4;
+        let iterations = 0;
+        while (moved && iterations < maxIterations) {
+          moved = false;
+          iterations += 1;
+          for (let i = 0; i < allKeys.length; i += 1) {
+            for (let j = i + 1; j < allKeys.length; j += 1) {
+              const keyA = allKeys[i];
+              const keyB = allKeys[j];
+              const blockA = updatedBlocks[keyA];
+              const blockB = updatedBlocks[keyB];
+              if (!blockA || !blockB) continue;
+              if (blocksOverlap(blockA, blockB)) {
+                const spot = findFreeSpotForBlock(
+                  blockB,
+                  updatedBlocks,
+                  metrics.cols,
+                  metrics.rows,
+                  reserved,
+                  [keyA, keyB]
+                );
+                if (spot) {
+                  updatedBlocks[keyB] = { ...blockB, x: spot.x, y: spot.y };
+                  moved = true;
+                } else {
+                  return prev;
+                }
+              }
+            }
+          }
+        }
+        return {
+          ...prev,
+          gridSizeCm: metrics.gridSizeCm,
+          blocks: updatedBlocks,
+        };
+      }
+      return {
+        ...prev,
+        gridSizeCm: metrics.gridSizeCm,
+        blocks: { ...blocks, [key]: next },
+      };
+    });
+  };
+  const handleGridPlacement = () => {
+    // Click-to-place disabled; drag-and-drop only.
+  };
+  const handleBlockPointerDown = (event, key) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedBlockKey(key);
+    setSelectedHeaderSection(null);
+    suppressClickRef.current = true;
+    if (!gridRef.current) return;
+    gridRef.current.setPointerCapture(event.pointerId);
+    dragStateRef.current = {
+      key,
+      pointerId: event.pointerId,
+      rect: gridRef.current.getBoundingClientRect(),
+      moved: false,
+      lastX: null,
+      lastY: null,
+    };
+    setDraggingBlockKey(key);
+  };
+  const handleGridPointerMove = (event) => {
+    if (!dragStateRef.current) return;
+    if (event.pointerId !== dragStateRef.current.pointerId) return;
+    const metrics = getLabelGridMetrics(labelLayout.gridSizeCm);
+    const rect = dragStateRef.current.rect;
+    const x = Math.floor((event.clientX - rect.left) / metrics.cellWidthPx);
+    const y = Math.floor((event.clientY - rect.top) / metrics.rowHeightPx);
+    if (dragStateRef.current.lastX === x && dragStateRef.current.lastY === y) {
+      return;
+    }
+    dragStateRef.current.lastX = x;
+    dragStateRef.current.lastY = y;
+    dragStateRef.current.moved = true;
+    updateLabelBlock(dragStateRef.current.key, { x, y }, { silent: true, allowSwap: false });
+  };
+  const handleGridPointerUp = (event) => {
+    if (!dragStateRef.current) return;
+    if (event.pointerId !== dragStateRef.current.pointerId) return;
+    suppressClickRef.current = true;
+    setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 0);
+    if (dragStateRef.current.moved) {
+      updateLabelBlock(
+        dragStateRef.current.key,
+        { x: dragStateRef.current.lastX, y: dragStateRef.current.lastY },
+        { silent: true, allowSwap: true }
+      );
+    }
+    dragStateRef.current = null;
+    setDraggingBlockKey(null);
+    if (gridRef.current) {
+      gridRef.current.releasePointerCapture(event.pointerId);
+    }
   };
   const toggleLabelField = (key) => {
     setLabelFields((prev) =>
@@ -1303,11 +2233,34 @@ const App = () => {
       )
     );
   };
+  const updateLabelFieldAlign = (key, align) => {
+    setLabelFields((prev) =>
+      prev.map((field) =>
+        field.key === key ? { ...field, align: resolveFieldAlign(align, "left") } : field
+      )
+    );
+  };
+  const updateLabelFieldHighlightColor = (key, color) => {
+    if (!color) return;
+    setLabelFields((prev) =>
+      prev.map((field) =>
+        field.key === key ? { ...field, highlightColor: color } : field
+      )
+    );
+  };
   const updateLabelFieldTitleSize = (key, value) => {
     const nextValue = Number.isNaN(value) ? 0 : Math.max(0, value);
     setLabelFields((prev) =>
       prev.map((field) =>
         field.key === key ? { ...field, labelFontSize: nextValue } : field
+      )
+    );
+  };
+  const updateLabelFieldValueSize = (key, value) => {
+    const nextValue = Number.isNaN(value) ? 0 : Math.max(0, value);
+    setLabelFields((prev) =>
+      prev.map((field) =>
+        field.key === key ? { ...field, valueFontSize: nextValue } : field
       )
     );
   };
@@ -1326,8 +2279,11 @@ const App = () => {
           showLabel: true,
           emphasize: false,
           highlight: false,
+          highlightColor: "#e5e7eb",
           boldLabel: true,
           boldValue: false,
+          align: "left",
+          valueFontSize: null,
           labelFontSize: labelSettings.fontLabel,
         },
       ];
@@ -1372,18 +2328,15 @@ const App = () => {
     });
   };
   const cmToPx = (cm) => Math.round(cm * 37.795);
-  const labelWidthPx = cmToPx(labelSettings.widthCm);
-  const labelHeightPx = cmToPx(labelSettings.heightCm);
   const labelPaddingX = labelSettings.paddingXCm ?? labelSettings.paddingCm;
   const labelPaddingY = labelSettings.paddingYCm ?? labelSettings.paddingCm;
-  const qrLimitCm = Math.min(
-    labelSettings.widthCm - labelPaddingX * 2,
-    labelSettings.heightCm - labelPaddingY * 2
-  );
-  const qrSizeCm = Math.max(1, Math.min(labelSettings.qrCm, qrLimitCm));
-  const qrImageSize = `${qrSizeCm}cm`;
+  const innerWidthCm = Math.max(0.5, labelSettings.widthCm - labelPaddingX * 2);
+  const innerHeightCm = Math.max(0.5, labelSettings.heightCm - labelPaddingY * 2);
 
-  const labelCount = labelItems.reduce((acc, item) => acc + item.qty, 0);
+  const labelCount = labelItems.reduce((acc, item) => {
+    const count = item.printQty ?? item.qty ?? 1;
+    return acc + count;
+  }, 0);
   const labelGridStyle = {
     gridTemplateColumns: `repeat(auto-fit, minmax(${labelSettings.widthCm}cm, 1fr))`,
   };
@@ -1436,9 +2389,117 @@ const App = () => {
       : labelLayout.align === "right"
       ? "text-right"
       : "text-center";
+  const resolvedLayout = normalizeLabelLayout(labelLayout, labelFields);
   const canUseHeaderFooter =
     Math.min(labelSettings.widthCm, labelSettings.heightCm) >= 10 &&
     Math.max(labelSettings.widthCm, labelSettings.heightCm) >= 15;
+  useEffect(() => {
+    const normalized = normalizeLabelLayout(labelLayout, labelFields);
+    const current = JSON.stringify(labelLayout);
+    const next = JSON.stringify(normalized);
+    if (current !== next) {
+      setLabelLayout(normalized);
+    }
+  }, [
+    labelFields,
+    labelSettings.widthCm,
+    labelSettings.heightCm,
+    labelSettings.qrCm,
+    labelSettings.paddingCm,
+    labelSettings.paddingXCm,
+    labelSettings.paddingYCm,
+    labelSettings.fontTitle,
+    labelSettings.fontDesc,
+    labelSettings.fontMeta,
+    labelSettings.fontLabel,
+    labelSettings.headerFont,
+    labelSettings.footerFont,
+    labelSettings.headerFooterFont,
+    labelLayout.gridSizeCm,
+  ]);
+  useEffect(() => {
+    if (activeMenu !== "label-editor") return;
+    setLabelLayout((prev) => {
+      if (prev.blocks && Object.keys(prev.blocks).length > 0) return prev;
+      const metrics = getLabelGridMetrics(prev.gridSizeCm);
+      const reserved = getReservedRects(metrics);
+      const blocks = buildNiceTemplateBlocks(labelFields, metrics, reserved);
+      return { ...prev, blocks };
+    });
+    setLabelSettings((prev) => {
+      if (prev.preset === "100x150") return prev;
+      const next = { ...labelPresets["100x150"] };
+      return { ...prev, preset: "100x150", ...next };
+    });
+  }, [
+    activeMenu,
+    labelFields,
+    labelSettings.widthCm,
+    labelSettings.heightCm,
+    labelSettings.paddingCm,
+    labelSettings.paddingXCm,
+    labelSettings.paddingYCm,
+    labelSettings.qrCm,
+  ]);
+  useEffect(() => {
+    if (!canUseHeaderFooter) return;
+    setLabelSettings((prev) => {
+      const paddingX = prev.paddingXCm ?? prev.paddingCm;
+      const paddingY = prev.paddingYCm ?? prev.paddingCm;
+      const nextInnerWidth = Math.max(0.5, prev.widthCm - paddingX * 2);
+      const nextInnerHeight = Math.max(0.5, prev.heightCm - paddingY * 2);
+      const metrics = getLabelGridMetrics(prev.gridSizeCm ?? labelLayout.gridSizeCm);
+      let changed = false;
+      const next = { ...prev };
+      if (prev.headerEnabled) {
+        if (next.headerBoxWcm !== nextInnerWidth) {
+          next.headerBoxWcm = nextInnerWidth;
+          changed = true;
+        }
+        if (next.headerBoxYcm !== 0) {
+          next.headerBoxYcm = 0;
+          changed = true;
+        }
+        const headerRows = Math.max(1, prev.headerRows || 2);
+        const headerHeight = headerRows * metrics.rowHeightCm;
+        if (Math.abs(next.headerBoxHcm - headerHeight) > 0.01) {
+          next.headerBoxHcm = headerHeight;
+          changed = true;
+        }
+      }
+      if (prev.footerEnabled) {
+        if (next.footerBoxWcm !== nextInnerWidth) {
+          next.footerBoxWcm = nextInnerWidth;
+          changed = true;
+        }
+        const footerRows = Math.max(1, prev.footerRows || 2);
+        const footerHeight = footerRows * metrics.rowHeightCm;
+        if (Math.abs(next.footerBoxHcm - footerHeight) > 0.01) {
+          next.footerBoxHcm = footerHeight;
+          changed = true;
+        }
+        const nextFooterY = Math.max(0, nextInnerHeight - footerHeight);
+        if (next.footerBoxYcm !== nextFooterY) {
+          next.footerBoxYcm = nextFooterY;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [
+    canUseHeaderFooter,
+    labelSettings.widthCm,
+    labelSettings.heightCm,
+    labelSettings.paddingCm,
+    labelSettings.paddingXCm,
+    labelSettings.paddingYCm,
+    labelSettings.headerEnabled,
+    labelSettings.footerEnabled,
+    labelSettings.headerBoxHcm,
+    labelSettings.footerBoxHcm,
+    labelSettings.headerRows,
+    labelSettings.footerRows,
+  ]);
   const handleLogoUpload = (file) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1516,7 +2577,7 @@ const App = () => {
       {activeMenu === "inventory" && (
         <>
       {/* SELETOR DE ABAS (BOBINAS vs PERFIS) */}
-      <div className="w-full max-w-none sm:max-w-5xl mx-auto mb-4 sm:mb-6 flex justify-center">
+      <div className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto mb-4 sm:mb-6 flex justify-center">
         <div className="bg-zinc-950/80 border border-zinc-800/80 p-1 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] flex space-x-1">
           <button
             onClick={() => setInventoryType("coil")}
@@ -1541,7 +2602,7 @@ const App = () => {
         </div>
       </div>
 
-      <main className="w-full max-w-none sm:max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+      <main className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
 
         {isSelecting && !isQrOpen && (
           <div className="bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
@@ -1682,19 +2743,27 @@ const App = () => {
       )}
 
       {activeMenu === "label-editor" && (
-        <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
+        <section className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
           <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div>
               <h2 className="font-bold text-emerald-300 text-lg">Criacao de etiqueta</h2>
               <p className="text-xs text-zinc-400">
-                Ajuste tamanhos, posicao do QR e campos da etiqueta.
+                Ajuste tamanhos e posicione os blocos no grid da etiqueta.
               </p>
             </div>
+            <button
+              type="button"
+              className="text-xs text-emerald-300 underline hover:text-emerald-200"
+              onClick={() => setShowPrintPreview((prev) => !prev)}
+            >
+              {showPrintPreview ? "Ocultar impressao" : "Visualizar impressao"}
+            </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-4">
             <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-4">
               <div>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">📐 Tamanho</p>
                 <label className="block text-xs text-zinc-400 mb-1">Tamanho padrão</label>
                 <select
                   value={labelSettings.preset}
@@ -1710,6 +2779,7 @@ const App = () => {
                 </select>
               </div>
 
+              <p className="text-[11px] text-zinc-500 uppercase tracking-widest">🧭 Layout</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Largura (cm)</label>
@@ -1786,10 +2856,23 @@ const App = () => {
                     <option value="right">Direita</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1">Altura minima do grid (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.2"
+                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                    value={labelLayout.gridSizeCm ?? 0.5}
+                    onChange={(e) =>
+                      updateLabelLayout("gridSizeCm", parseFloat(e.target.value) || 0.5)
+                    }
+                  />
+                </div>
               </div>
 
               <div className="mt-4 border border-zinc-800 rounded-xl p-3 bg-zinc-950/60">
-                <p className="text-xs text-zinc-400 mb-2">Cabecalho e rodape</p>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">🧾 Cabeçalho e rodapé</p>
                 {!canUseHeaderFooter ? (
                   <p className="text-[11px] text-zinc-500">
                     Disponivel apenas para etiquetas a partir de 100x150mm.
@@ -1861,6 +2944,106 @@ const App = () => {
                         value={labelSettings.footerText}
                         onChange={(e) => updateLabelSetting("footerText", e.target.value)}
                       />
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho X (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerBoxXcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerBoxXcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho Y (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerBoxYcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerBoxYcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho L (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerBoxWcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerBoxWcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho A (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerBoxHcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerBoxHcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo cab X (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerLogoXcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerLogoXcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo cab Y (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerLogoYcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerLogoYcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo cab L (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerLogoWcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerLogoWcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo cab A (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.headerLogoHcm}
+                          onChange={(e) =>
+                            updateLabelSetting("headerLogoHcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
@@ -1956,6 +3139,106 @@ const App = () => {
                         </select>
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Rodape X (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerBoxXcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerBoxXcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Rodape Y (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerBoxYcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerBoxYcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Rodape L (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerBoxWcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerBoxWcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Rodape A (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerBoxHcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerBoxHcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo rod X (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerLogoXcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerLogoXcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo rod Y (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerLogoYcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerLogoYcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo rod L (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerLogoWcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerLogoWcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Logo rod A (cm)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                          value={labelSettings.footerLogoHcm}
+                          onChange={(e) =>
+                            updateLabelSetting("footerLogoHcm", parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2">
                       <input
                         type="file"
@@ -1977,6 +3260,7 @@ const App = () => {
                 )}
               </div>
 
+              <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">🔤 Tipografia</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Fonte código (px)</label>
@@ -2025,161 +3309,196 @@ const App = () => {
               </div>
 
               <div>
-                <p className="text-xs text-zinc-400 mb-2">Campos e ordem</p>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">🧩 Campos e ordem</p>
                 <div className="space-y-2">
                   {labelFields
                     .filter((field) => field.key !== "test" && normalizeKey(field.label || "") !== "texto_teste")
-                    .map((field) => (
-                    <div
-                      key={field.key}
-                      className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-2 text-xs text-zinc-200">
-                          <input
-                            type="checkbox"
-                            checked={field.enabled}
-                            onChange={() => toggleLabelField(field.key)}
-                          />
-                          {field.label}
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => toggleFieldOption(field.key, "showLabel")}
-                          >
-                            {field.showLabel ? "Ocultar titulo" : "Mostrar titulo"}
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => toggleFieldOption(field.key, "boldLabel")}
-                          >
-                            {field.boldLabel ? "Titulo normal" : "Titulo negrito"}
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => toggleFieldOption(field.key, "boldValue")}
-                          >
-                            {field.boldValue ? "Valor normal" : "Valor negrito"}
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => toggleFieldOption(field.key, "emphasize")}
-                          >
-                            {field.emphasize ? "Sem borda" : "Borda"}
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => toggleFieldOption(field.key, "highlight")}
-                          >
-                            {field.highlight ? "Sem fundo" : "Fundo"}
-                          </button>
-                          {field.key.startsWith("custom:") && (
-                            <button
-                              type="button"
-                              className="text-xs text-rose-300 hover:text-rose-200"
-                              onClick={() => removeLabelField(field.key)}
-                            >
-                              Remover
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => moveLabelField(field.key, "up")}
-                          >
-                            Subir
-                          </button>
-                          <button
-                            type="button"
-                            className="text-xs text-zinc-400 hover:text-zinc-200"
-                            onClick={() => moveLabelField(field.key, "down")}
-                          >
-                            Descer
-                          </button>
+                    .map((field) => {
+                      const block = resolvedLayout.blocks?.[field.key];
+                      return (
+                        <div
+                          key={field.key}
+                          className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <label className="flex items-center gap-2 text-xs text-zinc-200">
+                              <input
+                                type="checkbox"
+                                checked={field.enabled}
+                                onChange={() => toggleLabelField(field.key)}
+                              />
+                              {field.label}
+                            </label>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                className={`text-xs ${selectedBlockKey === field.key ? "text-emerald-300" : "text-zinc-400 hover:text-zinc-200"}`}
+                                onClick={() => setSelectedBlockKey(field.key)}
+                              >
+                                {selectedBlockKey === field.key ? "Selecionado" : "Selecionar bloco"}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => toggleFieldOption(field.key, "showLabel")}
+                              >
+                                {field.showLabel ? "Ocultar titulo" : "Mostrar titulo"}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => toggleFieldOption(field.key, "boldLabel")}
+                              >
+                                {field.boldLabel ? "Titulo normal" : "Titulo negrito"}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => toggleFieldOption(field.key, "boldValue")}
+                              >
+                                {field.boldValue ? "Valor normal" : "Valor negrito"}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => toggleFieldOption(field.key, "emphasize")}
+                              >
+                                {field.emphasize ? "Sem borda" : "Borda"}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => toggleFieldOption(field.key, "highlight")}
+                              >
+                                {field.highlight ? "Sem fundo" : "Fundo"}
+                              </button>
+                              {field.key.startsWith("custom:") && (
+                                <button
+                                  type="button"
+                                  className="text-xs text-rose-300 hover:text-rose-200"
+                                  onClick={() => removeLabelField(field.key)}
+                                >
+                                  Remover
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => moveLabelField(field.key, "up")}
+                              >
+                                Subir
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs text-zinc-400 hover:text-zinc-200"
+                                onClick={() => moveLabelField(field.key, "down")}
+                              >
+                                Descer
+                              </button>
+                            </div>
+                          </div>
+                          <div className="mt-2 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+                              <span>Titulo (px)</span>
+                              <input
+                                type="number"
+                                className="w-20 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
+                                value={field.labelFontSize ?? labelSettings.fontLabel}
+                                onChange={(e) =>
+                                  updateLabelFieldTitleSize(
+                                    field.key,
+                                    parseInt(e.target.value, 10) || 0
+                                  )
+                                }
+                              />
+                              <span>Bloco (col x lin)</span>
+                              <input
+                                type="number"
+                                className="w-16 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
+                                value={block?.w ?? 1}
+                                onChange={(e) =>
+                                  updateLabelBlock(field.key, {
+                                    w: parseInt(e.target.value, 10) || 1,
+                                  })
+                                }
+                              />
+                              <input
+                                type="number"
+                                className="w-16 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
+                                value={block?.h ?? 1}
+                                onChange={(e) =>
+                                  updateLabelBlock(field.key, {
+                                    h: parseInt(e.target.value, 10) || 1,
+                                  })
+                                }
+                              />
+                              <span>Pos (x,y)</span>
+                              <span className="text-[11px] text-zinc-500">
+                                {block?.x ?? 0},{block?.y ?? 0}
+                              </span>
+                            </div>
+                            {field.key === "id" && (
+                              <input
+                                type="text"
+                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                                placeholder="Codigo de teste"
+                                value={labelSettings.testCode}
+                                onChange={(e) => updateLabelSetting("testCode", e.target.value)}
+                              />
+                            )}
+                            {field.key === "description" && (
+                              <input
+                                type="text"
+                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                                placeholder="Descricao de teste"
+                                value={labelSettings.testDescription}
+                                onChange={(e) =>
+                                  updateLabelSetting("testDescription", e.target.value)
+                                }
+                              />
+                            )}
+                            {field.key === "qty" && (
+                              <input
+                                type="text"
+                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                                placeholder="Quantidade de teste"
+                                value={labelSettings.testQty}
+                                onChange={(e) => updateLabelSetting("testQty", e.target.value)}
+                              />
+                            )}
+                            {field.key === "weight" && (
+                              <input
+                                type="text"
+                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                                placeholder="Peso de teste"
+                                value={labelSettings.testWeight}
+                                onChange={(e) => updateLabelSetting("testWeight", e.target.value)}
+                              />
+                            )}
+                            {field.key === "location" && (
+                              <input
+                                type="text"
+                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                                placeholder="Local de teste"
+                                value={labelSettings.testLocation}
+                                onChange={(e) => updateLabelSetting("testLocation", e.target.value)}
+                              />
+                            )}
+                            {field.key.startsWith("custom:") && (
+                              <input
+                                type="text"
+                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                                placeholder={`Valor de ${field.label}`}
+                                value={labelSettings.customFieldValues[field.key] || ""}
+                                onChange={(e) =>
+                                  updateCustomFieldValue(field.key, e.target.value)
+                                }
+                              />
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="mt-2 space-y-2">
-                        <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                          <span>Titulo (px)</span>
-                          <input
-                            type="number"
-                            className="w-20 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
-                            value={field.labelFontSize ?? labelSettings.fontLabel}
-                            onChange={(e) =>
-                              updateLabelFieldTitleSize(
-                                field.key,
-                                parseInt(e.target.value, 10) || 0
-                              )
-                            }
-                          />
-                        </div>
-                        {field.key === "id" && (
-                          <input
-                            type="text"
-                            className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                            placeholder="Codigo de teste"
-                            value={labelSettings.testCode}
-                            onChange={(e) => updateLabelSetting("testCode", e.target.value)}
-                          />
-                        )}
-                        {field.key === "description" && (
-                          <input
-                            type="text"
-                            className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                            placeholder="Descricao de teste"
-                            value={labelSettings.testDescription}
-                            onChange={(e) =>
-                              updateLabelSetting("testDescription", e.target.value)
-                            }
-                          />
-                        )}
-                        {field.key === "qty" && (
-                          <input
-                            type="text"
-                            className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                            placeholder="Quantidade de teste"
-                            value={labelSettings.testQty}
-                            onChange={(e) => updateLabelSetting("testQty", e.target.value)}
-                          />
-                        )}
-                        {field.key === "weight" && (
-                          <input
-                            type="text"
-                            className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                            placeholder="Peso de teste"
-                            value={labelSettings.testWeight}
-                            onChange={(e) => updateLabelSetting("testWeight", e.target.value)}
-                          />
-                        )}
-                        {field.key === "location" && (
-                          <input
-                            type="text"
-                            className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                            placeholder="Local de teste"
-                            value={labelSettings.testLocation}
-                            onChange={(e) => updateLabelSetting("testLocation", e.target.value)}
-                          />
-                        )}
-                        {field.key.startsWith("custom:") && (
-                          <input
-                            type="text"
-                            className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                            placeholder={`Valor de ${field.label}`}
-                            value={labelSettings.customFieldValues[field.key] || ""}
-                            onChange={(e) =>
-                              updateCustomFieldValue(field.key, e.target.value)
-                            }
-                          />
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <input
@@ -2205,18 +3524,61 @@ const App = () => {
               <p className="text-[11px] text-zinc-500 mb-3">
                 {labelSettings.widthCm}x{labelSettings.heightCm}cm
               </p>
+              <p className="text-[11px] text-zinc-500 mb-3">
+                Arraste os blocos no grid (3 colunas: esquerda/centro/direita).
+              </p>
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 overflow-visible flex justify-center">
-                    <div className={`rounded-xl border border-zinc-300 bg-white ${labelContentClass}`} style={previewLabelStyle}>
-                  {renderLabelLayout(labelItems[0] || {}, previewQrSrc)}
+                    <div className="rounded-xl border border-zinc-300 bg-white" style={previewLabelStyle}>
+                  {renderLabelLayout(labelItems[0] || {}, previewQrSrc, {
+                    showGuides: true,
+                    highlightKey: selectedBlockKey,
+                    onBlockClick: setSelectedBlockKey,
+                    gridRef,
+                    onGridPointerMove: handleGridPointerMove,
+                    onGridPointerUp: handleGridPointerUp,
+                    onBlockPointerDown: handleBlockPointerDown,
+                  })}
                 </div>
             </div>
             </div>
           </div>
+          {showPrintPreview && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+              <div className="w-full max-w-4xl rounded-2xl bg-zinc-900/80 border border-zinc-800 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-zinc-300">Visualizacao de impressao</p>
+                  <button
+                    type="button"
+                    className="text-xs text-rose-300 hover:text-rose-200"
+                    onClick={() => setShowPrintPreview(false)}
+                  >
+                    Fechar
+                  </button>
+                </div>
+                <div className="rounded-xl bg-white p-6 flex justify-center">
+                  <div className="print-grid grid" style={labelGridStyle}>
+                    {[labelItems[0] || {}].map((item, index) => (
+                      <div
+                        key={`preview-${index}`}
+                        className="print-label text-center"
+                        style={{
+                          ...printLabelStyle,
+                          border: "1px dashed #94a3b8",
+                        }}
+                      >
+                        {renderLabelLayout(item, previewQrSrc)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
       {activeMenu === "inventory" && (
-      <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
+      <section className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-bold text-emerald-300 text-lg">Histórico de Lançamentos</h2>
 
@@ -2269,7 +3631,7 @@ const App = () => {
       )}
 
       {activeMenu === "labels" && (
-      <section className="w-full max-w-none sm:max-w-5xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
+      <section className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
         <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
           <div>
             <h2 className="font-bold text-emerald-300 text-lg">Lote de etiquetas</h2>
@@ -2404,6 +3766,15 @@ const App = () => {
                       <div className="mt-2 flex flex-wrap gap-2">
                         <input
                           type="text"
+                          className="w-24 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
+                          placeholder="Quantidade"
+                          value={item.qty || ""}
+                          onChange={(e) =>
+                            updateLabelField(item.id, "qty", e.target.value)
+                          }
+                        />
+                        <input
+                          type="text"
                           className="w-20 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
                           placeholder="Peso"
                           value={item.weight || ""}
@@ -2420,7 +3791,7 @@ const App = () => {
                             updateLabelField(item.id, "location", e.target.value)
                           }
                         />
-                        {extraFields.map((field) => (
+                        {batchExtraFields.map((field) => (
                           <input
                             key={field.key}
                             type="text"
@@ -2439,7 +3810,7 @@ const App = () => {
                         type="number"
                         min="1"
                         className="w-16 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
-                        value={item.qty}
+                        value={item.printQty ?? item.qty ?? 1}
                         onChange={(e) => updateLabelQty(item.id, parseInt(e.target.value, 10))}
                       />
                       <button
@@ -2494,7 +3865,7 @@ const App = () => {
                 {labelBatch.map((item, index) => (
                   <div
                     key={`${item.id}-${index}`}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 text-center"
+                    className="rounded-xl border border-zinc-300 bg-white p-3 text-center"
                     style={previewLabelStyle}
                   >
                     {renderLabelLayout(item, qrCache[item.id] || previewQrFallback)}
