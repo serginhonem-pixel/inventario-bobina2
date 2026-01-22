@@ -1,5 +1,6 @@
 ﻿// src/App.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import appLogo from "../logo.png";
 import "./App.css";
 import { auth, db } from "./firebase";
 import { initialInventoryCatalog } from "./inventoryCatalog";
@@ -36,7 +37,7 @@ const LandingPage = ({ onEnter }) => {
         <header className="rounded-3xl border border-zinc-800/80 bg-zinc-950/70 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
             <img
-              src="/logo.png"
+              src={appLogo}
               alt="QtdApp"
               className="h-[260px] w-[260px] object-contain"
             />
@@ -108,7 +109,7 @@ const LoginComponent = ({ setUserName }) => {
       <div className="w-full max-w-sm bg-zinc-950/80 border border-zinc-800/80 p-8 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur">
         <div className="flex items-center justify-center gap-3 mb-4">
           <img
-            src="/logo.png"
+            src={appLogo}
             alt="QtdApp"
             className="h-[220px] w-[220px] object-contain"
           />
@@ -1260,7 +1261,7 @@ const App = () => {
       <div className="flex flex-col h-full">
         <div
           ref={gridElementRef}
-          className={`relative ${onGridClick ? "cursor-crosshair" : ""}`}
+          className={`relative ${onGridClick ? "cursor-crosshair" : ""} touch-none`}
           style={{
             width: `${gridWidthCm}cm`,
             height: `${gridHeightCm}cm`,
@@ -2522,7 +2523,7 @@ const App = () => {
         <header className="text-center mb-4 sm:mb-6">
           <div className="flex flex-col items-center gap-3">
             <img
-              src="/logo.png"
+              src={appLogo}
               alt="QtdApp"
               className="h-[180px] w-[180px] sm:h-[240px] sm:w-[240px] object-contain"
             />
