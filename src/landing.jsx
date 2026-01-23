@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import appLogo from "../logo.png";
+import landingImage from "../landingpage.png";
+import PlanosSection from "./planos";
 import { 
   Printer, 
   FileSpreadsheet, 
@@ -167,7 +169,7 @@ export default function LandingPage({ onEnter }) {
           </h1>
           
           <p className="mt-6 max-w-2xl mx-auto text-xl text-zinc-300 mb-12 leading-relaxed">
-            Elimine erros de balanço e planilhas confusas. Conte seu estoque com rapidez, audite resultados e use nosso gerador de etiquetas para manter tudo organizado.
+            Elimine erros de balanço e planilhas confusas. Conte seu estoque com rapidez, audite resultados e use nosso gerador de etiquetas para manter tudo organizado. Contagem simultânea por várias pessoas com atualização em tempo real.
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4 items-center">
@@ -184,10 +186,10 @@ export default function LandingPage({ onEnter }) {
 
           {/* Dashboard Preview Mockup */}
           <div className="mt-20 relative mx-auto max-w-4xl opacity-95 hover:opacity-100 transition-opacity duration-500">
-            <img 
-               src="https://images.unsplash.com/photo-82ZiY5pzl1c?auto=format&fit=crop&w=3000&q=60" 
-               alt="Empilhadeira em armazem com prateleiras" 
-               className="rounded-2xl shadow-2xl border border-zinc-800"
+            <img
+              src={landingImage}
+              alt="Empilhadeira em armazem com prateleiras"
+              className="rounded-2xl shadow-2xl border border-zinc-800"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent h-24 bottom-0 top-auto"></div>
           </div>
@@ -468,6 +470,9 @@ export default function LandingPage({ onEnter }) {
         </div>
       </section>
 
+      {/* --- Planos --- */}
+      <PlanosSection />
+
       {/* --- CTA Section --- */}
       <section className="py-24 bg-gray-50">
         <div className="max-w-5xl mx-auto px-4">
@@ -562,4 +567,5 @@ function StatItemDark({ value, label }) {
     </div>
   );
 }
+
 
