@@ -2,12 +2,14 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import appLogo from "../logo.png";
 import "./App.css";
+import LandingPage from "./landing";
 import { auth, db } from "./firebase";
 import { initialInventoryCatalog } from "./inventoryCatalog";
 // IMPORTANTE: Importamos o novo catálogo que acabamos de criar
 import { profilesCatalog } from "./profilesCatalog";
 import { buildCatalogModel, searchCatalog } from "./catalogUtils";
 import QRCode from "qrcode";
+import JsBarcode from "jsbarcode";
 import * as XLSX from "xlsx";
 
 import {
@@ -26,66 +28,6 @@ import {
   serverTimestamp,
   doc,
 } from "firebase/firestore";
-
-// ===============================
-// PAGINA INICIAL
-// ===============================
-const LandingPage = ({ onEnter }) => {
-  return (
-    <div className="min-h-screen px-4 py-6 sm:p-8 text-zinc-100">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header className="rounded-3xl border border-zinc-800/80 bg-zinc-950/70 p-6 shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-            <img
-              src={appLogo}
-              alt="QtdApp"
-              className="h-[260px] w-[260px] object-contain"
-            />
-            <div>
-              <h1 className="text-2xl font-bold tracking-wide text-zinc-100 sm:text-3xl">
-                Estoque inteligente, pronto para imprimir.
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-                Centralize catalogo, lancamentos e etiquetas QR em um fluxo rapido
-                para o time do chao de fabrica.
-              </p>
-            </div>
-          </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              className="rounded-xl bg-emerald-500/90 px-5 py-3 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(16,185,129,0.35)] hover:bg-emerald-400"
-              onClick={onEnter}
-            >
-              Entrar no QtdApp
-            </button>
-          </div>
-        </header>
-
-        <section className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-semibold text-emerald-200">
-              Controle em tempo real
-            </h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Registre bobinas e perfis com leitura QR, exporte CSV e mantenha
-              o historico organizado.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/70 p-5 shadow-[0_12px_30px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-semibold text-emerald-200">
-              Etiquetas sob medida
-            </h2>
-            <p className="mt-2 text-sm text-zinc-400">
-              Gere lotes com peso, local e campos extras. Imprima 1 etiqueta por
-              item com preview imediato.
-            </p>
-          </div>
-        </section>
-      </div>
-    </div>
-  );
-};
 
 // ===============================
 // COMPONENTE DE LOGIN
@@ -279,6 +221,13 @@ const App = () => {
   const [labelSearch, setLabelSearch] = useState("");
   const [labelItems, setLabelItems] = useState([]);
   const [labelBatch, setLabelBatch] = useState([]);
+  const [barcodeCache, setBarcodeCache] = useState({});
+  const [labelBatchName, setLabelBatchName] = useState("");
+  const [savedLabelBatches, setSavedLabelBatches] = useState([]);
+  const [selectedSavedBatchId, setSelectedSavedBatchId] = useState("");
+  const [labelLayoutName, setLabelLayoutName] = useState("");
+  const [savedLabelLayouts, setSavedLabelLayouts] = useState([]);
+  const [selectedSavedLayoutId, setSelectedSavedLayoutId] = useState("");
   const [labelSettings, setLabelSettings] = useState({
     preset: "100x150",
     widthCm: 10,
@@ -347,6 +296,7 @@ const App = () => {
   const suppressClickRef = useRef(false);
   const defaultLabelFields = [
     { key: "qr", label: "QR Code", enabled: true, showLabel: false, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "center" },
+    { key: "barcode", label: "Codigo Barras", enabled: true, showLabel: false, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "center" },
     { key: "id", label: "Codigo", enabled: true, showLabel: false, emphasize: true, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: true, align: "center" },
     { key: "description", label: "Descricao", enabled: true, showLabel: false, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "left" },
     { key: "qty", label: "Quantidade", enabled: true, showLabel: true, emphasize: false, highlight: false, highlightColor: "#e5e7eb", labelFontSize: 10, valueFontSize: null, boldLabel: true, boldValue: false, align: "left" },
@@ -364,6 +314,7 @@ const App = () => {
   const [extraFields, setExtraFields] = useState([]);
   const importInputRef = useRef(null);
   const [previewQr, setPreviewQr] = useState("");
+  const [previewBarcode, setPreviewBarcode] = useState("");
 
   const appId = "inventario-bobina2";
 
@@ -408,6 +359,52 @@ const App = () => {
     return () => unsub();
   }, [uid, isAuthReady]);
 
+  // LISTA DE LAYOUTS DE ETIQUETA SALVOS
+  useEffect(() => {
+    if (!isAuthReady || !uid) return;
+
+    const layoutsPath = `artifacts/${appId}/users/${uid}/label_layouts`;
+    const q = query(
+      collection(db, layoutsPath),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate?.() ?? null,
+      }));
+      setSavedLabelLayouts(docs);
+    });
+
+    return () => unsub();
+  }, [uid, isAuthReady]);
+
+  // LISTA DE LOTES DE ETIQUETAS SALVOS
+  useEffect(() => {
+    if (!isAuthReady || !uid) return;
+
+    const batchesPath = `artifacts/${appId}/users/${uid}/label_batches`;
+    const q = query(
+      collection(db, batchesPath),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate?.() ?? null,
+      }));
+      setSavedLabelBatches(docs);
+    });
+
+    return () => unsub();
+  }, [uid, isAuthReady]);
+
   // RESETAR SELEÇÃO AO MUDAR DE ABA
   useEffect(() => {
     setSelectedItem(null);
@@ -419,7 +416,12 @@ const App = () => {
     setLabelBatch([]);
     setBulkInput("");
     setQrCache({});
+    setBarcodeCache({});
     setIsBatchStale(false);
+    setLabelBatchName("");
+    setSelectedSavedBatchId("");
+    setLabelLayoutName("");
+    setSelectedSavedLayoutId("");
   }, [inventoryType]);
 
   useEffect(() => {
@@ -530,6 +532,11 @@ const App = () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const testValue = labelSettings.testCode || "CODIGO TESTE";
+    setPreviewBarcode(generateBarcodeDataUrl(testValue));
+  }, [labelSettings.testCode]);
 
   const pushMessage = (text, type = "info", timeoutMs = 2000) => {
     setMessage(text);
@@ -704,6 +711,169 @@ const App = () => {
     return Array.from(map.values());
   }, [extraFields, labelFields]);
 
+  const buildSavedLabelItems = (items) =>
+    (items || []).map((item) => ({
+      id: item.id,
+      description: item.description || "",
+      qty: item.qty ?? "",
+      weight: item.weight ?? "",
+      location: item.location ?? "",
+      printQty: item.printQty ?? item.qty ?? 1,
+      extraFields: item.extraFields || {},
+    }));
+
+  const hydrateSavedLabelItems = (items) =>
+    (items || [])
+      .map((saved) => {
+        const id = (saved.id || "").toString().trim().toUpperCase();
+        if (!id) return null;
+        const itemIndex = activeCatalogModel.byId.get(id);
+        const base =
+          itemIndex === undefined
+            ? { id, description: saved.description || "" }
+            : activeCatalogModel.items[itemIndex];
+        return {
+          ...base,
+          qty: saved.qty ?? "",
+          weight: saved.weight ?? "",
+          location: saved.location ?? "",
+          printQty: saved.printQty ?? saved.qty ?? 1,
+          extraFields: saved.extraFields || {},
+        };
+      })
+      .filter(Boolean);
+
+  const formatSavedBatchLabel = (batch) => {
+    const createdAt = batch?.createdAt
+      ? batch.createdAt.toLocaleString("pt-BR")
+      : "sem data";
+    const name = (batch?.name || "").toString().trim();
+    return name ? `${name} (${createdAt})` : `Lote ${createdAt}`;
+  };
+
+  const formatSavedLayoutLabel = (layout) => {
+    const createdAt = layout?.createdAt
+      ? layout.createdAt.toLocaleString("pt-BR")
+      : "sem data";
+    const name = (layout?.name || "").toString().trim();
+    return name ? `${name} (${createdAt})` : `Layout ${createdAt}`;
+  };
+
+  const handleSaveLabelLayout = async () => {
+    if (!uid) {
+      pushMessage("Usuario nao autenticado.", "error", 2500);
+      return;
+    }
+
+    const name = labelLayoutName.trim();
+    const payload = {
+      name: name || null,
+      settings: labelSettings,
+      layout: labelLayout,
+      fields: labelFields,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await addDoc(
+        collection(db, `artifacts/${appId}/users/${uid}/label_layouts`),
+        payload
+      );
+      setLabelLayoutName("");
+      pushMessage("Layout salvo no Firebase.", "success", 2000);
+    } catch (err) {
+      pushMessage("Erro ao salvar layout.", "error", 2500);
+    }
+  };
+
+  const handleLoadSavedLayout = (layoutId) => {
+    const saved = savedLabelLayouts.find((entry) => entry.id === layoutId);
+    if (!saved) return;
+    if (saved.settings) setLabelSettings(saved.settings);
+    if (saved.layout) setLabelLayout(saved.layout);
+    if (saved.fields) setLabelFields(sanitizeLabelFields(saved.fields));
+    pushMessage("Layout carregado.", "success", 2000);
+  };
+
+  const handleDeleteSavedLayout = async (layoutId) => {
+    if (!uid || !layoutId) return;
+    try {
+      await deleteDoc(
+        doc(db, `artifacts/${appId}/users/${uid}/label_layouts`, layoutId)
+      );
+      if (selectedSavedLayoutId === layoutId) {
+        setSelectedSavedLayoutId("");
+      }
+      pushMessage("Layout removido.", "success", 2000);
+    } catch (err) {
+      pushMessage("Erro ao excluir layout.", "error", 2500);
+    }
+  };
+
+  const handleSaveLabelBatch = async () => {
+    if (!uid) {
+      pushMessage("Usuario nao autenticado.", "error", 2500);
+      return;
+    }
+    if (!labelItems.length) {
+      pushMessage("Nenhum item no lote para salvar.", "error", 2500);
+      return;
+    }
+
+    const name = labelBatchName.trim();
+    const payload = {
+      name: name || null,
+      items: buildSavedLabelItems(labelItems),
+      extraFields,
+      inventoryType,
+      createdAt: serverTimestamp(),
+    };
+
+    try {
+      await addDoc(
+        collection(db, `artifacts/${appId}/users/${uid}/label_batches`),
+        payload
+      );
+      setLabelBatchName("");
+      pushMessage("Lote salvo no Firebase.", "success", 2000);
+    } catch (err) {
+      pushMessage("Erro ao salvar lote.", "error", 2500);
+    }
+  };
+
+  const handleLoadSavedBatch = (batchId) => {
+    const batch = savedLabelBatches.find((entry) => entry.id === batchId);
+    if (!batch) return;
+    if (batch.inventoryType && batch.inventoryType !== inventoryType) {
+      pushMessage(
+        `Lote salvo para ${batch.inventoryType === "coil" ? "bobina" : "perfil"}.`,
+        "info",
+        3000
+      );
+    }
+
+    setLabelItems(hydrateSavedLabelItems(batch.items));
+    setExtraFields(batch.extraFields || []);
+    setLabelBatch([]);
+    setIsBatchStale(true);
+    pushMessage("Lote carregado.", "success", 2000);
+  };
+
+  const handleDeleteSavedBatch = async (batchId) => {
+    if (!uid || !batchId) return;
+    try {
+      await deleteDoc(
+        doc(db, `artifacts/${appId}/users/${uid}/label_batches`, batchId)
+      );
+      if (selectedSavedBatchId === batchId) {
+        setSelectedSavedBatchId("");
+      }
+      pushMessage("Lote removido.", "success", 2000);
+    } catch (err) {
+      pushMessage("Erro ao excluir lote.", "error", 2500);
+    }
+  };
+
   const handleQrDetected = async (payload) => {
     const parsed = parseQrPayload(payload);
     if (!parsed || !parsed.id) {
@@ -831,6 +1001,23 @@ const App = () => {
       local: item.location || "",
       extras: item.extraFields || {},
     });
+  const buildBarcodePayload = (item) => buildQrPayload(item);
+
+  const generateBarcodeDataUrl = (value) => {
+    if (!value) return "";
+    try {
+      const canvas = document.createElement("canvas");
+      JsBarcode(canvas, value.toString(), {
+        format: "CODE128",
+        displayValue: false,
+        margin: 0,
+        height: 60,
+      });
+      return canvas.toDataURL("image/png");
+    } catch (err) {
+      return "";
+    }
+  };
 
   const ensureQrForItems = async (items) => {
     const missing = items.filter((item) => !qrCache[item.id]);
@@ -860,6 +1047,26 @@ const App = () => {
     }
   };
 
+  const ensureBarcodeForItems = async (items) => {
+    const missing = items.filter((item) => !barcodeCache[item.id]);
+    if (!missing.length) return;
+    setIsGeneratingLabels(true);
+    try {
+      const results = missing.map((item) =>
+        generateBarcodeDataUrl(buildBarcodePayload(item))
+      );
+      setBarcodeCache((prev) => {
+        const next = { ...prev };
+        missing.forEach((item, index) => {
+          next[item.id] = results[index];
+        });
+        return next;
+      });
+    } finally {
+      setIsGeneratingLabels(false);
+    }
+  };
+
   const handleGenerateBatch = async () => {
     if (!labelItems.length) {
       pushMessage("Selecione itens para gerar etiquetas.", "error", 2500);
@@ -867,6 +1074,7 @@ const App = () => {
     }
 
     await ensureQrForItems(labelItems);
+    await ensureBarcodeForItems(labelItems);
 
     const nextBatch = labelItems.flatMap((item) => {
       const count = item.printQty ?? item.qty ?? 1;
@@ -1099,6 +1307,8 @@ const App = () => {
     switch (field.key) {
       case "qr":
         return "QR";
+      case "barcode":
+        return "BARCODE";
       case "id":
         return item.id || labelSettings.testCode || "CODIGO";
       case "description":
@@ -1119,7 +1329,7 @@ const App = () => {
     }
   };
 
-  const renderLabelBlockContent = (field, item, qrSrc, blockSizeCm, align) => {
+  const renderLabelBlockContent = (field, item, qrSrc, barcodeSrc, blockSizeCm, align) => {
     const rawValue = getFieldValue(field, item);
     const hasValue = rawValue !== null && rawValue !== undefined && rawValue !== "";
     if (!hasValue) return null;
@@ -1156,6 +1366,30 @@ const App = () => {
                 style={{ width: `${qrSize}cm`, height: `${qrSize}cm` }}
               >
                 QR
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    if (field.key === "barcode") {
+      const barcodeWidth = blockSizeCm.widthCm;
+      const barcodeHeight = Math.max(1, Math.min(blockSizeCm.heightCm, 2.2));
+      return (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="rounded bg-white px-2 py-1">
+            {barcodeSrc ? (
+              <img
+                src={barcodeSrc}
+                alt="Codigo de barras"
+                style={{ width: `${barcodeWidth}cm`, height: `${barcodeHeight}cm` }}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center text-[10px] text-zinc-500"
+                style={{ width: `${barcodeWidth}cm`, height: `${barcodeHeight}cm` }}
+              >
+                BARCODE
               </div>
             )}
           </div>
@@ -1213,7 +1447,7 @@ const App = () => {
     );
   };
 
-  const renderLabelLayout = (item, qrSrc, options = {}) => {
+  const renderLabelLayout = (item, qrSrc, barcodeSrc, options = {}) => {
     const {
       showGuides = false,
       highlightKey = null,
@@ -1250,11 +1484,14 @@ const App = () => {
     const footerRowClass = resolveAlignClass(labelSettings.footerLogoAlign);
     const headerTextClass = resolveTextClass(labelSettings.headerTextAlign);
     const footerTextClass = resolveTextClass(labelSettings.footerTextAlign);
+    const gridCellWidthPx = Math.max(1, Math.round(metrics.cellWidthPx));
+    const gridRowHeightPx = Math.max(1, Math.round(metrics.rowHeightPx));
     const gridBackground = showGuides
       ? {
           backgroundImage:
             "linear-gradient(to right, rgba(15, 23, 42, 0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(15, 23, 42, 0.12) 1px, transparent 1px)",
-          backgroundSize: `${metrics.cellWidthPx}px ${metrics.rowHeightPx}px`,
+          backgroundSize: `${gridCellWidthPx}px ${gridRowHeightPx}px`,
+          backgroundPosition: "0 0",
         }
       : {};
     return (
@@ -1374,7 +1611,7 @@ const App = () => {
                   }}
                 >
                   <div className="w-full h-full flex items-center px-1">
-                    {renderLabelBlockContent(field, item, qrSrc, blockSizeCm, field.align)}
+                    {renderLabelBlockContent(field, item, qrSrc, barcodeSrc, blockSizeCm, field.align)}
                   </div>
                 </div>
               );
@@ -1926,6 +2163,9 @@ const App = () => {
       const size = Math.max(2, cmToCells(labelSettings.qrCm));
       return { w: Math.min(cols, size), h: Math.min(cols, size) };
     }
+    if (key === "barcode") {
+      return { w: cols, h: Math.max(1, cmToCells(1.6)) };
+    }
     if (key === "id") {
       return { w: cols, h: Math.max(2, cmToCells(1)) };
     }
@@ -1967,7 +2207,7 @@ const App = () => {
       }
     });
     fields
-      .filter((field) => field.key !== "qr")
+      .filter((field) => !["qr"].includes(field.key))
       .forEach((field) => {
         const size = getDefaultBlockSize(field.key, cols, gridSizeCm);
         const next = findFreeSpot(size, cursorY);
@@ -2010,10 +2250,11 @@ const App = () => {
     placeBlock("qty", { x: 0, y: metaY, w: 1, h: 1 });
     placeBlock("weight", { x: 1, y: metaY, w: 1, h: 1 });
     placeBlock("location", { x: 2, y: metaY, w: 1, h: 1 });
+    placeBlock("barcode", { x: 0, y: Math.min(rows - 1, metaY + 2), w: cols, h: 2 });
     fields
       .filter(
         (field) =>
-          !["id", "description", "qr", "qty", "weight", "location"].includes(field.key)
+          !["id", "description", "qr", "barcode", "qty", "weight", "location"].includes(field.key)
       )
       .forEach((field) => {
         const next = findFreeSpotForBlock(
@@ -2384,6 +2625,35 @@ const App = () => {
     "<rect x='12' y='16' width='1' height='1' fill='black'/>" +
     "</svg>";
   const previewQrSrc = previewQr || previewQrFallback;
+  const previewBarcodeFallback =
+    "data:image/svg+xml;utf8," +
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 40' shape-rendering='crispEdges'>" +
+    "<rect width='120' height='40' fill='white'/>" +
+    "<rect x='4' y='6' width='2' height='28' fill='black'/>" +
+    "<rect x='9' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='13' y='6' width='3' height='28' fill='black'/>" +
+    "<rect x='19' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='23' y='6' width='2' height='28' fill='black'/>" +
+    "<rect x='28' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='32' y='6' width='3' height='28' fill='black'/>" +
+    "<rect x='38' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='42' y='6' width='2' height='28' fill='black'/>" +
+    "<rect x='47' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='51' y='6' width='3' height='28' fill='black'/>" +
+    "<rect x='57' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='61' y='6' width='2' height='28' fill='black'/>" +
+    "<rect x='66' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='70' y='6' width='3' height='28' fill='black'/>" +
+    "<rect x='76' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='80' y='6' width='2' height='28' fill='black'/>" +
+    "<rect x='85' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='89' y='6' width='3' height='28' fill='black'/>" +
+    "<rect x='95' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='99' y='6' width='2' height='28' fill='black'/>" +
+    "<rect x='104' y='6' width='1' height='28' fill='black'/>" +
+    "<rect x='108' y='6' width='3' height='28' fill='black'/>" +
+    "</svg>";
+  const previewBarcodeSrc = previewBarcode || previewBarcodeFallback;
   const labelContentClass =
     labelLayout.align === "left"
       ? "text-left"
@@ -2759,6 +3029,56 @@ const App = () => {
             >
               {showPrintPreview ? "Ocultar impressao" : "Visualizar impressao"}
             </button>
+          </div>
+
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 mb-4">
+            <p className="text-xs text-zinc-400 mb-2">Salvar layout no Firebase</p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="text"
+                className="flex-1 min-w-[180px] bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                placeholder="Nome do layout (opcional)"
+                value={labelLayoutName}
+                onChange={(e) => setLabelLayoutName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="bg-emerald-500/90 text-black px-3 py-2 rounded-lg text-xs font-semibold hover:bg-emerald-400"
+                onClick={handleSaveLabelLayout}
+              >
+                Salvar
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <select
+                value={selectedSavedLayoutId}
+                onChange={(e) => setSelectedSavedLayoutId(e.target.value)}
+                className="flex-1 min-w-[200px] bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-2"
+              >
+                <option value="">Carregar layout salvo</option>
+                {savedLabelLayouts.map((layout) => (
+                  <option key={layout.id} value={layout.id}>
+                    {formatSavedLayoutLabel(layout)}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="border border-zinc-700 text-zinc-200 bg-zinc-900/40 hover:bg-zinc-800/60 px-3 py-2 rounded-lg text-xs font-semibold"
+                onClick={() => handleLoadSavedLayout(selectedSavedLayoutId)}
+                disabled={!selectedSavedLayoutId}
+              >
+                Carregar
+              </button>
+              <button
+                type="button"
+                className="border border-rose-700/70 text-rose-200 bg-rose-900/20 hover:bg-rose-900/40 px-3 py-2 rounded-lg text-xs font-semibold"
+                onClick={() => handleDeleteSavedLayout(selectedSavedLayoutId)}
+                disabled={!selectedSavedLayoutId}
+              >
+                Excluir
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-4">
@@ -3530,7 +3850,7 @@ const App = () => {
               </p>
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 overflow-visible flex justify-center">
                     <div className="rounded-xl border border-zinc-300 bg-white" style={previewLabelStyle}>
-                  {renderLabelLayout(labelItems[0] || {}, previewQrSrc, {
+                  {renderLabelLayout(labelItems[0] || {}, previewQrSrc, previewBarcodeSrc, {
                     showGuides: true,
                     highlightKey: selectedBlockKey,
                     onBlockClick: setSelectedBlockKey,
@@ -3567,7 +3887,7 @@ const App = () => {
                           border: "1px dashed #94a3b8",
                         }}
                       >
-                        {renderLabelLayout(item, previewQrSrc)}
+                        {renderLabelLayout(item, previewQrSrc, previewBarcodeSrc)}
                       </div>
                     ))}
                   </div>
@@ -3752,6 +4072,56 @@ const App = () => {
               </div>
             </div>
 
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 mb-4">
+              <p className="text-xs text-zinc-400 mb-2">Salvar lote no Firebase</p>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  type="text"
+                  className="flex-1 min-w-[180px] bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
+                  placeholder="Nome do lote (opcional)"
+                  value={labelBatchName}
+                  onChange={(e) => setLabelBatchName(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="bg-emerald-500/90 text-black px-3 py-2 rounded-lg text-xs font-semibold hover:bg-emerald-400"
+                  onClick={handleSaveLabelBatch}
+                >
+                  Salvar
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <select
+                  value={selectedSavedBatchId}
+                  onChange={(e) => setSelectedSavedBatchId(e.target.value)}
+                  className="flex-1 min-w-[200px] bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-2"
+                >
+                  <option value="">Carregar lote salvo</option>
+                  {savedLabelBatches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {formatSavedBatchLabel(batch)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="border border-zinc-700 text-zinc-200 bg-zinc-900/40 hover:bg-zinc-800/60 px-3 py-2 rounded-lg text-xs font-semibold"
+                  onClick={() => handleLoadSavedBatch(selectedSavedBatchId)}
+                  disabled={!selectedSavedBatchId}
+                >
+                  Carregar
+                </button>
+                <button
+                  type="button"
+                  className="border border-rose-700/70 text-rose-200 bg-rose-900/20 hover:bg-rose-900/40 px-3 py-2 rounded-lg text-xs font-semibold"
+                  onClick={() => handleDeleteSavedBatch(selectedSavedBatchId)}
+                  disabled={!selectedSavedBatchId}
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+
             {!labelItems.length ? (
               <p className="text-xs text-zinc-400 text-center py-6">Nenhum item selecionado.</p>
             ) : (
@@ -3869,7 +4239,7 @@ const App = () => {
                     className="rounded-xl border border-zinc-300 bg-white p-3 text-center"
                     style={previewLabelStyle}
                   >
-                    {renderLabelLayout(item, qrCache[item.id] || previewQrFallback)}
+                    {renderLabelLayout(item, qrCache[item.id] || previewQrFallback, barcodeCache[item.id] || previewBarcodeFallback)}
                   </div>
                 ))}
               </div>
@@ -3893,7 +4263,7 @@ const App = () => {
               className="print-label text-center"
               style={printLabelStyle}
             >
-              {renderLabelLayout(item, qrCache[item.id])}
+              {renderLabelLayout(item, qrCache[item.id], barcodeCache[item.id])}
             </div>
           ))}
         </div>
