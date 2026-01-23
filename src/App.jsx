@@ -101,7 +101,16 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
       }
 
       try {
-        detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+        detector = new window.BarcodeDetector({
+          formats: [
+            "qr_code",
+            "code_128",
+            "ean_13",
+            "ean_8",
+            "upc_a",
+            "upc_e",
+          ],
+        });
       } catch (err) {
         setStatus("Não foi possível iniciar o leitor.");
         return;
@@ -129,7 +138,7 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
         return;
       }
 
-      setStatus("Aponte a câmera para o QR code.");
+      setStatus("Aponte a câmera para o QR code ou código de barras.");
 
       const scan = async () => {
         if (!active || !videoRef.current) return;
@@ -2885,7 +2894,7 @@ const App = () => {
                 className="text-xs text-emerald-300 underline hover:text-emerald-200"
                 onClick={() => setIsQrOpen((open) => !open)}
               >
-                {isQrOpen ? "Fechar leitor QR" : "Ler QR code"}
+                {isQrOpen ? "Fechar leitor QR/Barra" : "Ler QR/Barra"}
               </button>
             </div>
 
@@ -2933,7 +2942,7 @@ const App = () => {
                   setIsQrOpen(true);
                 }}
               >
-                Ler QR code
+                Ler QR/Barra
               </button>
             </div>
           ) : (
@@ -2987,7 +2996,7 @@ const App = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-6">
           <div className="w-full max-w-md rounded-2xl bg-zinc-950/90 border border-zinc-800/80 p-4 shadow-2xl sm:p-6">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-emerald-300">Leitor de QR</h3>
+              <h3 className="text-lg font-bold text-emerald-300">Leitor de QR/Barra</h3>
               <button
                 type="button"
                 className="text-sm text-rose-300 underline hover:text-rose-200"
