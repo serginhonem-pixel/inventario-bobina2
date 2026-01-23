@@ -156,16 +156,8 @@ export default function LandingPage({ onEnter }) {
         <div className="absolute top-20 right-0 w-1/2 h-1/2 bg-gradient-to-b from-emerald-500/20 to-transparent blur-3xl rounded-full opacity-60 pointer-events-none"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900/70 border border-emerald-500/30 text-emerald-200 text-sm font-semibold mb-8 shadow-sm animate-fade-in hover:shadow-md transition-shadow cursor-default">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            Especialista em Inventário de Estoque
-          </div>
-          
-          <div className="mx-auto mb-8 flex justify-center">
-            <img src={appLogo} alt="QtdApp" className="h-20 w-20 object-contain" />
+          <div className="mx-auto mb-10 flex justify-center">
+            <img src={appLogo} alt="QtdApp" className="h-24 w-auto object-contain" />
           </div>
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-zinc-100 mb-8 leading-[1.1]">
             A Ferramenta Definitiva para <br className="hidden md:block" />
