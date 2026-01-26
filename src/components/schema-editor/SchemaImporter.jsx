@@ -100,9 +100,11 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
       setSchemaSaved(true);
       setSavedSchema(savedSchema);
       if (onImported) onImported(savedSchema, 0);
+      return savedSchema;
     } catch (error) {
       console.error("Erro ao salvar colunas:", error);
       alert("Erro ao salvar colunas. Tente novamente.");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -245,10 +247,10 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
             />
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 if (!schemaSaved) {
-                  alert("Salve as colunas antes de subir o Excel.");
-                  return;
+                  const saved = await handleSaveSchema();
+                  if (!saved) return;
                 }
                 fileInputRef.current?.click();
               }}
