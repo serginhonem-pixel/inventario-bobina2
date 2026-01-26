@@ -4,6 +4,7 @@ import { exportToCSV, exportToText } from '../../services/export/exportService';
 
 const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBluetooth }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const isSkuOnly = schema?.fields?.length === 1 && schema.fields[0]?.key === 'sku';
 
   const toggleSelect = (id) => {
     const newSelected = new Set(selectedIds);
@@ -31,7 +32,7 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
   return (
     <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
       <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-        <h3 className="text-white font-bold">Itens Cadastrados</h3>
+        <h3 className="text-white font-bold">{isSkuOnly ? 'SKUs Cadastrados' : 'Itens Cadastrados'}</h3>
 <div className="flex gap-2">
           <button 
             onClick={handleExportText}

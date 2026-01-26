@@ -66,13 +66,24 @@ export const printLabels = (template, items) => {
           <div class="label-page">
             ${elements.map(el => {
               let content = '';
-              const val = el.fieldKey ? (item[el.fieldKey] || '') : el.previewValue;
+              const val = el.fieldKey
+                ? (el.fieldKey === '__item__' ? JSON.stringify(item) : (item[el.fieldKey] || ''))
+                : el.previewValue;
               const displayVal = (el.showLabel && el.fieldKey) ? `${el.label}: ${val}` : val;
 
               if (el.type === 'qr') {
+                const qrValue = el.qrMode === 'item' || el.fieldKey === '__item__'
+                  ? JSON.stringify(item)
+                  : (el.qrFieldKey ? (item[el.qrFieldKey] || '') : (el.fieldKey ? (item[el.fieldKey] || '') : ''));
                 content = `<div class="qr-container">
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(val)}" style="width: 80%; height: 80%;" />
-                  <span style="font-size: 6px; margin-top: 2px;">${val}</span>
+                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}" style="width: 80%; height: 80%;" />
+                  <span style="font-size: 6px; margin-top: 2px;">${qrValue}</span>
+                </div>`;
+              } else if (el.type === 'barcode') {
+                const barcodeValue = val || '000123';
+                content = `<div class="qr-container">
+                  <img src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(barcodeValue)}&code=Code128&translate-esc=on" style="width: 95%; height: 60%;" />
+                  <span style="font-size: 6px; margin-top: 2px;">${barcodeValue}</span>
                 </div>`;
               } else if (el.type === 'image') {
                 content = `<img src="${el.url}" class="logo-img" />`;

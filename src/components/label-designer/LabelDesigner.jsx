@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { 
   Move, Type, QrCode, Trash2, AlignLeft, AlignCenter, AlignRight, 
   Bold, RotateCw, Square, Type as TypeIcon, Grid3X3, Eye, Maximize2, 
   Database, Edit3, Image as ImageIcon, ZoomIn, ZoomOut, LayoutGrid, EyeOff,
-  Type as FontIcon, Save, MapPin, Map
+  Type as FontIcon, Save, MapPin, Map, Barcode
 } from 'lucide-react';
 
 const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
@@ -48,12 +49,23 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   const autoOrganize = () => {
     const colW = labelSize.width / layoutGrid.cols;
     const rowH = labelSize.height / layoutGrid.rows;
-    const organizedElements = elements.map((el, index) => {
-      const col = index % layoutGrid.cols;
-      const row = Math.floor(index / layoutGrid.cols);
-      return { ...el, x: col * colW, y: row * rowH, width: colW, height: rowH };
-    });
-    setElements(organizedElements);
+    setElements((prev) =>
+      prev.map((el, index) => {
+        const col = index % layoutGrid.cols;
+        const row = Math.floor(index / layoutGrid.cols);
+        return { ...el, x: col * colW, y: row * rowH, width: colW, height: rowH };
+      })
+    );
+  };
+
+  const getQrPreviewValue = (qrMode, qrFieldKey) => {
+    if (qrMode === 'item') {
+      return schema?.sampleData && Object.keys(schema.sampleData).length > 0
+        ? JSON.stringify(schema.sampleData)
+        : "Sem dados";
+    }
+    if (!qrFieldKey) return "000123";
+    return schema?.sampleData?.[qrFieldKey] || "000123";
   };
 
   const addElement = (type, field = null, extra = {}) => {
@@ -64,7 +76,16 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
     const row = Math.floor(index / layoutGrid.cols);
 
     let preview = "Texto";
-    if (type === 'qr') preview = "ID-12345";
+    if (type === 'qr') {
+      const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+      const qrFieldKey = skuField?.key || null;
+      const qrMode = qrFieldKey ? 'field' : 'item';
+      preview = getQrPreviewValue(qrMode, qrFieldKey);
+    }
+    if (type === 'barcode') {
+      const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+      preview = skuField ? (schema?.sampleData?.[skuField.key] || "000123") : "000123";
+    }
     if (type === 'image') preview = extra.url || "Logo";
     if (type === 'logistics') preview = logistics[extra.logKey] || extra.logKey.toUpperCase();
     
@@ -72,12 +93,25 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
       preview = schema?.sampleData?.[field.key] || schema?.sampleData?.[field.label] || `Exemplo ${field.label}`;
     }
 
+    const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+    const qrFieldKey = type === 'qr' ? (skuField?.key || null) : null;
+    const qrMode = type === 'qr' ? (qrFieldKey ? 'field' : 'item') : null;
+    const resolvedFieldKey =
+      field?.key ||
+      (type === 'qr' ? (qrMode === 'item' ? '__item__' : qrFieldKey) : null) ||
+      (type === 'barcode' ? (extra.fieldKey || skuField?.key || null) : null) ||
+      extra.logKey ||
+      null;
+
     const newElement = {
       id: `el_${Date.now()}`,
       type,
-      fieldKey: field?.key || extra.logKey || null,
-      label: field?.label || (type === 'qr' ? 'QR Code' : type === 'image' ? 'Logo' : type === 'logistics' ? extra.logKey.toUpperCase() : 'Texto Fixo'),
+      fieldKey: resolvedFieldKey,
+      qrMode,
+      qrFieldKey,
+      label: field?.label || (type === 'qr' ? 'QR Code' : type === 'barcode' ? 'Barcode' : type === 'image' ? 'Logo' : type === 'logistics' ? extra.logKey.toUpperCase() : 'Texto Fixo'),
       previewValue: preview,
+      qrDataUrl: null,
       showLabel: true,
       x: col * colW,
       y: row * rowH,
@@ -91,16 +125,23 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
       lineHeight: 1.2,
       ...extra
     };
-    setElements([...elements, newElement]);
+    setElements((prev) => [...prev, newElement]);
     setSelectedId(newElement.id);
+    if (type === 'qr') {
+      generateQrDataUrl(newElement.previewValue).then((url) => {
+        if (url) {
+          updateElement(newElement.id, { qrDataUrl: url });
+        }
+      });
+    }
   };
 
   const updateElement = (id, updates) => {
-    setElements(elements.map(el => el.id === id ? { ...el, ...updates } : el));
+    setElements((prev) => prev.map(el => el.id === id ? { ...el, ...updates } : el));
   };
 
   const deleteElement = (id) => {
-    setElements(elements.filter(el => el.id !== id));
+    setElements((prev) => prev.filter(el => el.id !== id));
     setSelectedId(null);
   };
 
@@ -181,14 +222,31 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
     });
   };
 
+  const generateQrDataUrl = async (value) => {
+    try {
+      return await QRCode.toDataURL(String(value || ''), {
+        margin: 1,
+        width: 256,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+    } catch (error) {
+      console.error("Erro ao gerar QR Code:", error);
+      return null;
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
       <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex bg-zinc-950 rounded-lg p-1 border border-zinc-800">
-            <button onClick={() => addElement('text')} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Texto"><TypeIcon size={18} /></button>
-            <button onClick={() => addElement('qr')} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="QR Code"><QrCode size={18} /></button>
-            <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Logo"><ImageIcon size={18} /></button>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addElement('text'); }} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Texto"><TypeIcon size={18} /></button>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addElement('qr'); }} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="QR Code"><QrCode size={18} /></button>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); addElement('barcode'); }} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Barcode"><Barcode size={18} /></button>
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); fileInputRef.current.click(); }} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Logo"><ImageIcon size={18} /></button>
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
           </div>
           
@@ -281,7 +339,24 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
               <div key={el.id} onMouseDown={(e) => handleMouseDown(e, el)} className={`absolute cursor-move flex items-center ${selectedId === el.id ? 'ring-2 ring-emerald-500 z-50' : 'z-10'}`} style={{ left: `${el.x * BASE_SCALE}px`, top: `${el.y * BASE_SCALE}px`, width: `${el.width * BASE_SCALE}px`, height: `${el.height * BASE_SCALE}px`, fontSize: `${el.fontSize * (BASE_SCALE/3)}px`, fontWeight: el.bold ? 'bold' : 'normal', textAlign: el.align, transform: `rotate(${el.rotation}deg)`, border: el.border ? '1px solid black' : 'none', color: 'black', justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start', padding: '0 4px', overflow: 'hidden' }}>
                 {el.type === 'qr' ? (
                   <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
-                    <QrCode size={el.width * 2} className="text-zinc-400" />
+                    {el.qrDataUrl ? (
+                      <img src={el.qrDataUrl} alt="QR" className="w-[85%] h-[85%] object-contain" />
+                    ) : (
+                      <QrCode size={el.width * 2} className="text-zinc-400" />
+                    )}
+                    <span className="text-[7px] text-zinc-400 mt-0.5 font-bold truncate w-full text-center">{el.previewValue}</span>
+                  </div>
+                ) : el.type === 'barcode' ? (
+                  <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
+                    <div
+                      className="w-full"
+                      style={{
+                        height: '60%',
+                        backgroundImage:
+                          'repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 4px, #111 4px 6px, transparent 6px 8px)',
+                        opacity: 0.6
+                      }}
+                    />
                     <span className="text-[7px] text-zinc-400 mt-0.5 font-bold truncate w-full text-center">{el.previewValue}</span>
                   </div>
                 ) : el.type === 'image' ? (
@@ -329,8 +404,76 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
               </div>
               <div className="space-y-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
                 <label className="text-[10px] text-emerald-500 uppercase font-bold flex items-center gap-2"><Eye size={10} /> Preview de Resposta</label>
-                <input type="text" value={selectedElement.previewValue} onChange={(e) => updateElement(selectedId, { previewValue: e.target.value })} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white" />
+                <input
+                  type="text"
+                  value={selectedElement.previewValue}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    updateElement(selectedId, { previewValue: nextValue });
+                    if (selectedElement.type === 'qr') {
+                      generateQrDataUrl(nextValue).then((url) => {
+                        if (url) updateElement(selectedId, { qrDataUrl: url });
+                      });
+                    }
+                  }}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
+                />
               </div>
+
+              {selectedElement.type === 'qr' && (
+                <div className="space-y-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Dados do QR</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <select
+                      value={selectedElement.qrMode || 'field'}
+                      onChange={(e) => {
+                        const mode = e.target.value;
+                        const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+                        const fieldKey = mode === 'item' ? '__item__' : (selectedElement.qrFieldKey || skuField?.key || null);
+                      const preview = mode === 'item'
+                          ? (schema?.sampleData && Object.keys(schema.sampleData).length > 0 ? JSON.stringify(schema.sampleData) : 'Sem dados')
+                          : (fieldKey && fieldKey !== '__item__' ? (schema?.sampleData?.[fieldKey] || '000123') : '000123');
+                        updateElement(selectedId, {
+                          qrMode: mode,
+                          fieldKey,
+                          qrFieldKey: fieldKey === '__item__' ? null : fieldKey,
+                          previewValue: preview
+                        });
+                        generateQrDataUrl(preview).then((url) => {
+                          if (url) updateElement(selectedId, { qrDataUrl: url });
+                        });
+                      }}
+                      className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
+                    >
+                      <option value="field">Campo (recomendado)</option>
+                      <option value="item">Item completo (pode ficar pesado)</option>
+                    </select>
+                    {selectedElement.qrMode !== 'item' && (
+                      <select
+                        value={selectedElement.qrFieldKey || ''}
+                        onChange={(e) => {
+                          const fieldKey = e.target.value || null;
+                          const preview = fieldKey ? (schema?.sampleData?.[fieldKey] || '000123') : '000123';
+                          updateElement(selectedId, {
+                            qrFieldKey: fieldKey,
+                            fieldKey,
+                            previewValue: preview
+                          });
+                          generateQrDataUrl(preview).then((url) => {
+                            if (url) updateElement(selectedId, { qrDataUrl: url });
+                          });
+                        }}
+                        className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
+                      >
+                        <option value="">Selecione o campo</option>
+                        {schema?.fields?.map((field) => (
+                          <option key={field.key} value={field.key}>{field.label}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <label className="text-[10px] text-zinc-500 uppercase font-bold">Estilo do Texto</label>
