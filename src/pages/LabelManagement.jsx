@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, PenTool, BarChart3, 
   Settings, LogOut, Bell, User, Search, Plus,
-  ScanLine, AlertCircle, ArrowUpCircle, MapPin
+  ScanLine, AlertCircle, ArrowUpCircle, MapPin,
+  Menu, X
 } from 'lucide-react';
 
 import SchemaImporter from '../components/schema-editor/SchemaImporter';
@@ -30,6 +31,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   const [template, setTemplate] = useState(null);
   const [currentStockPoint, setCurrentStockPoint] = useState(null); // Novo estado para Ponto de Estocagem
   const [loading, setLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const tenantId = user?.uid || 'default-user';
 
@@ -121,8 +123,47 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   return (
     <div className="min-h-screen bg-black text-zinc-300 flex font-sans">
       <TourGuide activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Mobile Top Bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-b border-zinc-900 px-4 py-3 flex items-center justify-between">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+          title="Abrir menu"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="text-sm font-bold text-white truncate">
+          {activeTab === 'dashboard' && 'Visão Geral'}
+          {activeTab === 'stock_points' && 'Ponto de Estocagem'}
+          {activeTab === 'designer' && 'Engenharia de Etiquetas'}
+          {activeTab === 'movement_internal' && 'Movimentação de Carga'}
+          {activeTab === 'operation' && 'Ajuste Rápido'}
+          {activeTab === 'reports' && 'Relatórios'}
+          {activeTab === 'settings' && 'Configurações'}
+        </div>
+        <div className="w-9" />
+      </div>
+
+      {/* Sidebar Overlay (Mobile) */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar Profissional */}
-      <aside className="w-72 bg-zinc-950 border-r border-zinc-900 flex flex-col p-6 fixed h-full z-50">
+      <aside className={`w-72 bg-zinc-950 border-r border-zinc-900 flex flex-col p-6 fixed h-full z-50 transform transition-transform duration-300 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="md:hidden flex justify-between items-center mb-4">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Menu</span>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
+            title="Fechar menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
         <div className="mb-12 px-2">
           <img
             src="/logo.png"
@@ -142,7 +183,10 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
           ].map(item => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                setSidebarOpen(false);
+              }}
               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all group ${activeTab === item.id ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/10' : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'}`}
             >
               <item.icon size={20} className={activeTab === item.id ? 'text-black' : 'group-hover:text-emerald-500'} />
@@ -171,8 +215,8 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 ml-72 p-10">
-        <header className="flex items-center justify-between mb-12">
+      <main className="flex-1 ml-0 md:ml-72 p-4 md:p-10 pt-20 md:pt-10">
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 md:mb-12">
           <div>
             <h2 className="text-3xl font-black text-white tracking-tight">
               {activeTab === 'dashboard' && 'Visão Geral'}
