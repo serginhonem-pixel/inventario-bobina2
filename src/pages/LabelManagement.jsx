@@ -13,10 +13,10 @@ import StockOperation from '../components/stock/StockOperation';
 import StockMovement from '../components/stock/StockMovement';
 import StockPointManager, { StockPointHistory } from '../components/stock/StockPointManager'; // Novo componente de gestão de pontos e histórico
 import NotificationSettings from '../components/settings/NotificationSettings';
-import DynamicForm from '../components/dynamic-form/DynamicForm';
 import * as schemaService from '../services/firebase/schemaService';
 import * as itemService from '../services/firebase/itemService';
 import * as templateService from '../services/firebase/templateService';
+import * as stockPointService from '../services/firebase/stockPointService';
 import { syncPendingMovements } from '../services/firebase/stockService';
 import { printLabels } from '../services/pdf/pdfService';
 import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoothPrintService';
@@ -32,6 +32,9 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   const [currentStockPoint, setCurrentStockPoint] = useState(null); // Novo estado para Ponto de Estocagem
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [skuInput, setSkuInput] = useState('');
+  const [skuSubmitting, setSkuSubmitting] = useState(false);
+  const [stockPoints, setStockPoints] = useState([]);
 
   const tenantId = user?.uid || 'default-user';
 
@@ -45,6 +48,18 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
       setTemplate(null);
     }
   }, [tenantId, currentStockPoint]);
+
+  useEffect(() => {
+    const loadPoints = async () => {
+      try {
+        const loadedPoints = await stockPointService.getStockPointsByTenant(tenantId);
+        setStockPoints(loadedPoints);
+      } catch (error) {
+        console.error("Erro ao carregar pontos de estocagem:", error);
+      }
+    };
+    loadPoints();
+  }, [tenantId]);
 
   const loadStockPointData = async (stockPointId) => {
     setLoading(true);
@@ -74,23 +89,35 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
     }
   };
 
-  const handleAddItem = async (itemData) => {
-    if (!currentSchema || !currentStockPoint) {
-      alert("Selecione um ponto de estocagem com itens antes de cadastrar.");
+  const handleAddSku = async (e) => {
+    e.preventDefault();
+    if (!currentStockPoint) {
+      alert("Selecione um ponto de estocagem antes de cadastrar SKUs.");
       return;
     }
+    if (!currentSchema) {
+      alert("Crie as colunas do ponto antes de cadastrar SKUs.");
+      return;
+    }
+    const sku = skuInput.trim();
+    if (!sku) return;
+
+    setSkuSubmitting(true);
     try {
       const newItem = await itemService.createItem(
         tenantId,
         currentSchema.id,
-        currentSchema.version,
-        itemData,
+        currentSchema.version || 1,
+        { sku },
         currentStockPoint.id
       );
       setItems([newItem, ...items]);
+      setSkuInput('');
     } catch (error) {
-      console.error("Erro ao salvar item:", error);
-      alert("Erro ao salvar item");
+      console.error("Erro ao salvar SKU:", error);
+      alert("Erro ao salvar SKU");
+    } finally {
+      setSkuSubmitting(false);
     }
   };
 
@@ -229,7 +256,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
             </h2>
             <p className="text-zinc-500 text-sm mt-1">
               {activeTab === 'dashboard' && 'Bem-vindo ao centro de comando do seu inventário.'}
-              {activeTab === 'stock_points' && 'Crie o ponto e faça o upload único dos itens.'}
+              {activeTab === 'stock_points' && 'Crie o ponto e cadastre os SKUs vinculados.'}
               {activeTab === 'designer' && 'Crie layouts de etiquetas profissionais com precisão milimétrica.'}
               {activeTab === 'movement_internal' && 'Gerencie a entrada e saida de itens no ponto de estocagem.'}
               {activeTab === 'operation' && 'Realize ajustes pontuais e conferências rápidos.'}
@@ -327,12 +354,33 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
 
                       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
                         <h2 className="text-lg font-bold flex items-center gap-2 mb-6">
-                          <Plus size={20} className="text-emerald-500" /> Cadastrar Item Manual
+                          <Plus size={20} className="text-emerald-500" /> Cadastrar SKU Manual
                         </h2>
-                        {currentSchema && currentStockPoint ? (
-                          <DynamicForm schema={currentSchema} onSubmit={handleAddItem} />
+                        {currentStockPoint ? (
+                          <form onSubmit={handleAddSku} className="space-y-4">
+                            <input
+                              type="text"
+                              placeholder="Digite o SKU..."
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white placeholder:text-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                              value={skuInput}
+                              onChange={(e) => setSkuInput(e.target.value)}
+                              disabled={skuSubmitting || !currentSchema}
+                            />
+                            <button
+                              type="submit"
+                              disabled={!skuInput.trim() || skuSubmitting || !currentSchema}
+                              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/10 transition-all active:scale-[0.98] disabled:bg-zinc-800"
+                            >
+                              {skuSubmitting ? "Salvando..." : "Cadastrar SKU"}
+                            </button>
+                          </form>
                         ) : (
-                          <p className="text-zinc-500 text-sm">Selecione um ponto e importe os itens primeiro.</p>
+                          <p className="text-zinc-500 text-sm">Selecione um ponto de estocagem para cadastrar SKUs.</p>
+                        )}
+                        {currentStockPoint && !currentSchema && (
+                          <p className="text-zinc-500 text-xs mt-3">
+                            Antes de cadastrar SKUs, crie as colunas do ponto abaixo.
+                          </p>
                         )}
                       </div>
 
@@ -340,7 +388,8 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         key={currentStockPoint?.id || 'no-point'}
                         tenantId={tenantId}
                         stockPointId={currentStockPoint?.id || null}
-                        defaultName={currentStockPoint?.name || ''}
+                        defaultName={currentStockPoint?.name ? `Itens - ${currentStockPoint.name}` : ''}
+                        currentSchema={currentSchema}
                         onImported={() => {
                           if (currentStockPoint) {
                             loadStockPointData(currentStockPoint.id);
@@ -384,7 +433,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         />
                       ) : (
                         <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
-                          <p className="text-zinc-500">Selecione um ponto e importe os itens.</p>
+                          <p className="text-zinc-500">Selecione um ponto e cadastre os SKUs.</p>
                         </div>
                       )}
                     </div>
@@ -426,6 +475,24 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
 
               {activeTab === 'designer' && (
                 <div className="animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="mb-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="text-sm text-zinc-400">
+                      Selecione o ponto de estocagem para carregar os campos.
+                    </div>
+                    <select
+                      className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-full md:w-72"
+                      value={currentStockPoint?.id || ''}
+                      onChange={(e) => {
+                        const selected = stockPoints.find(p => p.id === e.target.value) || null;
+                        setCurrentStockPoint(selected);
+                      }}
+                    >
+                      <option value="">Selecione um ponto de estocagem</option>
+                      {stockPoints.map(point => (
+                        <option key={point.id} value={point.id}>{point.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   {currentSchema ? (
                     <LabelDesigner 
                       schema={currentSchema}
