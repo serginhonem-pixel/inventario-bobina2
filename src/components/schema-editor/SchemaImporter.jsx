@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { parseFileToItemsBySchema, slugify } from '../../services/excel/excelParser';
+import { parseFileToItemsBySchema, parseFileToSchemaAndItems, slugify } from '../../services/excel/excelParser';
 import { saveSchema } from '../../services/firebase/schemaService';
 import { createItemsBulk } from '../../services/firebase/itemService';
 
@@ -40,9 +40,16 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
     if (selectedFile) {
       setFile(selectedFile);
       try {
-        const { items } = await parseFileToItemsBySchema(selectedFile, fields);
-        setItemsData(items || []);
-        setPreviewRows(items.slice(0, 5));
+        if (!schemaSaved) {
+          const { fields: parsedFields, items } = await parseFileToSchemaAndItems(selectedFile);
+          setFields(parsedFields);
+          setItemsData(items || []);
+          setPreviewRows((items || []).slice(0, 5));
+        } else {
+          const { items } = await parseFileToItemsBySchema(selectedFile, fields);
+          setItemsData(items || []);
+          setPreviewRows(items.slice(0, 5));
+        }
         if (!schemaName) setSchemaName(selectedFile.name.split('.')[0]);
       } catch (error) {
         alert("Erro ao processar arquivo: " + error);
@@ -111,10 +118,11 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
   };
 
   const handleSaveItems = async () => {
-    const schemaToUse = savedSchema || currentSchema;
+    let schemaToUse = savedSchema || currentSchema;
     if (!schemaSaved || !schemaToUse) {
-      alert("Salve as colunas antes de importar.");
-      return;
+      const created = await handleSaveSchema();
+      if (!created) return;
+      schemaToUse = created;
     }
     if (itemsData.length === 0) {
       alert("Nenhum item para importar.");
@@ -247,11 +255,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
             />
             <button
               type="button"
-              onClick={async () => {
-                if (!schemaSaved) {
-                  const saved = await handleSaveSchema();
-                  if (!saved) return;
-                }
+              onClick={() => {
                 fileInputRef.current?.click();
               }}
               className={`w-full ${schemaSaved ? 'text-zinc-400 hover:text-emerald-300' : 'text-zinc-600'} cursor-pointer`}
