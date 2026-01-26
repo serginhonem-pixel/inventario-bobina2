@@ -1,11 +1,11 @@
-﻿// src/App.jsx
+// src/App.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import appLogo from "../logo.png";
 import "./App.css";
 import LandingPage from "./landing";
 import { auth, db } from "./firebase";
 import { initialInventoryCatalog } from "./inventoryCatalog";
-// IMPORTANTE: Importamos o novo catálogo que acabamos de criar
+// IMPORTANTE: Importamos o novo catlogo que acabamos de criar
 import { profilesCatalog } from "./profilesCatalog";
 import { buildCatalogModel, searchCatalog } from "./catalogUtils";
 import QRCode from "qrcode";
@@ -56,7 +56,7 @@ const LoginComponent = ({ setUserName }) => {
             className="h-[220px] w-[220px] object-contain"
           />
         </div>
-        <h2 className="text-2xl font-bold text-emerald-300 mb-6 text-center tracking-wide">Identificação</h2>
+        <h2 className="text-2xl font-bold text-emerald-300 mb-6 text-center tracking-wide">Identificao</h2>
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="text"
@@ -84,7 +84,7 @@ const LoginComponent = ({ setUserName }) => {
 const QrScanner = ({ isOpen, onDetected, onClose }) => {
   const videoRef = useRef(null);
   const lastScanRef = useRef({ value: "", time: 0 });
-  const [status, setStatus] = useState("Iniciando câmera...");
+  const [status, setStatus] = useState("Iniciando cmera...");
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -112,7 +112,7 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
           ],
         });
       } catch (err) {
-        setStatus("Não foi possível iniciar o leitor.");
+        setStatus("No foi possvel iniciar o leitor.");
         return;
       }
 
@@ -122,7 +122,7 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
           audio: false,
         });
       } catch (err) {
-        setStatus("Permissão de câmera negada.");
+        setStatus("Permisso de cmera negada.");
         return;
       }
 
@@ -134,11 +134,11 @@ const QrScanner = ({ isOpen, onDetected, onClose }) => {
       try {
         await videoRef.current.play();
       } catch (err) {
-        setStatus("Não foi possível iniciar o vídeo.");
+        setStatus("No foi possvel iniciar o vdeo.");
         return;
       }
 
-      setStatus("Aponte a câmera para o QR code ou código de barras.");
+      setStatus("Aponte a cmera para o QR code ou cdigo de barras.");
 
       const scan = async () => {
         if (!active || !videoRef.current) return;
@@ -214,7 +214,7 @@ const App = () => {
   const [showLanding, setShowLanding] = useState(true);
   const [activeMenu, setActiveMenu] = useState("inventory");
   
-  // ESTADO PARA O TIPO DE INVENTÁRIO (Bobina ou Perfil)
+  // ESTADO PARA O TIPO DE INVENTRIO (Bobina ou Perfil)
   const [inventoryType, setInventoryType] = useState("coil"); // 'coil' ou 'profile'
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -318,6 +318,7 @@ const App = () => {
   const [qrCache, setQrCache] = useState({});
   const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showGuides, setShowGuides] = useState(true);
   const [isBatchStale, setIsBatchStale] = useState(false);
   const labelInitRef = useRef(true);
   const [extraFields, setExtraFields] = useState([]);
@@ -327,7 +328,7 @@ const App = () => {
 
   const appId = "inventario-bobina2";
 
-  // LOGIN ANÔNIMO
+  // LOGIN ANNIMO
   useEffect(() => {
     const saved = localStorage.getItem("inventoryUserName");
     if (saved) setUserName(saved);
@@ -414,7 +415,7 @@ const App = () => {
     return () => unsub();
   }, [uid, isAuthReady]);
 
-  // RESETAR SELEÇÃO AO MUDAR DE ABA
+  // RESETAR SELEO AO MUDAR DE ABA
   useEffect(() => {
     setSelectedItem(null);
     setSearchTerm("");
@@ -620,7 +621,7 @@ const App = () => {
       if (!keepSelecting) {
         setIsSelecting(false);
       }
-      pushMessage(`Lançado: ${numeric} (${item.id})`, "success", 1500);
+      pushMessage(`Lanado: ${numeric} (${item.id})`, "success", 1500);
       if (navigator.vibrate) navigator.vibrate(80);
     } catch (err) {
       pushMessage("Erro ao salvar no Firestore.", "error", 3000);
@@ -642,7 +643,7 @@ const App = () => {
 
     const numeric = parseNumericValue(weight);
     if (!numeric) {
-      pushMessage("Valor inválido.", "error", 2500);
+      pushMessage("Valor invlido.", "error", 2500);
       return;
     }
 
@@ -665,7 +666,7 @@ const App = () => {
     if (!inventoryLaunches.length) return;
 
     // Adicionamos a coluna "Tipo" no CSV
-    const header = "Data;Tipo;ID;Descrição;Peso/Qtd;Usuário\n";
+    const header = "Data;Tipo;ID;Descrio;Peso/Qtd;Usurio\n";
     const rows = inventoryLaunches
       .map((l) =>
         [
@@ -686,7 +687,7 @@ const App = () => {
     link.click();
   };
 
-  // FILTRO INTELIGENTE (Define qual catálogo usar)
+  // FILTRO INTELIGENTE (Define qual catlogo usar)
   const coilCatalogModel = useMemo(
     () => buildCatalogModel(initialInventoryCatalog, "bobinas"),
     []
@@ -886,13 +887,13 @@ const App = () => {
   const handleQrDetected = async (payload) => {
     const parsed = parseQrPayload(payload);
     if (!parsed || !parsed.id) {
-      pushMessage("QR inválido.", "error", 2500);
+      pushMessage("QR invlido.", "error", 2500);
       return;
     }
 
     const itemIndex = activeCatalogModel.byId.get(parsed.id);
     if (itemIndex === undefined) {
-      pushMessage(`Item não encontrado: ${parsed.id}`, "error", 2500);
+      pushMessage(`Item no encontrado: ${parsed.id}`, "error", 2500);
       return;
     }
 
@@ -2808,7 +2809,7 @@ const App = () => {
             />
           </div>
           <p className="text-xs sm:text-sm text-zinc-400 break-words text-center">
-            Usuário: <strong>{userName}</strong>
+            Usurio: <strong>{userName}</strong>
           </p>
 
           {message && (
@@ -2828,7 +2829,7 @@ const App = () => {
             }`}
             onClick={() => setActiveMenu("inventory")}
           >
-            Inventário
+            Inventrio
           </button>
           <button
             type="button"
@@ -2886,7 +2887,7 @@ const App = () => {
 
         {isSelecting && !isQrOpen && (
           <div className="bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
-            <h2 className="text-lg font-bold text-emerald-300 mb-2">Catálogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
+            <h2 className="text-lg font-bold text-emerald-300 mb-2">Catlogo de {inventoryType === "coil" ? "Bobinas" : "Perfis"} ({filteredCatalog.length})</h2>
 
             <div className="flex items-center justify-between mb-2">
               <button
@@ -2900,7 +2901,7 @@ const App = () => {
 
             <input
               className="w-full border border-zinc-800 bg-zinc-900/70 p-2 rounded-lg mb-3 text-zinc-100 placeholder:text-zinc-500"
-              placeholder={`Buscar código ou descrição...`}
+              placeholder={`Buscar cdigo ou descrio...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               autoFocus
@@ -2975,8 +2976,8 @@ const App = () => {
                   {inventoryType === "coil" ? "Peso (kg)" : "Quantidade ou Peso"}
                 </label>
                 <input
-                  type="text" // Mantemos text para permitir vírgula fácil
-                  inputMode="decimal" // Teclado numérico no celular
+                  type="text" // Mantemos text para permitir vrgula fcil
+                  inputMode="decimal" // Teclado numrico no celular
                   placeholder={inventoryType === "coil" ? "Ex: 1250,5" : "Ex: 50"}
                   className="w-full border border-zinc-800 bg-zinc-900/70 p-3 rounded-xl text-lg text-zinc-100 placeholder:text-zinc-500"
                   value={weight}
@@ -2985,7 +2986,7 @@ const App = () => {
                 />
               </div>
 
-              <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-black p-4 rounded-xl shadow font-bold text-lg">CONFIRMAR LANÇAMENTO</button>
+              <button className="w-full bg-emerald-500 hover:bg-emerald-400 text-black p-4 rounded-xl shadow font-bold text-lg">CONFIRMAR LANAMENTO</button>
             </form>
           )}
         </div>
@@ -3007,7 +3008,7 @@ const App = () => {
             </div>
             {message && messageType === "success" && (
               <div className="mb-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 p-3 text-center text-sm font-bold text-emerald-200">
-                Lançamento OK
+                Lanamento OK
               </div>
             )}
             <QrScanner
@@ -3093,8 +3094,8 @@ const App = () => {
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-4">
             <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-4">
               <div>
-                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">📐 Tamanho</p>
-                <label className="block text-xs text-zinc-400 mb-1">Tamanho padrão</label>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Tamanho</p>
+                <label className="block text-xs text-zinc-400 mb-1">Tamanho padro</label>
                 <select
                   value={labelSettings.preset}
                   onChange={(e) => applyLabelPreset(e.target.value)}
@@ -3109,7 +3110,7 @@ const App = () => {
                 </select>
               </div>
 
-              <p className="text-[11px] text-zinc-500 uppercase tracking-widest">🧭 Layout</p>
+              <p className="text-[11px] text-zinc-500 uppercase tracking-widest">?? Layout</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1">Largura (cm)</label>
@@ -3202,7 +3203,7 @@ const App = () => {
               </div>
 
               <div className="mt-4 border border-zinc-800 rounded-xl p-3 bg-zinc-950/60">
-                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">🧾 Cabeçalho e rodapé</p>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Cabealho e rodap</p>
                 {!canUseHeaderFooter ? (
                   <p className="text-[11px] text-zinc-500">
                     Disponivel apenas para etiquetas a partir de 100x150mm.
@@ -3590,10 +3591,10 @@ const App = () => {
                 )}
               </div>
 
-              <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">🔤 Tipografia</p>
+              <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Tipografia</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Fonte código (px)</label>
+                  <label className="block text-xs text-zinc-400 mb-1">Fonte cdigo (px)</label>
                   <input
                     type="number"
                     className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
@@ -3604,7 +3605,7 @@ const App = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Fonte descrição (px)</label>
+                  <label className="block text-xs text-zinc-400 mb-1">Fonte descrio (px)</label>
                   <input
                     type="number"
                     className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
@@ -3639,7 +3640,7 @@ const App = () => {
               </div>
 
               <div>
-                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">🧩 Campos e ordem</p>
+                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Campos e ordem</p>
                 <div className="space-y-2">
                   {labelFields
                     .filter((field) => field.key !== "test" && normalizeKey(field.label || "") !== "texto_teste")
@@ -3857,10 +3858,27 @@ const App = () => {
               <p className="text-[11px] text-zinc-500 mb-3">
                 Arraste os blocos no grid (3 colunas: esquerda/centro/direita).
               </p>
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-zinc-500 mb-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showGuides}
+                    onChange={() => setShowGuides((prev) => !prev)}
+                  />
+                  Mostrar guias
+                </label>
+                <button
+                  type="button"
+                  className="text-[11px] text-zinc-400 hover:text-zinc-200"
+                  onClick={() => setSelectedBlockKey(null)}
+                >
+                  Limpar selecao
+                </button>
+              </div>
               <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 overflow-visible flex justify-center">
                     <div className="rounded-xl border border-zinc-300 bg-white" style={previewLabelStyle}>
                   {renderLabelLayout(labelItems[0] || {}, previewQrSrc, previewBarcodeSrc, {
-                    showGuides: true,
+                    showGuides,
                     highlightKey: selectedBlockKey,
                     onBlockClick: setSelectedBlockKey,
                     gridRef,
@@ -3910,7 +3928,7 @@ const App = () => {
       {activeMenu === "inventory" && (
       <section className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="font-bold text-emerald-300 text-lg">Histórico de Lançamentos</h2>
+          <h2 className="font-bold text-emerald-300 text-lg">Histrico de Lanamentos</h2>
 
           <button
             onClick={handleExport}
@@ -3921,7 +3939,7 @@ const App = () => {
         </div>
 
         {!inventoryLaunches.length ? (
-          <p className="text-zinc-400 text-center py-4 bg-zinc-900/60 border border-zinc-800 rounded-lg">Nenhum lançamento realizado ainda.</p>
+          <p className="text-zinc-400 text-center py-4 bg-zinc-900/60 border border-zinc-800 rounded-lg">Nenhum lanamento realizado ainda.</p>
         ) : (
           <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             {inventoryLaunches.map((item) => (
@@ -4074,7 +4092,7 @@ const App = () => {
                   className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-1"
                 >
                   <option value="pequeno">Pequeno (4x4cm)</option>
-                  <option value="medio">Médio (6x4cm)</option>
+                  <option value="medio">Mdio (6x4cm)</option>
                   <option value="grande">Grande (8x5cm)</option>
                   <option value="custom">Personalizado</option>
                 </select>
@@ -4219,7 +4237,7 @@ const App = () => {
                 className="border border-zinc-700 text-zinc-200 bg-zinc-900/40 hover:bg-zinc-800/60 px-3 py-2 rounded-xl text-xs font-semibold"
                 onClick={handlePrintBatch}
               >
-                Visualizar impressão
+                Visualizar impresso
               </button>
               <button
                 type="button"
@@ -4283,6 +4301,21 @@ const App = () => {
 };
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
