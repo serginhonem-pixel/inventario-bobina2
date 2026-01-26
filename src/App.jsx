@@ -8,6 +8,7 @@ import { initialInventoryCatalog } from "./inventoryCatalog";
 // IMPORTANTE: Importamos o novo catlogo que acabamos de criar
 import { profilesCatalog } from "./profilesCatalog";
 import { buildCatalogModel, searchCatalog } from "./catalogUtils";
+import LabelEditor from "./LabelEditor";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
 import * as XLSX from "xlsx";
@@ -238,7 +239,7 @@ const App = () => {
   const [savedLabelLayouts, setSavedLabelLayouts] = useState([]);
   const [selectedSavedLayoutId, setSelectedSavedLayoutId] = useState("");
   const [labelSettings, setLabelSettings] = useState({
-    preset: "100x150",
+    preset: "60x40",
     widthCm: 10,
     heightCm: 15,
     qrCm: 6,
@@ -297,6 +298,7 @@ const App = () => {
     gridSizeCm: 0.5,
     blocks: {},
   });
+  const [removedBlocks, setRemovedBlocks] = useState([]);
   const [selectedBlockKey, setSelectedBlockKey] = useState(null);
   const [draggingBlockKey, setDraggingBlockKey] = useState(null);
   const [selectedHeaderSection, setSelectedHeaderSection] = useState(null);
@@ -1467,6 +1469,7 @@ const App = () => {
       onGridPointerMove,
       onGridPointerUp,
       onBlockPointerDown,
+      onDrop,
     } = options;
     const layout = normalizeLabelLayout(labelLayout, labelFields);
     const metrics = getLabelGridMetrics(layout.gridSizeCm);
@@ -1514,17 +1517,19 @@ const App = () => {
             height: `${gridHeightCm}cm`,
             ...gridBackground,
           }}
-          onClick={onGridClick}
-          onPointerMove={onGridPointerMove}
-          onPointerUp={onGridPointerUp}
-          onPointerLeave={onGridPointerUp}
           onClick={(event) => {
+            if (onGridClick) onGridClick(event);
             if (suppressClickRef.current) return;
             if (event.target === event.currentTarget) {
               if (highlightKey && onBlockClick) onBlockClick(null);
               setSelectedHeaderSection(null);
             }
           }}
+          onPointerMove={onGridPointerMove}
+          onPointerUp={onGridPointerUp}
+          onPointerLeave={onGridPointerUp}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onDrop}
         >
           {showHeader && (
             <div
@@ -1532,7 +1537,7 @@ const App = () => {
               style={{
                 left: `0cm`,
                 top: `0cm`,
-                width: `${innerWidthCm}cm`,
+                width: `${metrics.innerWidthCm}cm`,
                 height: `${labelSettings.headerBoxHcm}cm`,
                 border: labelSettings.headerBorder
                   ? `1px solid ${labelSettings.headerBorderColor || "#1f2937"}`
@@ -1810,8 +1815,8 @@ const App = () => {
           {selectedHeaderSection && (() => {
             const isHeader = selectedHeaderSection === "header";
             const boxX = 0;
-            const boxY = isHeader ? 0 : Math.max(0, innerHeightCm - labelSettings.footerBoxHcm);
-            const boxW = innerWidthCm;
+            const boxY = isHeader ? 0 : Math.max(0, metrics.innerHeightCm - labelSettings.footerBoxHcm);
+            const boxW = metrics.innerWidthCm;
             const boxH = isHeader ? labelSettings.headerBoxHcm : labelSettings.footerBoxHcm;
             const logoX = isHeader ? labelSettings.headerLogoXcm : labelSettings.footerLogoXcm;
             const logoY = isHeader ? labelSettings.headerLogoYcm : labelSettings.footerLogoYcm;
@@ -1933,7 +1938,7 @@ const App = () => {
               className={`absolute overflow-hidden cursor-pointer ${selectedHeaderSection === "footer" ? "ring-2 ring-emerald-400 bg-emerald-200/20" : ""}`}
               style={{
                 left: `0cm`,
-                top: `${Math.max(0, innerHeightCm - labelSettings.footerBoxHcm)}cm`,
+                top: `${Math.max(0, metrics.innerHeightCm - labelSettings.footerBoxHcm)}cm`,
                 width: `${innerWidthCm}cm`,
                 height: `${labelSettings.footerBoxHcm}cm`,
                 border: labelSettings.footerBorder
@@ -1983,12 +1988,15 @@ const App = () => {
       : "bg-cyan-500/10 text-cyan-200 border border-cyan-500/30";
 
   const labelPresets = {
-    "50x30": { widthCm: 5, heightCm: 3, qrCm: 2.4 },
-    "60x40": { widthCm: 6, heightCm: 4, qrCm: 3 },
-    "80x50": { widthCm: 8, heightCm: 5, qrCm: 4 },
-    "100x100": { widthCm: 10, heightCm: 10, qrCm: 5.5 },
-    "100x150": { widthCm: 10, heightCm: 15, qrCm: 6 },
-    personalizado: { widthCm: 6, heightCm: 4, qrCm: 3 },
+    "40x20": { widthCm: 4, heightCm: 2, qrCm: 1.8, paddingXCm: 0.2, paddingYCm: 0.2, gridSizeCm: 0.4 },
+    "50x30": { widthCm: 5, heightCm: 3, qrCm: 2.4, paddingXCm: 0.3, paddingYCm: 0.3, gridSizeCm: 0.5 },
+    "60x40": { widthCm: 6, heightCm: 4, qrCm: 3, paddingXCm: 0.4, paddingYCm: 0.4, gridSizeCm: 0.6 },
+    "70x30": { widthCm: 7, heightCm: 3, qrCm: 2.8, paddingXCm: 0.4, paddingYCm: 0.3, gridSizeCm: 0.5 },
+    "80x50": { widthCm: 8, heightCm: 5, qrCm: 4, paddingXCm: 0.5, paddingYCm: 0.5, gridSizeCm: 0.7 },
+    "100x50": { widthCm: 10, heightCm: 5, qrCm: 4.5, paddingXCm: 0.6, paddingYCm: 0.4, gridSizeCm: 0.8 },
+    "100x100": { widthCm: 10, heightCm: 10, qrCm: 5.5, paddingXCm: 0.7, paddingYCm: 0.7, gridSizeCm: 1.0 },
+    "100x150": { widthCm: 10, heightCm: 15, qrCm: 6, paddingXCm: 0.8, paddingYCm: 1.0, gridSizeCm: 1.2 },
+    personalizado: { widthCm: 6, heightCm: 4, qrCm: 3, paddingXCm: 0.4, paddingYCm: 0.4, gridSizeCm: 0.6 },
   };
   const applyAutoSizing = (widthCm, heightCm) => {
     const base = Math.min(widthCm, heightCm);
@@ -2004,15 +2012,124 @@ const App = () => {
       fontMeta,
     }));
   };
+  const adjustBlocksForSize = (preset) => {
+    const presetData = labelPresets[preset];
+    if (!presetData) return;
+    const { widthCm, heightCm, paddingXCm = 0.4, paddingYCm = 0.4, gridSizeCm = 0.5 } = presetData;
+    const innerWidthCm = widthCm - paddingXCm * 2;
+    const innerHeightCm = heightCm - paddingYCm * 2;
+    const cols = Math.floor(innerWidthCm / gridSizeCm);
+    const rows = Math.floor(innerHeightCm / gridSizeCm);
+
+    setLabelLayout((prev) => {
+      const blocks = { ...prev.blocks };
+      const toRemove = [];
+      Object.entries(blocks).forEach(([key, block]) => {
+        if (key !== 'qr' && (block.x + block.w > cols || block.y + block.h > rows)) {
+          delete blocks[key];
+          toRemove.push(key);
+        }
+      });
+      setRemovedBlocks(toRemove);
+      return { ...prev, blocks };
+    });
+  };
   const applyLabelPreset = (preset) => {
-    if (!labelPresets[preset]) return;
-    const next = { ...labelPresets[preset] };
-    setLabelSettings((prev) => ({
+    const presetData = labelPresets[preset];
+    if (!presetData) return;
+    const { widthCm, heightCm, paddingXCm = 0.4, paddingYCm = 0.4, gridSizeCm = 0.5 } = presetData;
+    const innerWidthCm = widthCm - paddingXCm * 2;
+    const innerHeightCm = heightCm - paddingYCm * 2;
+    const cols = Math.floor(innerWidthCm / gridSizeCm);
+    const rows = Math.floor(innerHeightCm / gridSizeCm);
+
+    // Layouts automáticos baseados no tamanho
+    let autoBlocks = {};
+    if (preset === "40x20") {
+      // Pequeno: apenas qr
+      autoBlocks = {
+        qr: { x: 0, y: 0, w: 2, h: 2 },
+      };
+    } else if (preset === "50x30") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 3, h: 1 },
+        description: { x: 0, y: 1, w: 3, h: 1 },
+        qr: { x: 3, y: 0, w: 2, h: 3 },
+        qty: { x: 0, y: 2, w: 2, h: 1 },
+        weight: { x: 2, y: 2, w: 2, h: 1 },
+      };
+    } else if (preset === "60x40") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 4, h: 1 },
+        description: { x: 0, y: 1, w: 4, h: 1 },
+        qr: { x: 4, y: 0, w: 3, h: 4 },
+        qty: { x: 0, y: 2, w: 2, h: 1 },
+        weight: { x: 2, y: 2, w: 2, h: 1 },
+      };
+    } else if (preset === "70x30") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 5, h: 1 },
+        description: { x: 0, y: 1, w: 5, h: 1 },
+        qr: { x: 5, y: 0, w: 2, h: 3 },
+        qty: { x: 0, y: 2, w: 3, h: 1 },
+        weight: { x: 3, y: 2, w: 3, h: 1 },
+      };
+    } else if (preset === "80x50") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 5, h: 1 },
+        description: { x: 0, y: 1, w: 5, h: 1 },
+        qr: { x: 5, y: 0, w: 3, h: 4 },
+        qty: { x: 0, y: 2, w: 3, h: 1 },
+        weight: { x: 3, y: 2, w: 3, h: 1 },
+        location: { x: 0, y: 3, w: 5, h: 1 },
+      };
+    } else if (preset === "100x50") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 7, h: 1 },
+        description: { x: 0, y: 1, w: 7, h: 1 },
+        qr: { x: 7, y: 0, w: 3, h: 4 },
+        qty: { x: 0, y: 2, w: 4, h: 1 },
+        weight: { x: 4, y: 2, w: 4, h: 1 },
+        location: { x: 0, y: 3, w: 7, h: 1 },
+      };
+    } else if (preset === "100x100") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 6, h: 1 },
+        description: { x: 0, y: 1, w: 6, h: 1 },
+        qr: { x: 6, y: 0, w: 4, h: 6 },
+        qty: { x: 0, y: 2, w: 3, h: 1 },
+        weight: { x: 3, y: 2, w: 3, h: 1 },
+        location: { x: 0, y: 3, w: 6, h: 1 },
+        // Espaço para mais campos
+      };
+    } else if (preset === "100x150") {
+      autoBlocks = {
+        id: { x: 0, y: 0, w: 5, h: 1 },
+        description: { x: 0, y: 1, w: 5, h: 1 },
+        qr: { x: 5, y: 0, w: 5, h: 10 }, // QR maior e separado
+        qty: { x: 0, y: 2, w: 3, h: 1 },
+        weight: { x: 3, y: 2, w: 2, h: 1 },
+        location: { x: 0, y: 3, w: 5, h: 1 },
+        // Espaço para cabeçalho/rodapé
+      };
+    }
+
+    // Aplicar os blocos automáticos ao layout, garantindo blocos para todos os campos enabled
+    const allBlocks = {};
+    labelFields.forEach((field) => {
+      if (field.enabled) {
+        allBlocks[field.key] = autoBlocks[field.key] || { x: 0, y: 0, w: 1, h: 1 }; // Bloco padrão se não definido
+      }
+    });
+    setLabelLayout((prev) => ({
       ...prev,
-      preset,
-      ...next,
+      blocks: { ...prev.blocks, ...allBlocks },
     }));
-    applyAutoSizing(next.widthCm, next.heightCm);
+
+    // Após definir, ajustar blocos que não cabem
+    setTimeout(() => {
+      adjustBlocksForSize(preset);
+    }, 0);
   };
   const updateLabelSetting = (field, value) => {
     setLabelSettings((prev) => {
@@ -2324,12 +2441,30 @@ const App = () => {
         blocks[key] ||
         buildDefaultBlocks(labelFields, metrics.cols, metrics.rows, metrics.gridSizeCm, reserved)[key];
       const next = clampBlockToGrid({ ...current, ...patch }, metrics.cols, metrics.rows);
-      if (hasBlockCollision(next, blocks, key, reserved)) {
+      // Permitir redimensionamento (w/h) mesmo com colisão, mas não movimento (x/y)
+      const isOnlyResize = Object.keys(patch).every(k => k === 'w' || k === 'h');
+      if (!isOnlyResize && hasBlockCollision(next, blocks, key, reserved)) {
         if (allowSwap) {
           const collidingKeys = Object.entries(blocks)
             .filter(([blockKey, block]) => blockKey !== key && block && blocksOverlap(next, block))
             .map(([blockKey]) => blockKey);
-          if (collidingKeys.length) {
+          if (collidingKeys.length === 1) {
+            // Trocar posições diretamente com o bloco conflitante
+            const collidedKey = collidingKeys[0];
+            const collidedBlock = blocks[collidedKey];
+            const currentBlock = blocks[key];
+            const nextBlocks = {
+              ...blocks,
+              [key]: { ...next },
+              [collidedKey]: { ...collidedBlock, x: currentBlock.x, y: currentBlock.y }
+            };
+            return {
+              ...prev,
+              gridSizeCm: metrics.gridSizeCm,
+              blocks: nextBlocks,
+            };
+          } else {
+            // Múltiplas colisões, tentar encontrar spots livres
             const nextBlocks = { ...blocks, [key]: next };
             let resolved = true;
             collidingKeys.forEach((collidedKey) => {
@@ -2579,6 +2714,15 @@ const App = () => {
       return next;
     });
   };
+  // Adicione esta função logo após a função moveLabelField existente
+  const reorderLabelFields = (oldIndex, newIndex) => {
+    setLabelFields((prev) => {
+      const result = [...prev];
+      const [removed] = result.splice(oldIndex, 1);
+      result.splice(newIndex, 0, removed);
+      return result;
+    });
+  };
   const cmToPx = (cm) => Math.round(cm * 37.795);
   const labelPaddingX = labelSettings.paddingXCm ?? labelSettings.paddingCm;
   const labelPaddingY = labelSettings.paddingYCm ?? labelSettings.paddingCm;
@@ -2706,11 +2850,6 @@ const App = () => {
       const reserved = getReservedRects(metrics);
       const blocks = buildNiceTemplateBlocks(labelFields, metrics, reserved);
       return { ...prev, blocks };
-    });
-    setLabelSettings((prev) => {
-      if (prev.preset === "100x150") return prev;
-      const next = { ...labelPresets["100x150"] };
-      return { ...prev, preset: "100x150", ...next };
     });
   }, [
     activeMenu,
@@ -3024,905 +3163,54 @@ const App = () => {
       )}
 
       {activeMenu === "label-editor" && (
-        <section className="w-full max-w-none sm:max-w-6xl lg:max-w-7xl mx-auto mt-6 sm:mt-8 bg-zinc-950/80 border border-zinc-800/80 p-4 sm:p-6 rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.5)]">
-          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-            <div>
-              <h2 className="font-bold text-emerald-300 text-lg">Criacao de etiqueta</h2>
-              <p className="text-xs text-zinc-400">
-                Ajuste tamanhos e posicione os blocos no grid da etiqueta.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="text-xs text-emerald-300 underline hover:text-emerald-200"
-              onClick={() => setShowPrintPreview((prev) => !prev)}
-            >
-              {showPrintPreview ? "Ocultar impressao" : "Visualizar impressao"}
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 mb-4">
-            <p className="text-xs text-zinc-400 mb-2">Salvar layout no Firebase</p>
-            <div className="flex flex-wrap gap-2">
-              <input
-                type="text"
-                className="flex-1 min-w-[180px] bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                placeholder="Nome do layout (opcional)"
-                value={labelLayoutName}
-                onChange={(e) => setLabelLayoutName(e.target.value)}
-              />
-              <button
-                type="button"
-                className="bg-emerald-500/90 text-black px-3 py-2 rounded-lg text-xs font-semibold hover:bg-emerald-400"
-                onClick={handleSaveLabelLayout}
-              >
-                Salvar
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <select
-                value={selectedSavedLayoutId}
-                onChange={(e) => setSelectedSavedLayoutId(e.target.value)}
-                className="flex-1 min-w-[200px] bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-2"
-              >
-                <option value="">Carregar layout salvo</option>
-                {savedLabelLayouts.map((layout) => (
-                  <option key={layout.id} value={layout.id}>
-                    {formatSavedLayoutLabel(layout)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="border border-zinc-700 text-zinc-200 bg-zinc-900/40 hover:bg-zinc-800/60 px-3 py-2 rounded-lg text-xs font-semibold"
-                onClick={() => handleLoadSavedLayout(selectedSavedLayoutId)}
-                disabled={!selectedSavedLayoutId}
-              >
-                Carregar
-              </button>
-              <button
-                type="button"
-                className="border border-rose-700/70 text-rose-200 bg-rose-900/20 hover:bg-rose-900/40 px-3 py-2 rounded-lg text-xs font-semibold"
-                onClick={() => handleDeleteSavedLayout(selectedSavedLayoutId)}
-                disabled={!selectedSavedLayoutId}
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-4">
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 space-y-4">
-              <div>
-                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Tamanho</p>
-                <label className="block text-xs text-zinc-400 mb-1">Tamanho padro</label>
-                <select
-                  value={labelSettings.preset}
-                  onChange={(e) => applyLabelPreset(e.target.value)}
-                  className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2"
-                >
-                  <option value="50x30">50x30 mm</option>
-                  <option value="60x40">60x40 mm</option>
-                  <option value="80x50">80x50 mm</option>
-                  <option value="100x100">100x100 mm</option>
-                  <option value="100x150">100x150 mm</option>
-                  <option value="personalizado">Personalizado</option>
-                </select>
-              </div>
-
-              <p className="text-[11px] text-zinc-500 uppercase tracking-widest">?? Layout</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Largura (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.widthCm}
-                    onChange={(e) =>
-                      updateLabelSetting("widthCm", parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Altura (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.heightCm}
-                    onChange={(e) =>
-                      updateLabelSetting("heightCm", parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">QR (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.qrCm}
-                    onChange={(e) =>
-                      updateLabelSetting("qrCm", parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Padding horizontal (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.paddingXCm}
-                    onChange={(e) =>
-                      updateLabelSetting("paddingXCm", parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Padding vertical (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.paddingYCm}
-                    onChange={(e) =>
-                      updateLabelSetting("paddingYCm", parseFloat(e.target.value) || 0)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Alinhamento texto</label>
-                  <select
-                    value={labelLayout.align}
-                    onChange={(e) => updateLabelLayout("align", e.target.value)}
-                    className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2 w-full"
-                  >
-                    <option value="left">Esquerda</option>
-                    <option value="center">Centro</option>
-                    <option value="right">Direita</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Altura minima do grid (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0.2"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelLayout.gridSizeCm ?? 0.5}
-                    onChange={(e) =>
-                      updateLabelLayout("gridSizeCm", parseFloat(e.target.value) || 0.5)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 border border-zinc-800 rounded-xl p-3 bg-zinc-950/60">
-                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Cabealho e rodap</p>
-                {!canUseHeaderFooter ? (
-                  <p className="text-[11px] text-zinc-500">
-                    Disponivel apenas para etiquetas a partir de 100x150mm.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <label className="flex items-center gap-2 text-xs text-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={labelSettings.headerEnabled}
-                          onChange={() =>
-                            updateLabelSetting("headerEnabled", !labelSettings.headerEnabled)
-                          }
-                        />
-                        Cabecalho
-                      </label>
-                      <label className="flex items-center gap-2 text-xs text-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={labelSettings.footerEnabled}
-                          onChange={() =>
-                            updateLabelSetting("footerEnabled", !labelSettings.footerEnabled)
-                          }
-                        />
-                        Rodape
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <label className="flex items-center gap-2 text-xs text-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={labelSettings.headerLogoEnabled}
-                          onChange={() =>
-                            updateLabelSetting(
-                              "headerLogoEnabled",
-                              !labelSettings.headerLogoEnabled
-                            )
-                          }
-                        />
-                        Logo no cabecalho
-                      </label>
-                      <label className="flex items-center gap-2 text-xs text-zinc-200">
-                        <input
-                          type="checkbox"
-                          checked={labelSettings.footerLogoEnabled}
-                          onChange={() =>
-                            updateLabelSetting(
-                              "footerLogoEnabled",
-                              !labelSettings.footerLogoEnabled
-                            )
-                          }
-                        />
-                        Logo no rodape
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                        placeholder="Texto do cabecalho"
-                        value={labelSettings.headerText}
-                        onChange={(e) => updateLabelSetting("headerText", e.target.value)}
-                      />
-                      <input
-                        type="text"
-                        className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                        placeholder="Texto do rodape"
-                        value={labelSettings.footerText}
-                        onChange={(e) => updateLabelSetting("footerText", e.target.value)}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho X (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerBoxXcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerBoxXcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho Y (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerBoxYcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerBoxYcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho L (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerBoxWcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerBoxWcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Cabecalho A (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerBoxHcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerBoxHcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo cab X (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerLogoXcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerLogoXcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo cab Y (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerLogoYcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerLogoYcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo cab L (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerLogoWcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerLogoWcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo cab A (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerLogoHcm}
-                          onChange={(e) =>
-                            updateLabelSetting("headerLogoHcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Fonte cabecalho (px)
-                        </label>
-                        <input
-                          type="number"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.headerFont}
-                          onChange={(e) =>
-                            updateLabelSetting(
-                              "headerFont",
-                              parseInt(e.target.value, 10) || 0
-                            )
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Fonte rodape (px)
-                        </label>
-                        <input
-                          type="number"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerFont}
-                          onChange={(e) =>
-                            updateLabelSetting(
-                              "footerFont",
-                              parseInt(e.target.value, 10) || 0
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Texto cabecalho
-                        </label>
-                        <select
-                          value={labelSettings.headerTextAlign}
-                          onChange={(e) => updateLabelSetting("headerTextAlign", e.target.value)}
-                          className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2 w-full"
-                        >
-                          <option value="left">Esquerda</option>
-                          <option value="center">Centro</option>
-                          <option value="right">Direita</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Texto rodape
-                        </label>
-                        <select
-                          value={labelSettings.footerTextAlign}
-                          onChange={(e) => updateLabelSetting("footerTextAlign", e.target.value)}
-                          className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2 w-full"
-                        >
-                          <option value="left">Esquerda</option>
-                          <option value="center">Centro</option>
-                          <option value="right">Direita</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Logo cabecalho
-                        </label>
-                        <select
-                          value={labelSettings.headerLogoAlign}
-                          onChange={(e) => updateLabelSetting("headerLogoAlign", e.target.value)}
-                          className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2 w-full"
-                        >
-                          <option value="left">Esquerda</option>
-                          <option value="center">Centro</option>
-                          <option value="right">Direita</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Logo rodape
-                        </label>
-                        <select
-                          value={labelSettings.footerLogoAlign}
-                          onChange={(e) => updateLabelSetting("footerLogoAlign", e.target.value)}
-                          className="bg-zinc-900/60 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-3 py-2 w-full"
-                        >
-                          <option value="left">Esquerda</option>
-                          <option value="center">Centro</option>
-                          <option value="right">Direita</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Rodape X (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerBoxXcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerBoxXcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Rodape Y (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerBoxYcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerBoxYcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Rodape L (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerBoxWcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerBoxWcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Rodape A (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerBoxHcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerBoxHcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo rod X (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerLogoXcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerLogoXcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo rod Y (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerLogoYcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerLogoYcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo rod L (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerLogoWcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerLogoWcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Logo rod A (cm)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                          value={labelSettings.footerLogoHcm}
-                          onChange={(e) =>
-                            updateLabelSetting("footerLogoHcm", parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg"
-                        className="text-xs text-zinc-400"
-                        onChange={(e) => handleLogoUpload(e.target.files?.[0])}
-                      />
-                      {labelSettings.logoDataUrl && (
-                        <button
-                          type="button"
-                          className="text-xs text-rose-300 hover:text-rose-200"
-                          onClick={() => updateLabelSetting("logoDataUrl", "")}
-                        >
-                          Remover logo
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Tipografia</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Fonte cdigo (px)</label>
-                  <input
-                    type="number"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.fontTitle}
-                    onChange={(e) =>
-                      updateLabelSetting("fontTitle", parseInt(e.target.value, 10) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Fonte descrio (px)</label>
-                  <input
-                    type="number"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.fontDesc}
-                    onChange={(e) =>
-                      updateLabelSetting("fontDesc", parseInt(e.target.value, 10) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Fonte infos (px)</label>
-                  <input
-                    type="number"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.fontMeta}
-                    onChange={(e) =>
-                      updateLabelSetting("fontMeta", parseInt(e.target.value, 10) || 0)
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Fonte titulo (px)</label>
-                  <input
-                    type="number"
-                    className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    value={labelSettings.fontLabel}
-                    onChange={(e) =>
-                      updateLabelSetting("fontLabel", parseInt(e.target.value, 10) || 0)
-                    }
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[11px] text-zinc-500 uppercase tracking-widest mb-2">?? Campos e ordem</p>
-                <div className="space-y-2">
-                  {labelFields
-                    .filter((field) => field.key !== "test" && normalizeKey(field.label || "") !== "texto_teste")
-                    .map((field) => {
-                      const block = resolvedLayout.blocks?.[field.key];
-                      return (
-                        <div
-                          key={field.key}
-                          className="rounded-lg border border-zinc-800 bg-zinc-950/60 px-3 py-2"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <label className="flex items-center gap-2 text-xs text-zinc-200">
-                              <input
-                                type="checkbox"
-                                checked={field.enabled}
-                                onChange={() => toggleLabelField(field.key)}
-                              />
-                              {field.label}
-                            </label>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                type="button"
-                                className={`text-xs ${selectedBlockKey === field.key ? "text-emerald-300" : "text-zinc-400 hover:text-zinc-200"}`}
-                                onClick={() => setSelectedBlockKey(field.key)}
-                              >
-                                {selectedBlockKey === field.key ? "Selecionado" : "Selecionar bloco"}
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => toggleFieldOption(field.key, "showLabel")}
-                              >
-                                {field.showLabel ? "Ocultar titulo" : "Mostrar titulo"}
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => toggleFieldOption(field.key, "boldLabel")}
-                              >
-                                {field.boldLabel ? "Titulo normal" : "Titulo negrito"}
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => toggleFieldOption(field.key, "boldValue")}
-                              >
-                                {field.boldValue ? "Valor normal" : "Valor negrito"}
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => toggleFieldOption(field.key, "emphasize")}
-                              >
-                                {field.emphasize ? "Sem borda" : "Borda"}
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => toggleFieldOption(field.key, "highlight")}
-                              >
-                                {field.highlight ? "Sem fundo" : "Fundo"}
-                              </button>
-                              {field.key.startsWith("custom:") && (
-                                <button
-                                  type="button"
-                                  className="text-xs text-rose-300 hover:text-rose-200"
-                                  onClick={() => removeLabelField(field.key)}
-                                >
-                                  Remover
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => moveLabelField(field.key, "up")}
-                              >
-                                Subir
-                              </button>
-                              <button
-                                type="button"
-                                className="text-xs text-zinc-400 hover:text-zinc-200"
-                                onClick={() => moveLabelField(field.key, "down")}
-                              >
-                                Descer
-                              </button>
-                            </div>
-                          </div>
-                          <div className="mt-2 space-y-2">
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
-                              <span>Titulo (px)</span>
-                              <input
-                                type="number"
-                                className="w-20 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
-                                value={field.labelFontSize ?? labelSettings.fontLabel}
-                                onChange={(e) =>
-                                  updateLabelFieldTitleSize(
-                                    field.key,
-                                    parseInt(e.target.value, 10) || 0
-                                  )
-                                }
-                              />
-                              <span>Bloco (col x lin)</span>
-                              <input
-                                type="number"
-                                className="w-16 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
-                                value={block?.w ?? 1}
-                                onChange={(e) =>
-                                  updateLabelBlock(field.key, {
-                                    w: parseInt(e.target.value, 10) || 1,
-                                  })
-                                }
-                              />
-                              <input
-                                type="number"
-                                className="w-16 bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-1 text-xs"
-                                value={block?.h ?? 1}
-                                onChange={(e) =>
-                                  updateLabelBlock(field.key, {
-                                    h: parseInt(e.target.value, 10) || 1,
-                                  })
-                                }
-                              />
-                              <span>Pos (x,y)</span>
-                              <span className="text-[11px] text-zinc-500">
-                                {block?.x ?? 0},{block?.y ?? 0}
-                              </span>
-                            </div>
-                            {field.key === "id" && (
-                              <input
-                                type="text"
-                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                                placeholder="Codigo de teste"
-                                value={labelSettings.testCode}
-                                onChange={(e) => updateLabelSetting("testCode", e.target.value)}
-                              />
-                            )}
-                            {field.key === "description" && (
-                              <input
-                                type="text"
-                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                                placeholder="Descricao de teste"
-                                value={labelSettings.testDescription}
-                                onChange={(e) =>
-                                  updateLabelSetting("testDescription", e.target.value)
-                                }
-                              />
-                            )}
-                            {field.key === "qty" && (
-                              <input
-                                type="text"
-                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                                placeholder="Quantidade de teste"
-                                value={labelSettings.testQty}
-                                onChange={(e) => updateLabelSetting("testQty", e.target.value)}
-                              />
-                            )}
-                            {field.key === "weight" && (
-                              <input
-                                type="text"
-                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                                placeholder="Peso de teste"
-                                value={labelSettings.testWeight}
-                                onChange={(e) => updateLabelSetting("testWeight", e.target.value)}
-                              />
-                            )}
-                            {field.key === "location" && (
-                              <input
-                                type="text"
-                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                                placeholder="Local de teste"
-                                value={labelSettings.testLocation}
-                                onChange={(e) => updateLabelSetting("testLocation", e.target.value)}
-                              />
-                            )}
-                            {field.key.startsWith("custom:") && (
-                              <input
-                                type="text"
-                                className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                                placeholder={`Valor de ${field.label}`}
-                                value={labelSettings.customFieldValues[field.key] || ""}
-                                onChange={(e) =>
-                                  updateCustomFieldValue(field.key, e.target.value)
-                                }
-                              />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <input
-                    type="text"
-                    className="flex-1 min-w-[180px] bg-zinc-900/60 border border-zinc-700 text-zinc-100 rounded-lg px-2 py-2 text-xs"
-                    placeholder="Adicionar campo (ex: Lote, Espessura)"
-                    value={labelFieldInput}
-                    onChange={(e) => setLabelFieldInput(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="border border-zinc-700 text-zinc-200 bg-zinc-900/40 hover:bg-zinc-800/60 px-3 py-2 rounded-lg text-xs font-semibold"
-                    onClick={addLabelField}
-                  >
-                    Adicionar campo
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 lg:sticky lg:top-6 self-start lg:justify-self-end w-fit max-w-none">
-              <p className="text-xs text-zinc-400 mb-1">Preview da etiqueta</p>
-              <p className="text-[11px] text-zinc-500 mb-3">
-                {labelSettings.widthCm}x{labelSettings.heightCm}cm
-              </p>
-              <p className="text-[11px] text-zinc-500 mb-3">
-                Arraste os blocos no grid (3 colunas: esquerda/centro/direita).
-              </p>
-              <div className="flex flex-wrap items-center gap-3 text-[11px] text-zinc-500 mb-3">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={showGuides}
-                    onChange={() => setShowGuides((prev) => !prev)}
-                  />
-                  Mostrar guias
-                </label>
-                <button
-                  type="button"
-                  className="text-[11px] text-zinc-400 hover:text-zinc-200"
-                  onClick={() => setSelectedBlockKey(null)}
-                >
-                  Limpar selecao
-                </button>
-              </div>
-              <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 overflow-visible flex justify-center">
-                    <div className="rounded-xl border border-zinc-300 bg-white" style={previewLabelStyle}>
-                  {renderLabelLayout(labelItems[0] || {}, previewQrSrc, previewBarcodeSrc, {
-                    showGuides,
-                    highlightKey: selectedBlockKey,
-                    onBlockClick: setSelectedBlockKey,
-                    gridRef,
-                    onGridPointerMove: handleGridPointerMove,
-                    onGridPointerUp: handleGridPointerUp,
-                    onBlockPointerDown: handleBlockPointerDown,
-                  })}
-                </div>
-            </div>
-            </div>
-          </div>
-          {showPrintPreview && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-              <div className="w-full max-w-4xl rounded-2xl bg-zinc-900/80 border border-zinc-800 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-zinc-300">Visualizacao de impressao</p>
-                  <button
-                    type="button"
-                    className="text-xs text-rose-300 hover:text-rose-200"
-                    onClick={() => setShowPrintPreview(false)}
-                  >
-                    Fechar
-                  </button>
-                </div>
-                <div className="rounded-xl bg-white p-6 flex justify-center">
-                  <div className="print-grid grid" style={labelGridStyle}>
-                    {[labelItems[0] || {}].map((item, index) => (
-                      <div
-                        key={`preview-${index}`}
-                        className="print-label text-center"
-                        style={{
-                          ...printLabelStyle,
-                          border: "1px dashed #94a3b8",
-                        }}
-                      >
-                        {renderLabelLayout(item, previewQrSrc, previewBarcodeSrc)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
+        <LabelEditor
+          labelSettings={labelSettings}
+          updateLabelSetting={updateLabelSetting}
+          labelLayout={labelLayout}
+          updateLabelLayout={updateLabelLayout}
+          labelFields={labelFields}
+          toggleLabelField={toggleLabelField}
+          toggleFieldOption={toggleFieldOption}
+          moveLabelField={moveLabelField}
+          reorderLabelFields={reorderLabelFields}
+          updateLabelFieldTitleSize={updateLabelFieldTitleSize}
+          updateLabelBlock={updateLabelBlock}
+          addLabelField={addLabelField}
+          removeLabelField={removeLabelField}
+          labelFieldInput={labelFieldInput}
+          setLabelFieldInput={setLabelFieldInput}
+          updateCustomFieldValue={updateCustomFieldValue}
+          savedLabelLayouts={savedLabelLayouts}
+          labelLayoutName={labelLayoutName}
+          setLabelLayoutName={setLabelLayoutName}
+          handleSaveLabelLayout={handleSaveLabelLayout}
+          selectedSavedLayoutId={selectedSavedLayoutId}
+          setSelectedSavedLayoutId={setSelectedSavedLayoutId}
+          handleLoadSavedLayout={handleLoadSavedLayout}
+          handleDeleteSavedLayout={handleDeleteSavedLayout}
+          formatSavedLayoutLabel={formatSavedLayoutLabel}
+          labelItems={labelItems}
+          previewQrSrc={previewQrSrc}
+          previewBarcodeSrc={previewBarcodeSrc}
+          renderLabelLayout={renderLabelLayout}
+          previewLabelStyle={previewLabelStyle}
+          showGuides={showGuides}
+          setShowGuides={setShowGuides}
+          selectedBlockKey={selectedBlockKey}
+          setSelectedBlockKey={setSelectedBlockKey}
+          gridRef={gridRef}
+          handleGridPointerMove={handleGridPointerMove}
+          handleGridPointerUp={handleGridPointerUp}
+          handleBlockPointerDown={handleBlockPointerDown}
+          showPrintPreview={showPrintPreview}
+          setShowPrintPreview={setShowPrintPreview}
+          handleLogoUpload={handleLogoUpload}
+          canUseHeaderFooter={canUseHeaderFooter}
+          resolvedLayout={resolvedLayout}
+          applyLabelPreset={applyLabelPreset}
+          removedBlocks={removedBlocks}
+          setRemovedBlocks={setRemovedBlocks}
+        />
       )}
 
       {activeMenu === "inventory" && (
