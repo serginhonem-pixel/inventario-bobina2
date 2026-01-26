@@ -251,7 +251,6 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
               className="hidden" 
               id="excel-upload"
               ref={fileInputRef}
-              disabled={!schemaSaved}
             />
             <button
               type="button"
@@ -260,7 +259,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
               }}
               className={`w-full ${schemaSaved ? 'text-zinc-400 hover:text-emerald-300' : 'text-zinc-600'} cursor-pointer`}
             >
-              {file ? file.name : schemaSaved ? "Clique para selecionar ou arraste seu Excel/CSV aqui" : "Salve as colunas para liberar o upload"}
+              {file ? file.name : schemaSaved ? "Clique para selecionar ou arraste seu Excel/CSV aqui" : "Clique para selecionar ou arraste seu Excel/CSV aqui"}
             </button>
           </div>
         </div>
