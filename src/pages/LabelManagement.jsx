@@ -123,47 +123,8 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   return (
     <div className="min-h-screen bg-black text-zinc-300 flex font-sans">
       <TourGuide activeTab={activeTab} setActiveTab={setActiveTab} />
-      {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-b border-zinc-900 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
-          title="Abrir menu"
-        >
-          <Menu size={20} />
-        </button>
-        <div className="text-sm font-bold text-white truncate">
-          {activeTab === 'dashboard' && 'Visão Geral'}
-          {activeTab === 'stock_points' && 'Ponto de Estocagem'}
-          {activeTab === 'designer' && 'Engenharia de Etiquetas'}
-          {activeTab === 'movement_internal' && 'Movimentação de Carga'}
-          {activeTab === 'operation' && 'Ajuste Rápido'}
-          {activeTab === 'reports' && 'Relatórios'}
-          {activeTab === 'settings' && 'Configurações'}
-        </div>
-        <div className="w-9" />
-      </div>
-
-      {/* Sidebar Overlay (Mobile) */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/70 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar Profissional */}
-      <aside className={`w-72 bg-zinc-950 border-r border-zinc-900 flex flex-col p-6 fixed h-full z-50 transform transition-transform duration-300 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="md:hidden flex justify-between items-center mb-4">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Menu</span>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300"
-            title="Fechar menu"
-          >
-            <X size={18} />
-          </button>
-        </div>
+      {/* Sidebar Profissional (Desktop) */}
+      <aside className="hidden md:flex w-72 bg-zinc-950 border-r border-zinc-900 flex-col p-6 fixed h-full z-50">
         <div className="mb-12 px-2">
           <img
             src="/logo.png"
@@ -214,8 +175,32 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
         </div>
       </aside>
 
+      {/* Bottom Navigation (Mobile) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-t border-zinc-900 px-2 py-2">
+        <div className="grid grid-cols-5 gap-2">
+          {[
+            { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+            { id: 'stock_points', label: 'Pontos', icon: MapPin },
+            { id: 'movement_internal', label: 'Mov.', icon: ArrowUpCircle },
+            { id: 'operation', label: 'Ajuste', icon: ScanLine },
+            { id: 'designer', label: 'Etiquetas', icon: PenTool },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-[10px] font-bold transition-all ${
+                activeTab === item.id ? 'bg-emerald-500 text-black' : 'text-zinc-500'
+              }`}
+            >
+              <item.icon size={16} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Main Content Area */}
-      <main className="flex-1 ml-0 md:ml-72 p-4 md:p-10 pt-20 md:pt-10">
+      <main className="flex-1 ml-0 md:ml-72 p-4 md:p-10 pb-24 md:pb-10">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8 md:mb-12">
           <div>
             <h2 className="text-3xl font-black text-white tracking-tight">
