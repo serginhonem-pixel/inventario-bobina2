@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { parseFileToItemsBySchema, slugify } from '../../services/excel/excelParser';
 import { saveSchema } from '../../services/firebase/schemaService';
 import { createItemsBulk } from '../../services/firebase/itemService';
@@ -12,6 +12,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
   const [loading, setLoading] = useState(false);
   const [schemaSaved, setSchemaSaved] = useState(false);
   const [savedSchema, setSavedSchema] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (defaultName && !schemaName) {
@@ -239,11 +240,22 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
               onChange={handleFileChange}
               className="hidden" 
               id="excel-upload"
+              ref={fileInputRef}
               disabled={!schemaSaved}
             />
-            <label htmlFor="excel-upload" className={`cursor-pointer ${schemaSaved ? 'text-zinc-400 hover:text-emerald-300' : 'text-zinc-600'}`}>
+            <button
+              type="button"
+              onClick={() => {
+                if (!schemaSaved) {
+                  alert("Salve as colunas antes de subir o Excel.");
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
+              className={`w-full ${schemaSaved ? 'text-zinc-400 hover:text-emerald-300' : 'text-zinc-600'} cursor-pointer`}
+            >
               {file ? file.name : schemaSaved ? "Clique para selecionar ou arraste seu Excel/CSV aqui" : "Salve as colunas para liberar o upload"}
-            </label>
+            </button>
           </div>
         </div>
 
