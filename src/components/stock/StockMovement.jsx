@@ -8,7 +8,7 @@ import { isLocalhost } from '../../services/firebase/mockPersistence';
 import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 
-const StockMovement = ({ items, schema, tenantId, currentStockPoint }) => {
+const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendingCount }) => {
   const [type, setType] = useState('in'); // 'in' ou 'out'
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,6 +93,9 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint }) => {
           const pendingMovements = JSON.parse(localStorage.getItem('pending_stock_movements') || '[]');
           pendingMovements.push(movementData);
           localStorage.setItem('pending_stock_movements', JSON.stringify(pendingMovements));
+          if (typeof updatePendingCount === 'function') {
+            updatePendingCount();
+          }
           
           // Tenta registrar o sync se o Service Worker estiver ativo
           if ('serviceWorker' in navigator && 'SyncManager' in window) {

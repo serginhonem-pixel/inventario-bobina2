@@ -14,7 +14,7 @@ const STORAGE_KEY = 'label_pro_mock_db';
 
 const getDb = () => {
   const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : { schemas: [], items: [], templates: [], stockPoints: [] };
+  return data ? JSON.parse(data) : { schemas: [], items: [], templates: [], stockPoints: [], stock_adjustments: [] };
 };
 
 const saveDb = (db) => {
@@ -29,6 +29,9 @@ export const mockAddDoc = async (collectionName, data) => {
     id: `mock_${Date.now()}`,
     createdAt: { toDate: () => new Date() } // Simula timestamp do Firebase
   };
+  if (!db[collectionName]) {
+    db[collectionName] = [];
+  }
   db[collectionName].push(newDoc);
   saveDb(db);
   return newDoc;

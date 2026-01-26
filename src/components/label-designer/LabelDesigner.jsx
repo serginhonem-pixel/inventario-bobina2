@@ -315,6 +315,18 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
           <h3 className="text-[10px] font-bold text-zinc-500 uppercase mb-6 tracking-widest flex items-center gap-2"><Edit3 size={12} /> Propriedades</h3>
           {selectedElement ? (
             <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="text-xs text-zinc-400">
+                  Selecionado: <span className="text-white font-bold">{selectedElement.label}</span>
+                </div>
+                <button
+                  onClick={() => deleteElement(selectedId)}
+                  className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center gap-2 hover:bg-rose-500/20"
+                  title="Remover da etiqueta"
+                >
+                  <Trash2 size={12} /> Remover
+                </button>
+              </div>
               <div className="space-y-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
                 <label className="text-[10px] text-emerald-500 uppercase font-bold flex items-center gap-2"><Eye size={10} /> Preview de Resposta</label>
                 <input type="text" value={selectedElement.previewValue} onChange={(e) => updateElement(selectedId, { previewValue: e.target.value })} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white" />

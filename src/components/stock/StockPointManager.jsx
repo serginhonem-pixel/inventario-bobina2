@@ -95,7 +95,7 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint }) 
   );
 };
 
-const StockPointHistory = ({ stockPointId }) => {
+const StockPointHistory = ({ stockPointId, tenantId }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -111,7 +111,7 @@ const StockPointHistory = ({ stockPointId }) => {
   const loadLogs = async (id) => {
     setLoading(true);
     try {
-      const loadedLogs = await stockService.getStockLogsByStockPoint(id);
+      const loadedLogs = await stockService.getStockLogsByStockPoint(id, tenantId);
       setLogs(loadedLogs);
     } catch (err) {
       console.error("Erro ao carregar logs do ponto de estocagem:", err);
