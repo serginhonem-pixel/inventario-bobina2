@@ -1,0 +1,396 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Move, Type, QrCode, Trash2, AlignLeft, AlignCenter, AlignRight, 
+  Bold, RotateCw, Square, Type as TypeIcon, Grid3X3, Eye, Maximize2, 
+  Database, Edit3, Image as ImageIcon, ZoomIn, ZoomOut, LayoutGrid, EyeOff,
+  Type as FontIcon, Save, MapPin, Map
+} from 'lucide-react';
+
+const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
+  const [templateName, setTemplateName] = useState(initialTemplate?.name || 'Novo Modelo');
+  const [labelSize, setLabelSize] = useState(initialTemplate?.size || { width: 100, height: 50 });
+  const [elements, setElements] = useState(initialTemplate?.elements || []);
+  const [selectedId, setSelectedId] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [layoutGrid, setLayoutGrid] = useState({ cols: 3, rows: 10 });
+  const [zoom, setZoom] = useState(1);
+  const [logistics, setLogistics] = useState(initialTemplate?.logistics || { street: '', shelf: '', level: '' });
+  
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const BASE_SCALE = 4;
+
+  const selectedElement = elements.find(el => el.id === selectedId);
+
+  useEffect(() => {
+    const updateZoom = () => {
+      if (containerRef.current && canvasRef.current) {
+        const container = containerRef.current.getBoundingClientRect();
+        const padding = 80;
+        const availableW = container.width - padding;
+        const availableH = container.height - padding;
+        const labelW = labelSize.width * BASE_SCALE;
+        const labelH = labelSize.height * BASE_SCALE;
+        const newZoom = Math.min(availableW / labelW, availableH / labelH, 1.5);
+        setZoom(newZoom);
+      }
+    };
+    updateZoom();
+    window.addEventListener('resize', updateZoom);
+    return () => window.removeEventListener('resize', updateZoom);
+  }, [labelSize]);
+
+  const autoOrganize = () => {
+    const colW = labelSize.width / layoutGrid.cols;
+    const rowH = labelSize.height / layoutGrid.rows;
+    const organizedElements = elements.map((el, index) => {
+      const col = index % layoutGrid.cols;
+      const row = Math.floor(index / layoutGrid.cols);
+      return { ...el, x: col * colW, y: row * rowH, width: colW, height: rowH };
+    });
+    setElements(organizedElements);
+  };
+
+  const addElement = (type, field = null, extra = {}) => {
+    const colW = labelSize.width / layoutGrid.cols;
+    const rowH = labelSize.height / layoutGrid.rows;
+    const index = elements.length;
+    const col = index % layoutGrid.cols;
+    const row = Math.floor(index / layoutGrid.cols);
+
+    let preview = "Texto";
+    if (type === 'qr') preview = "ID-12345";
+    if (type === 'image') preview = extra.url || "Logo";
+    if (type === 'logistics') preview = logistics[extra.logKey] || extra.logKey.toUpperCase();
+    
+    if (field) {
+      preview = schema?.sampleData?.[field.key] || schema?.sampleData?.[field.label] || `Exemplo ${field.label}`;
+    }
+
+    const newElement = {
+      id: `el_${Date.now()}`,
+      type,
+      fieldKey: field?.key || extra.logKey || null,
+      label: field?.label || (type === 'qr' ? 'QR Code' : type === 'image' ? 'Logo' : type === 'logistics' ? extra.logKey.toUpperCase() : 'Texto Fixo'),
+      previewValue: preview,
+      showLabel: true,
+      x: col * colW,
+      y: row * rowH,
+      width: colW,
+      height: rowH,
+      fontSize: 10,
+      bold: false,
+      align: 'center',
+      rotation: 0,
+      border: true,
+      lineHeight: 1.2,
+      ...extra
+    };
+    setElements([...elements, newElement]);
+    setSelectedId(newElement.id);
+  };
+
+  const updateElement = (id, updates) => {
+    setElements(elements.map(el => el.id === id ? { ...el, ...updates } : el));
+  };
+
+  const deleteElement = (id) => {
+    setElements(elements.filter(el => el.id !== id));
+    setSelectedId(null);
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => addElement('image', null, { url: event.target.result });
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleMouseDown = (e, el) => {
+    if (e.button !== 0) return;
+    setSelectedId(el.id);
+    setIsDragging(true);
+    const rect = canvasRef.current.getBoundingClientRect();
+    setDragStart({
+      x: (e.clientX - rect.left) / (BASE_SCALE * zoom) - el.x,
+      y: (e.clientY - rect.top) / (BASE_SCALE * zoom) - el.y
+    });
+  };
+
+  const handleResizeStart = (e, el) => {
+    e.stopPropagation();
+    setSelectedId(el.id);
+    setIsResizing(true);
+    setDragStart({
+      x: e.clientX,
+      y: e.clientY,
+      initialW: el.width,
+      initialH: el.height
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    setIsResizing(false);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!selectedId) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const colW = labelSize.width / layoutGrid.cols;
+    const rowH = labelSize.height / layoutGrid.rows;
+
+    if (isDragging) {
+      let newX = (e.clientX - rect.left) / (BASE_SCALE * zoom) - dragStart.x;
+      let newY = (e.clientY - rect.top) / (BASE_SCALE * zoom) - dragStart.y;
+      if (snapToGrid) {
+        newX = Math.round(newX / colW) * colW;
+        newY = Math.round(newY / rowH) * rowH;
+      }
+      newX = Math.max(0, Math.min(newX, labelSize.width - selectedElement.width));
+      newY = Math.max(0, Math.min(newY, labelSize.height - selectedElement.height));
+      updateElement(selectedId, { x: newX, y: newY });
+    } else if (isResizing) {
+      const deltaX = (e.clientX - dragStart.x) / (BASE_SCALE * zoom);
+      const deltaY = (e.clientY - dragStart.y) / (BASE_SCALE * zoom);
+      let newW = dragStart.initialW + deltaX;
+      let newH = dragStart.initialH + deltaY;
+      if (snapToGrid) {
+        newW = Math.round(newW / colW) * colW;
+        newH = Math.round(newH / rowH) * rowH;
+      }
+      newW = Math.max(colW, Math.min(newW, labelSize.width - selectedElement.x));
+      newH = Math.max(rowH, Math.min(newH, labelSize.height - selectedElement.y));
+      updateElement(selectedId, { width: newW, height: newH });
+    }
+  };
+
+  const handleSave = () => {
+    onSaveTemplate({ 
+      name: templateName,
+      size: labelSize, 
+      elements,
+      logistics 
+    });
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-140px)] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex bg-zinc-950 rounded-lg p-1 border border-zinc-800">
+            <button onClick={() => addElement('text')} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Texto"><TypeIcon size={18} /></button>
+            <button onClick={() => addElement('qr')} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="QR Code"><QrCode size={18} /></button>
+            <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-zinc-800 rounded text-zinc-400 hover:text-emerald-400" title="Logo"><ImageIcon size={18} /></button>
+            <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+          </div>
+          
+          <div className="h-6 w-px bg-zinc-800" />
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500 uppercase font-bold">Papel (mm):</span>
+            <input type="number" value={labelSize.width} onChange={(e) => setLabelSize({...labelSize, width: parseInt(e.target.value) || 0})} className="w-14 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-white" />
+            <span className="text-zinc-600">×</span>
+            <input type="number" value={labelSize.height} onChange={(e) => setLabelSize({...labelSize, height: parseInt(e.target.value) || 0})} className="w-14 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-white" />
+          </div>
+
+          <div className="h-6 w-px bg-zinc-800" />
+
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500 uppercase font-bold">Grade:</span>
+            <input type="number" value={layoutGrid.cols} onChange={(e) => setLayoutGrid({...layoutGrid, cols: parseInt(e.target.value) || 1})} className="w-10 bg-zinc-950 border border-zinc-800 rounded px-1 py-1 text-xs text-white" />
+            <span className="text-zinc-600">×</span>
+            <input type="number" value={layoutGrid.rows} onChange={(e) => setLayoutGrid({...layoutGrid, rows: parseInt(e.target.value) || 1})} className="w-10 bg-zinc-950 border border-zinc-800 rounded px-1 py-1 text-xs text-white" />
+          </div>
+
+          <div className="flex gap-1 bg-zinc-950 rounded-lg p-1 border border-zinc-800">
+            <button onClick={() => setShowGrid(!showGrid)} className={`p-1.5 rounded transition-colors ${showGrid ? 'bg-emerald-500 text-black' : 'text-zinc-500 hover:text-white'}`} title={showGrid ? "Ocultar Grade" : "Mostrar Grade"}>
+              {showGrid ? <Grid3X3 size={16} /> : <EyeOff size={16} />}
+            </button>
+            <button onClick={autoOrganize} className="p-1.5 rounded text-zinc-500 hover:text-emerald-400 hover:bg-zinc-800 transition-colors" title="Organizar Automaticamente">
+              <LayoutGrid size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-zinc-950 rounded-lg border border-zinc-800 p-1">
+            <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} className="p-1 text-zinc-500"><ZoomOut size={14} /></button>
+            <span className="text-[10px] text-zinc-400 w-10 text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(3, z + 0.1))} className="p-1 text-zinc-500"><ZoomIn size={14} /></button>
+          </div>
+          <div className="flex items-center gap-2">
+            <input 
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Nome do Modelo"
+              className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-32"
+            />
+            <button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2 rounded-xl text-sm font-bold">Salvar Template</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-64 bg-zinc-900 border-r border-zinc-800 p-4 overflow-y-auto">
+          <h3 className="text-[10px] font-bold text-zinc-500 uppercase mb-4 tracking-widest flex items-center gap-2"><Database size={12} /> Campos do Catálogo</h3>
+          <div className="space-y-2 mb-6">
+            {schema?.fields?.map(field => (
+              <button key={field.key} onClick={() => addElement('field', field)} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-3 rounded-xl text-xs text-zinc-300 flex flex-col group transition-all">
+                <span className="font-medium">{field.label}</span>
+                <span className="text-[9px] text-emerald-500/70 italic truncate">{schema.sampleData?.[field.key] || schema.sampleData?.[field.label] || 'Sem dados'}</span>
+              </button>
+            ))}
+          </div>
+
+          <h3 className="text-[10px] font-bold text-zinc-500 uppercase mb-4 tracking-widest flex items-center gap-2"><Map size={12} /> Localização</h3>
+          <div className="grid grid-cols-1 gap-2">
+            <button onClick={() => addElement('logistics', null, { logKey: 'street' })} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-lg text-[10px] text-zinc-400 flex items-center gap-2">
+              <MapPin size={12} /> Adicionar Rua
+            </button>
+            <button onClick={() => addElement('logistics', null, { logKey: 'shelf' })} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-lg text-[10px] text-zinc-400 flex items-center gap-2">
+              <MapPin size={12} /> Adicionar Prateleira
+            </button>
+            <button onClick={() => addElement('logistics', null, { logKey: 'level' })} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-lg text-[10px] text-zinc-400 flex items-center gap-2">
+              <MapPin size={12} /> Adicionar Nível
+            </button>
+          </div>
+        </div>
+
+        <div ref={containerRef} className="flex-1 bg-zinc-950 overflow-auto flex items-center justify-center p-8 relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+          <div ref={canvasRef} className="bg-white shadow-2xl relative" style={{ width: `${labelSize.width * BASE_SCALE}px`, height: `${labelSize.height * BASE_SCALE}px`, transform: `scale(${zoom})` }}>
+            {showGrid && (
+              <div className="absolute inset-0 pointer-events-none" style={{ 
+                backgroundImage: `
+                  linear-gradient(to right, rgba(16, 185, 129, 0.1) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(16, 185, 129, 0.1) 1px, transparent 1px)
+                `,
+                backgroundSize: `${(labelSize.width / layoutGrid.cols) * BASE_SCALE}px ${(labelSize.height / layoutGrid.rows) * BASE_SCALE}px`
+              }} />
+            )}
+
+            {elements.map(el => (
+              <div key={el.id} onMouseDown={(e) => handleMouseDown(e, el)} className={`absolute cursor-move flex items-center ${selectedId === el.id ? 'ring-2 ring-emerald-500 z-50' : 'z-10'}`} style={{ left: `${el.x * BASE_SCALE}px`, top: `${el.y * BASE_SCALE}px`, width: `${el.width * BASE_SCALE}px`, height: `${el.height * BASE_SCALE}px`, fontSize: `${el.fontSize * (BASE_SCALE/3)}px`, fontWeight: el.bold ? 'bold' : 'normal', textAlign: el.align, transform: `rotate(${el.rotation}deg)`, border: el.border ? '1px solid black' : 'none', color: 'black', justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start', padding: '0 4px', overflow: 'hidden' }}>
+                {el.type === 'qr' ? (
+                  <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
+                    <QrCode size={el.width * 2} className="text-zinc-400" />
+                    <span className="text-[7px] text-zinc-400 mt-0.5 font-bold truncate w-full text-center">{el.previewValue}</span>
+                  </div>
+                ) : el.type === 'image' ? (
+                  <img src={el.url} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <span className="w-full whitespace-nowrap overflow-hidden text-ellipsis">
+                    {el.showLabel && el.fieldKey ? `${el.label}: ` : ''}{el.previewValue}
+                  </span>
+                )}
+                
+                {selectedId === el.id && (
+                  <>
+                    <button 
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => { e.stopPropagation(); deleteElement(el.id); }} 
+                      className="absolute -top-10 left-1/2 -translate-x-1/2 bg-rose-500 text-white p-2 rounded-full shadow-2xl hover:bg-rose-600 transition-all z-[9999] border-2 border-white flex items-center justify-center"
+                      style={{ pointerEvents: 'auto' }}
+                      title="Excluir"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div onMouseDown={(e) => handleResizeStart(e, el)} className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 cursor-nwse-resize border-2 border-white z-[60] rounded-full shadow-lg" />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="w-80 bg-zinc-900 border-l border-zinc-800 p-5 overflow-y-auto">
+          <h3 className="text-[10px] font-bold text-zinc-500 uppercase mb-6 tracking-widest flex items-center gap-2"><Edit3 size={12} /> Propriedades</h3>
+          {selectedElement ? (
+            <div className="space-y-6">
+              <div className="space-y-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+                <label className="text-[10px] text-emerald-500 uppercase font-bold flex items-center gap-2"><Eye size={10} /> Preview de Resposta</label>
+                <input type="text" value={selectedElement.previewValue} onChange={(e) => updateElement(selectedId, { previewValue: e.target.value })} className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white" />
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] text-zinc-500 uppercase font-bold">Estilo do Texto</label>
+                <div className="flex gap-2">
+                  <button onClick={() => updateElement(selectedId, { bold: !selectedElement.bold })} className={`flex-1 p-2 rounded-xl border ${selectedElement.bold ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Bold size={16} className="mx-auto" /></button>
+                  <div className="flex bg-zinc-950 rounded-xl border border-zinc-800 p-1 flex-1">
+                    <button onClick={() => updateElement(selectedId, { align: 'left' })} className={`flex-1 p-1 rounded-lg ${selectedElement.align === 'left' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-600'}`}><AlignLeft size={14} className="mx-auto" /></button>
+                    <button onClick={() => updateElement(selectedId, { align: 'center' })} className={`flex-1 p-1 rounded-lg ${selectedElement.align === 'center' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-600'}`}><AlignCenter size={14} className="mx-auto" /></button>
+                    <button onClick={() => updateElement(selectedId, { align: 'right' })} className={`flex-1 p-1 rounded-lg ${selectedElement.align === 'right' ? 'bg-zinc-800 text-emerald-400' : 'text-zinc-600'}`}><AlignRight size={14} className="mx-auto" /></button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] text-zinc-500 font-bold uppercase">
+                    <span>Tamanho Fonte</span>
+                    <span>{selectedElement.fontSize}px</span>
+                  </div>
+                  <input type="range" min="6" max="48" value={selectedElement.fontSize} onChange={(e) => updateElement(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full accent-emerald-500" />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] text-zinc-500 uppercase font-bold">Opções do Bloco</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => updateElement(selectedId, { border: !selectedElement.border })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.border ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Square size={12} /> Borda</button>
+                  <button onClick={() => updateElement(selectedId, { showLabel: !selectedElement.showLabel })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.showLabel ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><FontIcon size={12} /> Título</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => updateElement(selectedId, { rotation: (selectedElement.rotation + 90) % 360 })} className="flex-1 bg-zinc-950 border border-zinc-800 p-2 rounded-xl text-zinc-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-bold uppercase"><RotateCw size={12} /> Girar 90°</button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-64 text-center space-y-4">
+              <div className="p-4 bg-zinc-950 rounded-full border border-zinc-800">
+                <Move size={24} className="text-zinc-800" />
+              </div>
+              <p className="text-zinc-600 text-xs">Selecione um elemento no canvas para editar suas propriedades.</p>
+            </div>
+          )}
+
+          <div className="p-4 border-t border-zinc-800 space-y-4 mt-8">
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2"><MapPin size={10} /> Localização Padrão</p>
+              <div className="grid grid-cols-3 gap-2">
+                <input 
+                  type="text" placeholder="Rua" 
+                  className="bg-zinc-950 border border-zinc-800 rounded p-1 text-xs text-white"
+                  value={logistics.street} onChange={e => setLogistics({...logistics, street: e.target.value})}
+                />
+                <input 
+                  type="text" placeholder="Prat." 
+                  className="bg-zinc-950 border border-zinc-800 rounded p-1 text-xs text-white"
+                  value={logistics.shelf} onChange={e => setLogistics({...logistics, shelf: e.target.value})}
+                />
+                <input 
+                  type="text" placeholder="Nível" 
+                  className="bg-zinc-950 border border-zinc-800 rounded p-1 text-xs text-white"
+                  value={logistics.level} onChange={e => setLogistics({...logistics, level: e.target.value})}
+                />
+              </div>
+            </div>
+            <button 
+              onClick={handleSave}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+            >
+              <Save size={18} /> Salvar Template
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LabelDesigner;
