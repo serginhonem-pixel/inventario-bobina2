@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { syncPendingMovements } from '../services/firebase/stockService';
 
 const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -10,8 +11,16 @@ const useNetworkStatus = () => {
   };
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncPendingMovements().finally(updatePendingCount);
+    };
     const handleOffline = () => setIsOnline(false);
+    const handleStorage = (e) => {
+      if (e.key === 'pending_stock_movements') {
+        updatePendingCount();
+      }
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -23,11 +32,7 @@ const useNetworkStatus = () => {
     // que é disparado quando o localStorage muda em outra aba/janela.
     // Embora não seja ideal para a mesma aba, é um fallback.
     // O ideal seria usar um canal de comunicação (BroadcastChannel) ou um estado global.
-    window.addEventListener('storage', (e) => {
-      if (e.key === 'pending_stock_movements') {
-        updatePendingCount();
-      }
-    });
+    window.addEventListener('storage', handleStorage);
 
     // Registra o Service Worker
     if ('serviceWorker' in navigator) {
@@ -43,7 +48,7 @@ const useNetworkStatus = () => {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('storage', updatePendingCount);
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 

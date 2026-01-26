@@ -4,7 +4,7 @@ import LandingPage from "./landing"; // Mantém sua landing original
 import LabelManagement from "./pages/LabelManagement"; // Novo sistema refatorado
 import useNetworkStatus from "./hooks/useNetworkStatus";
 import { auth } from "./services/firebase/config";
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { onAuthStateChanged, signInAnonymously, signOut } from "firebase/auth";
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -60,10 +60,15 @@ const App = () => {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <LabelManagement 
         user={user} 
-        onLogout={() => {
-          // Lógica de logout
-          setUser(null);
-          setShowLanding(true);
+        onLogout={async () => {
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.error("Erro ao sair:", error);
+          } finally {
+            setUser(null);
+            setShowLanding(true);
+          }
         }}
         isOnline={isOnline}
         pendingMovementsCount={pendingMovementsCount}

@@ -23,7 +23,7 @@ const StockOperation = ({ items, schema, tenantId }) => {
 
   const loadHistory = async (itemId) => {
     try {
-      const logs = await getStockLogs(itemId);
+      const logs = await getStockLogs(itemId, tenantId);
       setHistory(logs || []);
     } catch (error) {
       console.error("Erro ao carregar histórico:", error);
