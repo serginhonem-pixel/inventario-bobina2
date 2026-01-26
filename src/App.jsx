@@ -10,7 +10,9 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  setPersistence,
+  browserLocalPersistence
 } from "firebase/auth";
 
 const App = () => {
@@ -22,23 +24,34 @@ const App = () => {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const { isOnline, pendingMovementsCount, updatePendingCount } = useNetworkStatus();
-  const allowedEmails = ["pcp@metalosa.com.br"];
+  const allowedEmails = ["pcp@metalosa.com.br", "sergiobetinim@gmail.com"];
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        const normalized = (currentUser.email || "").toLowerCase();
-        if (!normalized || (allowedEmails.length > 0 && !allowedEmails.includes(normalized))) {
-          setAuthError("Acesso restrito. Seu e-mail não está autorizado.");
-          signOut(auth).catch(() => {});
-          setUser(null);
+    let unsubscribe = () => {};
+    setPersistence(auth, browserLocalPersistence)
+      .then(() => {
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          if (currentUser) {
+            const normalized = (currentUser.email || "").toLowerCase();
+            if (!normalized || (allowedEmails.length > 0 && !allowedEmails.includes(normalized))) {
+              setAuthError("Acesso restrito. Seu e-mail não está autorizado.");
+              signOut(auth).catch(() => {});
+              setUser(null);
+              setLoading(false);
+              return;
+            }
+          }
+          setUser(currentUser);
           setLoading(false);
-          return;
-        }
-      }
-      setUser(currentUser);
-      setLoading(false);
-    });
+        });
+      })
+      .catch((error) => {
+        console.error("Erro ao configurar persistência:", error);
+        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+          setUser(currentUser);
+          setLoading(false);
+        });
+      });
     return () => unsubscribe();
   }, []);
 
