@@ -1,21 +1,29 @@
-import React, { useState } from 'react';
-import { parseFileToSchema } from '../../services/excel/excelParser';
+import React, { useState, useEffect } from 'react';
+import { parseFileToSchemaAndItems } from '../../services/excel/excelParser';
 import { saveSchema } from '../../services/firebase/schemaService';
+import { createItemsBulk } from '../../services/firebase/itemService';
 
-const SchemaImporter = ({ onImported, tenantId = 'default-user' }) => {
+const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = null, defaultName = '' }) => {
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [fields, setFields] = useState([]);
+  const [itemsData, setItemsData] = useState([]);
   const [isManual, setIsManual] = useState(false);
   const [schemaName, setSchemaName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (defaultName && !schemaName) {
+      setSchemaName(defaultName);
+    }
+  }, [defaultName, schemaName]);
 
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
       setFile(selectedFile);
       try {
-        const { fields, sampleData } = await parseFileToSchema(selectedFile);
+        const { fields, sampleData, items } = await parseFileToSchemaAndItems(selectedFile);
         // Adicionar campo de estoque mínimo se não existir
         const hasMinStock = fields.some(f => f.key === 'estoque_minimo');
         const updatedFields = hasMinStock ? fields : [
@@ -24,6 +32,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user' }) => {
         ];
         setFields(updatedFields);
         setPreview(sampleData);
+        setItemsData(items || []);
         if (!schemaName) setSchemaName(selectedFile.name.split('.')[0]);
       } catch (error) {
         alert("Erro ao processar arquivo: " + error);
@@ -38,7 +47,8 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user' }) => {
   };
 
   const handleSave = async () => {
-    if (!schemaName) return alert("Dê um nome ao seu catálogo/schema");
+    if (!schemaName) return alert("Dê um nome ao conjunto de itens");
+    if (!stockPointId) return alert("Selecione um ponto de estocagem antes de importar.");
     setLoading(true);
     try {
       const schemaData = {
@@ -47,15 +57,18 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user' }) => {
         sampleData: preview
       };
       
-      const savedSchema = await saveSchema(tenantId, schemaData);
+      const savedSchema = await saveSchema(tenantId, schemaData, stockPointId);
+      if (itemsData.length > 0) {
+        await createItemsBulk(tenantId, savedSchema.id, savedSchema.version || 1, stockPointId, itemsData);
+      }
       
       // Corrigido: Usando a prop correta 'onImported' que vem do LabelManagement
       if (onImported) {
-        onImported(savedSchema);
+        onImported(savedSchema, itemsData.length);
       }
     } catch (error) {
-      console.error("Erro ao salvar catálogo:", error);
-      alert("Erro ao salvar catálogo. Tente novamente.");
+      console.error("Erro ao salvar itens:", error);
+      alert("Erro ao salvar itens. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -63,10 +76,10 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user' }) => {
 
   return (
     <div className="p-6 bg-zinc-900 rounded-2xl border border-zinc-800">
-      <h2 className="text-xl font-bold text-emerald-400 mb-4">1. Importar Planilha</h2>
+      <h2 className="text-xl font-bold text-emerald-400 mb-4">1. Importar Planilha do Ponto</h2>
       
       <div className="mb-6">
-        <label className="block text-sm text-zinc-400 mb-2">Nome do Catálogo (ex: Inventário de Peças)</label>
+        <label className="block text-sm text-zinc-400 mb-2">Nome do Conjunto de Itens (ex: Itens do Ponto A)</label>
         <input 
           type="text" 
           className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-2 text-white"
@@ -145,7 +158,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user' }) => {
             disabled={loading}
             className="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl hover:bg-emerald-400 transition-colors disabled:bg-zinc-800"
           >
-            {loading ? "Salvando..." : "Salvar Catálogo e Criar Schema"}
+            {loading ? "Salvando..." : "Salvar Itens do Ponto"}
           </button>
         </div>
       )}

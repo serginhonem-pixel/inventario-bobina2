@@ -4,7 +4,7 @@ import { saveAdjustment, getStockLogs } from '../../services/firebase/stockServi
 import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 
-const StockOperation = ({ items, schema, tenantId }) => {
+const StockOperation = ({ items, schema, tenantId, currentStockPoint }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
   const [newQty, setNewQty] = useState(0);
@@ -65,7 +65,7 @@ const StockOperation = ({ items, schema, tenantId }) => {
     setLoading(true);
     try {
       const currentQty = Number(selectedItem.data.quantidade || selectedItem.data.estoque || 0);
-      await saveAdjustment(tenantId, schema.id, selectedItem.id, {
+      await saveAdjustment(tenantId, schema.id, selectedItem.id, currentStockPoint?.id || null, {
         previousQty: currentQty,
         newQty: newQty,
         type: 'manual_adjustment'

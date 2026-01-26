@@ -6,9 +6,9 @@ import {
 
 const ITEM_COLLECTION = 'items';
 
-export const createItem = async (tenantId, schemaId, schemaVersion, itemData) => {
+export const createItem = async (tenantId, schemaId, schemaVersion, itemData, stockPointId = null) => {
   if (isLocalhost()) {
-    return await mockAddDoc(ITEM_COLLECTION, { tenantId, schemaId, schemaVersion, data: itemData });
+    return await mockAddDoc(ITEM_COLLECTION, { tenantId, schemaId, schemaVersion, stockPointId, data: itemData });
   }
 
   try {
@@ -17,6 +17,7 @@ export const createItem = async (tenantId, schemaId, schemaVersion, itemData) =>
       schemaId,
       schemaVersion,
       data: itemData,
+      stockPointId: stockPointId ?? null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -51,6 +52,40 @@ export const getItemsBySchema = async (tenantId, schemaId) => {
     console.error("Erro ao buscar itens:", error);
     throw error;
   }
+};
+
+export const getItemsByStockPoint = async (tenantId, stockPointId) => {
+  if (isLocalhost()) {
+    return await mockGetDocs(ITEM_COLLECTION, [
+      { field: 'tenantId', value: tenantId },
+      { field: 'stockPointId', value: stockPointId }
+    ]);
+  }
+
+  try {
+    const q = query(
+      collection(db, ITEM_COLLECTION),
+      where('tenantId', '==', tenantId),
+      where('stockPointId', '==', stockPointId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Erro ao buscar itens por ponto de estocagem:", error);
+    throw error;
+  }
+};
+
+export const createItemsBulk = async (tenantId, schemaId, schemaVersion, stockPointId, itemsData) => {
+  const created = [];
+  for (const itemData of itemsData) {
+    // Inserção sequencial simples (pode ser trocada por batch futuramente)
+    const item = await createItem(tenantId, schemaId, schemaVersion, itemData, stockPointId);
+    created.push(item);
+  }
+  return created;
 };
 
 export const updateItem = async (itemId, itemData) => {

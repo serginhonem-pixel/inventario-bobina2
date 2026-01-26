@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, X, ClipboardList, MapPin, ScanLine, CheckCircle } from 'lucide-react';
+import { ArrowRight, X, MapPin, ScanLine, CheckCircle } from 'lucide-react';
 
 const TOUR_STEPS = [
   {
@@ -12,19 +12,19 @@ const TOUR_STEPS = [
   },
   {
     id: 2,
-    title: "1. Gestão de Catálogo",
-    content: "O primeiro passo é criar ou importar seu catálogo de produtos. Clique em 'Gestão de Catálogo' para continuar.",
-    targetTab: 'catalog',
+    title: "1. Ponto de Estocagem",
+    content: "O primeiro passo é criar um ponto e importar os itens dele. Clique em 'Ponto de Estocagem' para continuar.",
+    targetTab: 'stock_points',
     action: 'navigate',
-    icon: ClipboardList
+    icon: MapPin
   },
   {
     id: 3,
-    title: "2. Crie seu Catálogo",
-    content: "Use o 'Importar Planilha' para carregar seus dados ou crie um novo catálogo. Depois, clique em 'Movimentar Lote'.",
-    targetTab: 'catalog',
+    title: "2. Importe os Itens",
+    content: "Use o 'Importar Planilha do Ponto' para carregar os itens e as colunas da etiqueta.",
+    targetTab: 'stock_points',
     action: 'next',
-    icon: ClipboardList
+    icon: MapPin
   },
   {
     id: 4,
@@ -70,7 +70,7 @@ const TourGuide = ({ activeTab, setActiveTab }) => {
     }
     
     // Se o usuário navegou para a aba correta, avança o tour (apenas para o passo 2)
-    if (currentStep === 2 && activeTab === 'catalog') {
+    if (currentStep === 2 && activeTab === 'stock_points') {
         handleNext();
     }
     

@@ -83,3 +83,72 @@ export const parseFileToSchema = (file) => {
     reader.readAsArrayBuffer(file);
   });
 };
+
+/**
+ * LÃª um arquivo Excel/CSV e retorna schema + itens normalizados
+ */
+export const parseFileToSchemaAndItems = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
+
+        if (jsonData.length === 0) {
+          throw new Error("A planilha estÃ¡ vazia.");
+        }
+
+        const headers = Object.keys(jsonData[0]);
+        const headerToKey = headers.reduce((acc, header) => {
+          acc[header] = slugify(header);
+          return acc;
+        }, {});
+
+        const schemaFields = headers.map(header => {
+          const sampleRow = jsonData.find(row => row[header] !== null) || jsonData[0];
+          const sampleValue = sampleRow[header];
+          
+          return {
+            key: headerToKey[header],
+            label: header,
+            type: inferType(sampleValue),
+            required: false,
+            defaultValue: '',
+            validation: {},
+            options: []
+          };
+        });
+
+        const items = jsonData.map(row => {
+          const normalized = {};
+          headers.forEach(header => {
+            normalized[headerToKey[header]] = row[header];
+          });
+          return normalized;
+        });
+
+        const firstRow = jsonData[0];
+        const sampleData = { ...firstRow };
+        headers.forEach(header => {
+          sampleData[headerToKey[header]] = firstRow[header];
+        });
+
+        resolve({
+          fields: schemaFields,
+          sampleData,
+          items
+        });
+      } catch (error) {
+        reject(error.message);
+      }
+    };
+
+    reader.onerror = () => reject("Erro ao ler o arquivo.");
+    reader.readAsArrayBuffer(file);
+  });
+};
