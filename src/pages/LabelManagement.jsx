@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  LayoutDashboard, Package, PenTool, ClipboardList, BarChart3, 
-  Settings, LogOut, Bell, User, Search, Plus, FileSpreadsheet,
-  Printer, ScanLine, History, AlertCircle, CheckCircle2, Loader2,
-  ArrowUpCircle, MapPin
+  LayoutDashboard, PenTool, BarChart3, 
+  Settings, LogOut, Bell, User, Search, Plus,
+  ScanLine, AlertCircle, ArrowUpCircle, MapPin
 } from 'lucide-react';
 
 import SchemaImporter from '../components/schema-editor/SchemaImporter';
@@ -25,64 +24,66 @@ import TourGuide from '../components/ui/TourGuide';
 
 const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, updatePendingCount }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [schemas, setSchemas] = useState([]);
   const [currentSchema, setCurrentSchema] = useState(null);
   const [items, setItems] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [template, setTemplate] = useState(null);
   const [currentStockPoint, setCurrentStockPoint] = useState(null); // Novo estado para Ponto de Estocagem
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const tenantId = user?.uid || 'default-user';
 
   useEffect(() => {
-    loadInitialData();
-  }, [tenantId]);
+    if (currentStockPoint) {
+      loadStockPointData(currentStockPoint.id);
+    } else {
+      setCurrentSchema(null);
+      setItems([]);
+      setTemplates([]);
+      setTemplate(null);
+    }
+  }, [tenantId, currentStockPoint]);
 
-  const loadInitialData = async () => {
+  const loadStockPointData = async (stockPointId) => {
     setLoading(true);
     try {
-      const loadedSchemas = await schemaService.getLatestSchemas(tenantId);
-      setSchemas(loadedSchemas);
-      if (loadedSchemas.length > 0) {
-        const lastSchema = loadedSchemas[0];
-        setCurrentSchema(lastSchema);
-        await loadSchemaData(lastSchema);
+      const schema = await schemaService.getSchemaByStockPoint(tenantId, stockPointId);
+      setCurrentSchema(schema || null);
+      if (schema) {
+        const [loadedItems, loadedTemplates] = await Promise.all([
+          itemService.getItemsByStockPoint(tenantId, stockPointId),
+          templateService.getTemplatesBySchema(tenantId, schema.id)
+        ]);
+        setItems(loadedItems);
+        setTemplates(loadedTemplates);
+        setTemplate(loadedTemplates.length > 0 ? loadedTemplates[0] : null);
+      } else {
+        setItems([]);
+        setTemplates([]);
+        setTemplate(null);
       }
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error("Erro ao carregar dados do ponto:", error);
+      setItems([]);
+      setTemplates([]);
+      setTemplate(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadSchemaData = async (schema) => {
-    try {
-      const [loadedItems, loadedTemplates] = await Promise.all([
-        itemService.getItemsBySchema(tenantId, schema.id),
-        templateService.getTemplatesBySchema(tenantId, schema.id)
-      ]);
-      setItems(loadedItems);
-      setTemplates(loadedTemplates);
-      setTemplate(loadedTemplates.length > 0 ? loadedTemplates[0] : null);
-    } catch (error) {
-      console.error("Erro ao carregar dados do esquema:", error);
-    }
-  };
-
-  const handleSchemaSelect = async (schema) => {
-    setCurrentSchema(schema);
-    await loadSchemaData(schema);
-    setActiveTab('catalog');
-  };
-
   const handleAddItem = async (itemData) => {
+    if (!currentSchema || !currentStockPoint) {
+      alert("Selecione um ponto de estocagem com itens antes de cadastrar.");
+      return;
+    }
     try {
       const newItem = await itemService.createItem(
         tenantId,
         currentSchema.id,
         currentSchema.version,
-        itemData
+        itemData,
+        currentStockPoint.id
       );
       setItems([newItem, ...items]);
     } catch (error) {
@@ -133,7 +134,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
         <nav className="flex-1 space-y-2">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'catalog', label: 'Gestão de Catálogo', icon: ClipboardList },
+            { id: 'stock_points', label: 'Ponto de Estocagem', icon: MapPin },
             { id: 'designer', label: 'Engenharia de Etiquetas', icon: PenTool },
             { id: 'operation', label: 'Ajuste Rápido', icon: ScanLine },
             { id: 'reports', label: 'Relatórios', icon: BarChart3 },
@@ -175,7 +176,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
           <div>
             <h2 className="text-3xl font-black text-white tracking-tight">
               {activeTab === 'dashboard' && 'Visão Geral'}
-              {activeTab === 'catalog' && 'Gestão de Catálogo'}
+              {activeTab === 'stock_points' && 'Ponto de Estocagem'}
               {activeTab === 'designer' && 'Engenharia de Etiquetas'}
               {activeTab === 'movement_internal' && 'Movimentação de Carga'}
               {activeTab === 'operation' && 'Ajuste Rápido'}
@@ -184,7 +185,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
             </h2>
             <p className="text-zinc-500 text-sm mt-1">
               {activeTab === 'dashboard' && 'Bem-vindo ao centro de comando do seu inventário.'}
-              {activeTab === 'catalog' && 'Cadastre itens, importe planilhas e organize seu catálogo.'}
+              {activeTab === 'stock_points' && 'Crie o ponto e faça o upload único dos itens.'}
               {activeTab === 'designer' && 'Crie layouts de etiquetas profissionais com precisão milimétrica.'}
               {activeTab === 'movement_internal' && 'Gerencie a entrada e saida de itens no ponto de estocagem.'}
               {activeTab === 'operation' && 'Realize ajustes pontuais e conferências rápidos.'}
@@ -248,17 +249,17 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                 <Dashboard tenantId={tenantId} currentSchema={currentSchema} />
               )}
               
-              {activeTab === 'catalog' && (
+              {activeTab === 'stock_points' && (
                 <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-                  {currentSchema && (
+                  {currentStockPoint && (
                     <div className="flex items-center justify-between bg-zinc-900 p-6 rounded-3xl border border-zinc-800">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500">
-                          <ClipboardList size={24} />
+                          <MapPin size={24} />
                         </div>
                         <div>
-                          <h3 className="text-white font-bold text-lg">{currentSchema.name}</h3>
-                          <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest">Catálogo Ativo</p>
+                          <h3 className="text-white font-bold text-lg">{currentStockPoint.name}</h3>
+                          <p className="text-zinc-500 text-xs uppercase font-bold tracking-widest">Ponto Ativo</p>
                         </div>
                       </div>
                       <div className="flex gap-3">
@@ -268,33 +269,42 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         >
                           <ArrowUpCircle size={14} /> Movimentar Lote
                         </button>
-                        <button 
-                          onClick={() => setCurrentSchema(null)}
-                          className="text-zinc-500 hover:text-white text-xs font-bold uppercase tracking-widest flex items-center gap-2"
-                        >
-                          <Plus size={14} /> Novo Catálogo
-                        </button>
                       </div>
                     </div>
                   )}
 
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-4 space-y-6">
+                      <StockPointManager 
+                        tenantId={tenantId}
+                        currentStockPoint={currentStockPoint}
+                        onSelectStockPoint={setCurrentStockPoint}
+                      />
+
                       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
                         <h2 className="text-lg font-bold flex items-center gap-2 mb-6">
-                          <Plus size={20} className="text-emerald-500" /> Cadastrar Item
+                          <Plus size={20} className="text-emerald-500" /> Cadastrar Item Manual
                         </h2>
-                        {currentSchema ? (
+                        {currentSchema && currentStockPoint ? (
                           <DynamicForm schema={currentSchema} onSubmit={handleAddItem} />
                         ) : (
-                          <p className="text-zinc-500 text-sm">Crie um catálogo para cadastrar itens.</p>
+                          <p className="text-zinc-500 text-sm">Selecione um ponto e importe os itens primeiro.</p>
                         )}
                       </div>
+
                       <SchemaImporter 
-                        tenantId={tenantId} 
-                        onImported={loadInitialData} 
+                        key={currentStockPoint?.id || 'no-point'}
+                        tenantId={tenantId}
+                        stockPointId={currentStockPoint?.id || null}
+                        defaultName={currentStockPoint?.name || ''}
+                        onImported={() => {
+                          if (currentStockPoint) {
+                            loadStockPointData(currentStockPoint.id);
+                          }
+                        }} 
                       />
                     </div>
+
                     <div className="lg:col-span-8 space-y-6">
                       {currentSchema && templates.length > 0 && (
                         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center justify-between">
@@ -319,7 +329,8 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                           </button>
                         </div>
                       )}
-                      {currentSchema ? (
+
+                      {currentSchema && currentStockPoint ? (
                         <ItemTable 
                           items={items} 
                           schema={currentSchema}
@@ -329,7 +340,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         />
                       ) : (
                         <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
-                          <p className="text-zinc-500">Nenhum catálogo selecionado.</p>
+                          <p className="text-zinc-500">Selecione um ponto e importe os itens.</p>
                         </div>
                       )}
                     </div>
@@ -383,7 +394,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                     />
                   ) : (
                     <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
-                      <p className="text-zinc-500">Selecione ou crie um catálogo primeiro para acessar a engenharia de etiquetas.</p>
+                      <p className="text-zinc-500">Selecione um ponto de estocagem e importe os itens para acessar a engenharia de etiquetas.</p>
                     </div>
                   )}
                 </div>
@@ -391,15 +402,16 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
 
               {activeTab === 'operation' && (
                 <div className="animate-in slide-in-from-bottom-4 duration-500">
-                  {currentSchema ? (
+                  {currentSchema && currentStockPoint ? (
                     <StockOperation 
                       items={items} 
                       schema={currentSchema}
                       tenantId={tenantId}
+                      currentStockPoint={currentStockPoint}
                     />
                   ) : (
                     <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
-                      <p className="text-zinc-500">Selecione um catálogo para iniciar a operação de estoque.</p>
+                      <p className="text-zinc-500">Selecione um ponto de estocagem para iniciar a operação de estoque.</p>
                     </div>
                   )}
                 </div>

@@ -6,9 +6,9 @@ import {
 
 const SCHEMA_COLLECTION = 'schemas';
 
-export const saveSchema = async (tenantId, schemaData) => {
+export const saveSchema = async (tenantId, schemaData, stockPointId = null) => {
   if (isLocalhost()) {
-    return await mockAddDoc(SCHEMA_COLLECTION, { ...schemaData, tenantId, version: 1, active: true });
+    return await mockAddDoc(SCHEMA_COLLECTION, { ...schemaData, tenantId, stockPointId, version: 1, active: true });
   }
 
   try {
@@ -30,6 +30,7 @@ export const saveSchema = async (tenantId, schemaData) => {
     const newSchema = {
       ...schemaData,
       tenantId,
+      stockPointId,
       version: nextVersion,
       active: true,
       createdAt: serverTimestamp()
@@ -73,6 +74,32 @@ export const getLatestSchemas = async (tenantId) => {
   } catch (error) {
     console.error("Erro ao buscar schemas:", error);
     throw error;
+  }
+};
+
+export const getSchemaByStockPoint = async (tenantId, stockPointId) => {
+  if (isLocalhost()) {
+    const all = await mockGetDocs(SCHEMA_COLLECTION, [
+      { field: 'tenantId', value: tenantId },
+      { field: 'stockPointId', value: stockPointId }
+    ]);
+    return all[0] || null;
+  }
+
+  try {
+    const q = query(
+      collection(db, SCHEMA_COLLECTION),
+      where('tenantId', '==', tenantId),
+      where('stockPointId', '==', stockPointId),
+      orderBy('createdAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const schemas = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return schemas[0] || null;
+  } catch (error) {
+    console.error("Erro ao buscar schema por ponto de estocagem:", error);
+    return null;
   }
 };
 

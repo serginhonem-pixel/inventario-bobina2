@@ -42,10 +42,11 @@ export const mockGetDocs = async (collectionName, filters = []) => {
   const db = getDb();
   let results = db[collectionName] || [];
   
-  // Simulação básica de filtros (apenas tenantId e schemaId)
+  // Simulacao basica de filtros (tenantId, schemaId, stockPointId)
   filters.forEach(f => {
     if (f.field === 'tenantId') results = results.filter(r => r.tenantId === f.value);
     if (f.field === 'schemaId') results = results.filter(r => r.schemaId === f.value);
+    if (f.field === 'stockPointId') results = results.filter(r => r.stockPointId === f.value);
     if (f.field === 'active') results = results.filter(r => r.active === f.value);
   });
 
