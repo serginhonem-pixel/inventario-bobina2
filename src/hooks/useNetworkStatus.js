@@ -34,8 +34,8 @@ const useNetworkStatus = () => {
     // O ideal seria usar um canal de comunicação (BroadcastChannel) ou um estado global.
     window.addEventListener('storage', handleStorage);
 
-    // Registra o Service Worker
-    if ('serviceWorker' in navigator) {
+    // Registra o Service Worker apenas em producao para evitar cache em dev
+    if (import.meta?.env?.PROD && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/service-worker.js')
         .then(registration => {
           console.log('Service Worker registrado com sucesso:', registration);
