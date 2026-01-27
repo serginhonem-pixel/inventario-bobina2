@@ -390,8 +390,11 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         stockPointId={currentStockPoint?.id || null}
                         defaultName={currentStockPoint?.name ? `Itens - ${currentStockPoint.name}` : ''}
                         currentSchema={currentSchema}
-                        onImported={() => {
-                          if (currentStockPoint) {
+                        onImported={(schema, itemCount = 0) => {
+                          if (schema) {
+                            setCurrentSchema(schema);
+                          }
+                          if (currentStockPoint && itemCount > 0) {
                             loadStockPointData(currentStockPoint.id);
                           }
                         }} 

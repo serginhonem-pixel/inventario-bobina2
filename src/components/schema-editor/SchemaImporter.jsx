@@ -14,6 +14,13 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
   const [savedSchema, setSavedSchema] = useState(null);
   const fileInputRef = useRef(null);
 
+  const ensureFieldIds = (list = []) =>
+    list.map((field, idx) =>
+      field.id
+        ? field
+        : { ...field, id: `fld_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}` }
+    );
+
   useEffect(() => {
     if (defaultName && !schemaName) {
       setSchemaName(defaultName);
@@ -22,16 +29,16 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
 
   useEffect(() => {
     if (currentSchema?.fields?.length) {
-      setFields(currentSchema.fields);
+      setFields(ensureFieldIds(currentSchema.fields));
       setSchemaSaved(true);
       setSavedSchema(currentSchema);
       if (currentSchema.name && !schemaName) {
         setSchemaName(currentSchema.name);
       }
     } else if (fields.length === 0) {
-      setFields([
+      setFields(ensureFieldIds([
         { key: 'sku', label: 'SKU', type: 'text', required: true }
-      ]);
+      ]));
     }
   }, [currentSchema]);
 
@@ -42,7 +49,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
       try {
         if (!schemaSaved) {
           const { fields: parsedFields, items } = await parseFileToSchemaAndItems(selectedFile);
-          setFields(parsedFields);
+          setFields(ensureFieldIds(parsedFields));
           setItemsData(items || []);
           setPreviewRows((items || []).slice(0, 5));
         } else {
@@ -71,7 +78,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
   const addField = () => {
     setFields([
       ...fields,
-      { key: `campo_${fields.length + 1}`, label: '', type: 'text', required: false }
+      { id: `fld_${Date.now()}_${fields.length}_${Math.random().toString(36).slice(2, 6)}`, key: `campo_${fields.length + 1}`, label: '', type: 'text', required: false }
     ]);
   };
 
@@ -181,7 +188,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
 
       <div className="space-y-3 mb-6">
         {fields.map((field, idx) => (
-          <div key={`${field.key}-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div key={field.id || `${field.key}-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <input
               type="text"
               placeholder="Nome da coluna (ex: Descrição)"
