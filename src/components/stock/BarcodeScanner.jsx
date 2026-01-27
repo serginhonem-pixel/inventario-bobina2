@@ -2,6 +2,15 @@ import React, { useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { X } from 'lucide-react';
 
+const pickBackCamera = (cameras = []) => {
+  if (!cameras.length) return null;
+  const isBack = (label = '') => /back|rear|traseira|environment/i.test(label);
+  const isUltra = (label = '') => /ultra|wide|0\.6|0,6/i.test(label);
+  const backCams = cameras.filter((c) => isBack(c.label));
+  const preferred = backCams.find((c) => !isUltra(c.label));
+  return (preferred || backCams[0] || cameras[0]).id;
+};
+
 const BarcodeScanner = ({ onScan, onClose }) => {
   const scannerRef = useRef(null);
 
@@ -9,16 +18,20 @@ const BarcodeScanner = ({ onScan, onClose }) => {
     const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
 
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-        (decodedText) => {
-          onScan(decodedText);
-          scanner.stop().catch(() => {});
-        },
-        () => {}
-      )
+    Html5Qrcode.getCameras()
+      .then((cameras) => {
+        const camId = pickBackCamera(cameras);
+        const cameraConfig = camId ? { deviceId: { exact: camId } } : { facingMode: "environment" };
+        return scanner.start(
+          cameraConfig,
+          { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+          (decodedText) => {
+            onScan(decodedText);
+            scanner.stop().catch(() => {});
+          },
+          () => {}
+        );
+      })
       .catch((err) => {
         console.error("Erro ao iniciar camera:", err);
       });
@@ -29,6 +42,7 @@ const BarcodeScanner = ({ onScan, onClose }) => {
     };
   }, [onScan]);
 
+  /*
   useEffect(() => {
     return;
     const scanner = new Html5Qrcode("reader");
@@ -52,6 +66,7 @@ const BarcodeScanner = ({ onScan, onClose }) => {
       scanner.clear().catch(err => console.error("Erro ao limpar scanner", err));
     };
   }, [onScan]);
+  */
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
