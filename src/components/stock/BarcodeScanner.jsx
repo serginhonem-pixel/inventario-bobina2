@@ -91,7 +91,11 @@ const BarcodeScanner = ({ onScan, onClose }) => {
 
     return () => {
       safeStop(scanner);
-      scanner.clear().catch((err) => console.error('Erro ao limpar scanner', err));
+      try {
+        scanner.clear();
+      } catch (err) {
+        console.error('Erro ao limpar scanner', err);
+      }
     };
   }, []);
 
