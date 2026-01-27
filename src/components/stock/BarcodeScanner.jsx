@@ -8,6 +8,31 @@ const BarcodeScanner = ({ onScan, onClose }) => {
   useEffect(() => {
     const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
+
+    scanner
+      .start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        (decodedText) => {
+          onScan(decodedText);
+          scanner.stop().catch(() => {});
+        },
+        () => {}
+      )
+      .catch((err) => {
+        console.error("Erro ao iniciar camera:", err);
+      });
+
+    return () => {
+      scanner.stop().catch(() => {});
+      scanner.clear().catch(err => console.error("Erro ao limpar scanner", err));
+    };
+  }, [onScan]);
+
+  useEffect(() => {
+    return;
+    const scanner = new Html5Qrcode("reader");
+    scannerRef.current = scanner;
     scanner
       .start(
         { facingMode: "environment" },
