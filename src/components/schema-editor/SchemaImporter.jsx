@@ -188,16 +188,16 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
 
       <div className="space-y-3 mb-6">
         {fields.map((field, idx) => (
-          <div key={field.id || `${field.key}-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div key={field.id || `${field.key}-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
             <input
               type="text"
               placeholder="Nome da coluna (ex: Descrição)"
-              className="md:col-span-5 bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-sm text-white"
+              className="md:col-span-6 bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-sm text-white min-w-0"
               value={field.label}
               onChange={(e) => updateField(idx, 'label', e.target.value)}
             />
             <select
-              className="md:col-span-3 bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-sm text-white"
+              className="md:col-span-3 bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-sm text-white min-w-0"
               value={field.type}
               onChange={(e) => updateField(idx, 'type', e.target.value)}
             >
@@ -206,7 +206,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
               <option value="date">Data</option>
               <option value="boolean">Sim/Não</option>
             </select>
-            <label className="md:col-span-2 flex items-center gap-2 text-xs text-zinc-400">
+            <label className="md:col-span-2 flex items-center gap-1 text-[10px] text-zinc-400 leading-tight">
               <input
                 type="checkbox"
                 checked={field.required}
@@ -218,7 +218,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
             <button
               type="button"
               onClick={() => removeField(idx)}
-              className="md:col-span-2 bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-xs text-zinc-400 hover:text-white"
+              className="md:col-span-1 bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-2 text-[10px] text-zinc-400 hover:text-white whitespace-nowrap"
             >
               Remover
             </button>

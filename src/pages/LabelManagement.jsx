@@ -32,9 +32,9 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   const [currentStockPoint, setCurrentStockPoint] = useState(null); // Novo estado para Ponto de Estocagem
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [skuInput, setSkuInput] = useState('');
   const [skuSubmitting, setSkuSubmitting] = useState(false);
   const [stockPoints, setStockPoints] = useState([]);
+  const [manualItem, setManualItem] = useState({});
 
   const tenantId = user?.uid || 'default-user';
 
@@ -48,6 +48,24 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
       setTemplate(null);
     }
   }, [tenantId, currentStockPoint]);
+
+  useEffect(() => {
+    if (currentSchema?.fields?.length) {
+      setManualItem((prev) => {
+        const next = {};
+        currentSchema.fields.forEach((field) => {
+          if (field.type === 'boolean') {
+            next[field.key] = prev[field.key] ?? false;
+          } else {
+            next[field.key] = prev[field.key] ?? '';
+          }
+        });
+        return next;
+      });
+    } else {
+      setManualItem({});
+    }
+  }, [currentSchema?.id]);
 
   useEffect(() => {
     const loadPoints = async () => {
@@ -99,20 +117,44 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
       alert("Crie as colunas do ponto antes de cadastrar SKUs.");
       return;
     }
-    const sku = skuInput.trim();
-    if (!sku) return;
+    const requiredMissing = (currentSchema.fields || []).some((field) => {
+      if (!field.required) return false;
+      const value = manualItem[field.key];
+      if (field.type === 'boolean') return value !== true;
+      return value === undefined || value === null || String(value).trim() === '';
+    });
+    if (requiredMissing) {
+      alert("Preencha todos os campos obrigatorios.");
+      return;
+    }
 
     setSkuSubmitting(true);
     try {
+      const payload = {};
+      (currentSchema.fields || []).forEach((field) => {
+        let value = manualItem[field.key];
+        if (value === undefined || value === null || value === '') return;
+        if (field.type === 'number') {
+          const num = Number(value);
+          value = Number.isNaN(num) ? value : num;
+        }
+        payload[field.key] = value;
+      });
       const newItem = await itemService.createItem(
         tenantId,
         currentSchema.id,
         currentSchema.version || 1,
-        { sku },
+        payload,
         currentStockPoint.id
       );
       setItems([newItem, ...items]);
-      setSkuInput('');
+      setManualItem((prev) => {
+        const reset = {};
+        (currentSchema.fields || []).forEach((field) => {
+          reset[field.key] = field.type === 'boolean' ? false : '';
+        });
+        return reset;
+      });
     } catch (error) {
       console.error("Erro ao salvar SKU:", error);
       alert("Erro ao salvar SKU");
@@ -358,17 +400,38 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         </h2>
                         {currentStockPoint ? (
                           <form onSubmit={handleAddSku} className="space-y-4">
-                            <input
-                              type="text"
-                              placeholder="Digite o SKU..."
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white placeholder:text-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
-                              value={skuInput}
-                              onChange={(e) => setSkuInput(e.target.value)}
-                              disabled={skuSubmitting || !currentSchema}
-                            />
+                            {currentSchema?.fields?.map((field) => {
+                              const value = manualItem[field.key];
+                              const commonClass = "w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white placeholder:text-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all";
+                              if (field.type === 'boolean') {
+                                return (
+                                  <label key={field.key} className="flex items-center gap-2 text-xs text-zinc-400">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!value}
+                                      onChange={(e) => setManualItem((prev) => ({ ...prev, [field.key]: e.target.checked }))} 
+                                      className="accent-emerald-500"
+                                      disabled={skuSubmitting || !currentSchema}
+                                    />
+                                    {field.label || field.key}
+                                  </label>
+                                );
+                              }
+                              return (
+                                <input
+                                  key={field.key}
+                                  type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                                  placeholder={field.label || field.key}
+                                  className={commonClass}
+                                  value={value ?? ''}
+                                  onChange={(e) => setManualItem((prev) => ({ ...prev, [field.key]: e.target.value }))} 
+                                  disabled={skuSubmitting || !currentSchema}
+                                />
+                              );
+                            })}
                             <button
                               type="submit"
-                              disabled={!skuInput.trim() || skuSubmitting || !currentSchema}
+                              disabled={skuSubmitting || !currentSchema}
                               className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-4 rounded-2xl shadow-lg shadow-emerald-500/10 transition-all active:scale-[0.98] disabled:bg-zinc-800"
                             >
                               {skuSubmitting ? "Salvando..." : "Cadastrar SKU"}
