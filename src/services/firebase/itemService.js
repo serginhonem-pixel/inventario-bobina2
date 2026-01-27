@@ -1,10 +1,19 @@
 import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs } from './mockPersistence';
 import { 
-  collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, doc, updateDoc, deleteDoc
+  collection, addDoc, getDocs, query, where, serverTimestamp, doc, updateDoc, deleteDoc
 } from 'firebase/firestore';
 
 const ITEM_COLLECTION = 'items';
+
+const getTimestampMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value;
+  return 0;
+};
 
 export const createItem = async (tenantId, schemaId, schemaVersion, itemData, stockPointId = null) => {
   if (isLocalhost()) {
@@ -42,12 +51,12 @@ export const getItemsBySchema = async (tenantId, schemaId) => {
     const q = query(
       collection(db, ITEM_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('schemaId', '==', schemaId),
-      orderBy('createdAt', 'desc')
+      where('schemaId', '==', schemaId)
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
   } catch (error) {
     console.error("Erro ao buscar itens:", error);
     throw error;
@@ -66,12 +75,12 @@ export const getItemsByStockPoint = async (tenantId, stockPointId) => {
     const q = query(
       collection(db, ITEM_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('stockPointId', '==', stockPointId),
-      orderBy('createdAt', 'desc')
+      where('stockPointId', '==', stockPointId)
     );
     
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
   } catch (error) {
     console.error("Erro ao buscar itens por ponto de estocagem:", error);
     throw error;

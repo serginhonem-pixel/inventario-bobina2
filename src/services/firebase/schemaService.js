@@ -1,10 +1,19 @@
 import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs } from './mockPersistence';
 import { 
-  collection, addDoc, getDocs, query, where, orderBy, limit, serverTimestamp, doc, getDoc
+  collection, addDoc, getDocs, query, where, serverTimestamp, doc, getDoc
 } from 'firebase/firestore';
 
 const SCHEMA_COLLECTION = 'schemas';
+
+const getTimestampMillis = (value) => {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value;
+  return 0;
+};
 
 export const saveSchema = async (tenantId, schemaData, stockPointId = null) => {
   if (isLocalhost()) {
@@ -15,16 +24,14 @@ export const saveSchema = async (tenantId, schemaData, stockPointId = null) => {
     const q = query(
       collection(db, SCHEMA_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('name', '==', schemaData.name),
-      orderBy('version', 'desc'),
-      limit(1)
+      where('name', '==', schemaData.name)
     );
     
     const querySnapshot = await getDocs(q);
     let nextVersion = 1;
-    
     if (!querySnapshot.empty) {
-      nextVersion = querySnapshot.docs[0].data().version + 1;
+      const versions = querySnapshot.docs.map(doc => doc.data().version || 1);
+      nextVersion = Math.max(...versions) + 1;
     }
 
     const newSchema = {
@@ -53,8 +60,7 @@ export const getLatestSchemas = async (tenantId) => {
     const q = query(
       collection(db, SCHEMA_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('active', '==', true),
-      orderBy('version', 'desc')
+      where('active', '==', true)
     );
     
     const querySnapshot = await getDocs(q);
@@ -63,7 +69,8 @@ export const getLatestSchemas = async (tenantId) => {
     const latestOnly = [];
     const seenNames = new Set();
     
-    for (const s of schemas) {
+    const sortedByVersion = [...schemas].sort((a, b) => (b.version || 0) - (a.version || 0));
+    for (const s of sortedByVersion) {
       if (!seenNames.has(s.name)) {
         latestOnly.push(s);
         seenNames.add(s.name);
@@ -90,13 +97,14 @@ export const getSchemaByStockPoint = async (tenantId, stockPointId) => {
     const q = query(
       collection(db, SCHEMA_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('stockPointId', '==', stockPointId),
-      orderBy('createdAt', 'desc')
+      where('stockPointId', '==', stockPointId)
     );
     
     const querySnapshot = await getDocs(q);
     const schemas = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return schemas[0] || null;
+    if (schemas.length === 0) return null;
+    const sorted = [...schemas].sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+    return sorted[0] || null;
   } catch (error) {
     console.error("Erro ao buscar schema por ponto de estocagem:", error);
     return null;
