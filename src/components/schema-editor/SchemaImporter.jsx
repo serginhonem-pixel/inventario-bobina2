@@ -234,6 +234,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
         <button
           onClick={handleSaveSchema}
           disabled={loading}
+          data-guide="save-columns"
           className="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl hover:bg-emerald-400 transition-colors disabled:bg-zinc-800"
         >
           {loading ? "Salvando..." : "Salvar Colunas do Ponto"}
@@ -290,6 +291,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
             <button 
               onClick={handleSaveItems}
               disabled={loading}
+              data-guide="save-items"
               className="w-full bg-emerald-500 text-black font-bold py-3 rounded-xl hover:bg-emerald-400 transition-colors disabled:bg-zinc-800"
             >
               {loading ? "Salvando..." : "Salvar Itens do Ponto"}
