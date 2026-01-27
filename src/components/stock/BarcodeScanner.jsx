@@ -57,7 +57,7 @@ const BarcodeScanner = ({ onScan, onClose }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
       <div className="relative w-full max-w-md bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800">
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-          <img src="/logo.png" alt="QtdApp" className="h-6 w-auto" />
+          <img src="/logo.png" alt="QtdApp" className="h-10 w-auto" />
           <h3 className="font-bold text-white">Escanear Código</h3>
           <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400">
             <X size={20} />
