@@ -1,11 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react';
 import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
 import { 
   Move, Type, QrCode, Trash2, AlignLeft, AlignCenter, AlignRight, 
   Bold, RotateCw, Square, Type as TypeIcon, Grid3X3, Eye, Maximize2, 
   Database, Edit3, Image as ImageIcon, ZoomIn, ZoomOut, LayoutGrid, EyeOff,
   Type as FontIcon, Save, MapPin, Map, Barcode
 } from 'lucide-react';
+
+const normalizeText = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const isCodeField = (field = {}) => {
+  const key = normalizeText(field.key);
+  const label = normalizeText(field.label);
+  return ['codigo', 'cod', 'sku', 'code', 'barcode', 'codigo_barras', 'codigobarras'].some(
+    (token) => key.includes(token) || label.includes(token)
+  );
+};
+
+const isQtyField = (field = {}) => {
+  const key = normalizeText(field.key);
+  const label = normalizeText(field.label);
+  return ['quantidade', 'qtd', 'qtde', 'qty', 'estoque'].some(
+    (token) => key.includes(token) || label.includes(token)
+  );
+};
+
+const isBarcodeField = (field = {}) => isCodeField(field) || isQtyField(field);
+
+const getCodeField = (fields = []) => fields.find(isCodeField) || null;
+const getQtyField = (fields = []) => fields.find(isQtyField) || null;
 
 const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   const [templateName, setTemplateName] = useState(initialTemplate?.name || 'Novo Modelo');
@@ -20,6 +48,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   const [layoutGrid, setLayoutGrid] = useState({ cols: 3, rows: 10 });
   const [zoom, setZoom] = useState(1);
   const [logistics, setLogistics] = useState(initialTemplate?.logistics || { street: '', shelf: '', level: '' });
+  const [showTitleOptions, setShowTitleOptions] = useState(false);
   
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -27,6 +56,14 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   const BASE_SCALE = 4;
 
   const selectedElement = elements.find(el => el.id === selectedId);
+
+  useEffect(() => {
+    if (selectedElement) {
+      setShowTitleOptions(!!selectedElement.showLabel);
+    } else {
+      setShowTitleOptions(false);
+    }
+  }, [selectedElement?.id, selectedElement?.showLabel]);
 
   useEffect(() => {
     const updateZoom = () => {
@@ -94,12 +131,16 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
     }
 
     const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+    const codeField = getCodeField(schema?.fields || []);
+    const qtyField = getQtyField(schema?.fields || []);
     const qrFieldKey = type === 'qr' ? (skuField?.key || null) : null;
     const qrMode = type === 'qr' ? (qrFieldKey ? 'field' : 'item') : null;
+    const barcodeFieldKey = type === 'barcode' ? (extra.fieldKey || codeField?.key || skuField?.key || null) : null;
+    const barcodeMode = type === 'barcode' ? 'field' : null;
     const resolvedFieldKey =
       field?.key ||
       (type === 'qr' ? (qrMode === 'item' ? '__item__' : qrFieldKey) : null) ||
-      (type === 'barcode' ? (extra.fieldKey || skuField?.key || null) : null) ||
+      (type === 'barcode' ? barcodeFieldKey : null) ||
       extra.logKey ||
       null;
 
@@ -109,20 +150,29 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
       fieldKey: resolvedFieldKey,
       qrMode,
       qrFieldKey,
+      barcodeMode,
+      barcodeCodeKey: codeField?.key || null,
+      barcodeQtyKey: qtyField?.key || null,
       label: field?.label || (type === 'qr' ? 'QR Code' : type === 'barcode' ? 'Barcode' : type === 'image' ? 'Logo' : type === 'logistics' ? extra.logKey.toUpperCase() : 'Texto Fixo'),
       previewValue: preview,
       qrDataUrl: null,
+      barcodeDataUrl: null,
       showLabel: true,
       x: col * colW,
       y: row * rowH,
       width: colW,
       height: rowH,
       fontSize: 10,
+      titleFontSize: 10,
       bold: false,
       align: 'center',
       rotation: 0,
       border: true,
       lineHeight: 1.2,
+      wrap: false,
+      fontFamily: 'Arial',
+      titlePosition: 'inline',
+      backgroundColor: 'transparent',
       ...extra
     };
     setElements((prev) => [...prev, newElement]);
@@ -133,6 +183,12 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
           updateElement(newElement.id, { qrDataUrl: url });
         }
       });
+    }
+    if (type === 'barcode') {
+      const url = generateBarcodeDataUrl(newElement.previewValue);
+      if (url) {
+        updateElement(newElement.id, { barcodeDataUrl: url });
+      }
     }
   };
 
@@ -238,6 +294,22 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
     }
   };
 
+  const generateBarcodeDataUrl = (value) => {
+    try {
+      if (typeof document === 'undefined') return null;
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, String(value || '000123'), {
+        format: 'CODE128',
+        displayValue: false,
+        margin: 0
+      });
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error("Erro ao gerar código de barras:", error);
+      return null;
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-140px)] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
       <div className="bg-zinc-900 border-b border-zinc-800 p-3 flex items-center justify-between">
@@ -323,8 +395,25 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
           </div>
         </div>
 
-        <div ref={containerRef} className="flex-1 bg-zinc-950 overflow-auto flex items-center justify-center p-8 relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-          <div ref={canvasRef} className="bg-white shadow-2xl relative" style={{ width: `${labelSize.width * BASE_SCALE}px`, height: `${labelSize.height * BASE_SCALE}px`, transform: `scale(${zoom})` }}>
+        <div ref={containerRef} className="flex-1 bg-zinc-950 overflow-auto p-8 relative flex" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+          <div
+            className="relative"
+            style={{
+              margin: 'auto',
+              width: `${labelSize.width * BASE_SCALE * zoom}px`,
+              height: `${labelSize.height * BASE_SCALE * zoom}px`
+            }}
+          >
+            <div
+              ref={canvasRef}
+              className="bg-white shadow-2xl relative"
+              style={{
+                width: `${labelSize.width * BASE_SCALE}px`,
+                height: `${labelSize.height * BASE_SCALE}px`,
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top left'
+              }}
+            >
             {showGrid && (
               <div className="absolute inset-0 pointer-events-none" style={{ 
                 backgroundImage: `
@@ -336,7 +425,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
             )}
 
             {elements.map(el => (
-              <div key={el.id} onMouseDown={(e) => handleMouseDown(e, el)} className={`absolute cursor-move flex items-center ${selectedId === el.id ? 'ring-2 ring-emerald-500 z-50' : 'z-10'}`} style={{ left: `${el.x * BASE_SCALE}px`, top: `${el.y * BASE_SCALE}px`, width: `${el.width * BASE_SCALE}px`, height: `${el.height * BASE_SCALE}px`, fontSize: `${el.fontSize * (BASE_SCALE/3)}px`, fontWeight: el.bold ? 'bold' : 'normal', textAlign: el.align, transform: `rotate(${el.rotation}deg)`, border: el.border ? '1px solid black' : 'none', color: 'black', justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start', padding: '0 4px', overflow: 'hidden' }}>
+              <div key={el.id} onMouseDown={(e) => handleMouseDown(e, el)} className={`absolute cursor-move flex items-center ${selectedId === el.id ? 'ring-2 ring-emerald-500 z-50' : 'z-10'}`} style={{ left: `${el.x * BASE_SCALE}px`, top: `${el.y * BASE_SCALE}px`, width: `${el.width * BASE_SCALE}px`, height: `${el.height * BASE_SCALE}px`, fontSize: `${el.fontSize * (BASE_SCALE/3)}px`, fontWeight: el.bold ? 'bold' : 'normal', textAlign: el.align, transform: `rotate(${el.rotation}deg)`, border: el.border ? '1px solid black' : 'none', color: 'black', justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start', alignItems: (el.wrap || (el.titlePosition === 'top' && el.showLabel && el.fieldKey)) ? 'flex-start' : 'center', padding: '0 4px', overflow: 'hidden', lineHeight: el.lineHeight, fontFamily: el.fontFamily || 'Arial', backgroundColor: el.backgroundColor || 'transparent' }}>
                 {el.type === 'qr' ? (
                   <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
                     {el.qrDataUrl ? (
@@ -348,23 +437,39 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                   </div>
                 ) : el.type === 'barcode' ? (
                   <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
-                    <div
-                      className="w-full"
-                      style={{
-                        height: '60%',
-                        backgroundImage:
-                          'repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 4px, #111 4px 6px, transparent 6px 8px)',
-                        opacity: 0.6
-                      }}
-                    />
+                    {el.barcodeDataUrl ? (
+                      <img src={el.barcodeDataUrl} alt="Barcode" className="w-[95%] h-[60%] object-contain" />
+                    ) : (
+                      <div
+                        className="w-full"
+                        style={{
+                          height: '60%',
+                          backgroundImage:
+                            'repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 4px, #111 4px 6px, transparent 6px 8px)',
+                          opacity: 0.6
+                        }}
+                      />
+                    )}
                     <span className="text-[7px] text-zinc-400 mt-0.5 font-bold truncate w-full text-center">{el.previewValue}</span>
                   </div>
                 ) : el.type === 'image' ? (
                   <img src={el.url} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
-                  <span className="w-full whitespace-nowrap overflow-hidden text-ellipsis">
-                    {el.showLabel && el.fieldKey ? `${el.label}: ` : ''}{el.previewValue}
-                  </span>
+                  (el.showLabel && el.fieldKey && el.titlePosition === 'top') ? (
+                    <div className="w-full">
+                      <span className="block" style={{ fontSize: `${(el.titleFontSize || el.fontSize) * (BASE_SCALE/3)}px` }}>{el.label}</span>
+                      <span className={`block ${el.wrap ? 'whitespace-normal break-words' : 'whitespace-nowrap overflow-hidden text-ellipsis'}`}>
+                        {el.previewValue}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className={`w-full ${el.wrap ? 'whitespace-normal break-words' : 'whitespace-nowrap overflow-hidden text-ellipsis'}`}>
+                      {el.showLabel && el.fieldKey ? (
+                        <span style={{ fontSize: `${(el.titleFontSize || el.fontSize) * (BASE_SCALE/3)}px` }}>{el.label}: </span>
+                      ) : null}
+                      {el.previewValue}
+                    </span>
+                  )
                 )}
                 
                 {selectedId === el.id && (
@@ -383,6 +488,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                 )}
               </div>
             ))}
+            </div>
           </div>
         </div>
 
@@ -414,6 +520,10 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                       generateQrDataUrl(nextValue).then((url) => {
                         if (url) updateElement(selectedId, { qrDataUrl: url });
                       });
+                    }
+                    if (selectedElement.type === 'barcode') {
+                      const url = generateBarcodeDataUrl(nextValue);
+                      if (url) updateElement(selectedId, { barcodeDataUrl: url });
                     }
                   }}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
@@ -474,6 +584,87 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                   </div>
                 </div>
               )}
+              {selectedElement.type === 'barcode' && (
+                <div className="space-y-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
+                  <label className="text-[10px] text-zinc-500 uppercase font-bold">Dados do Código de Barras</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <select
+                      value={selectedElement.fieldKey || ''}
+                      onChange={(e) => {
+                        const fieldKey = e.target.value || null;
+                        const preview = fieldKey ? (schema?.sampleData?.[fieldKey] || '000123') : '000123';
+                        updateElement(selectedId, {
+                          fieldKey,
+                          previewValue: preview,
+                          barcodeMode: 'field'
+                        });
+                        const url = generateBarcodeDataUrl(preview);
+                        if (url) updateElement(selectedId, { barcodeDataUrl: url });
+                      }}
+                      className="hidden bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
+                    >
+                      <option value="">Selecione o campo</option>
+                      {(schema?.fields || []).filter(isBarcodeField).map((field) => (
+                        <option key={field.key} value={field.key}>{field.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={
+                        selectedElement.fieldKey === '__code_qty__'
+                          ? '__code_qty__'
+                          : (selectedElement.barcodeCodeKey && selectedElement.fieldKey === selectedElement.barcodeCodeKey
+                              ? '__code__'
+                              : (selectedElement.barcodeQtyKey && selectedElement.fieldKey === selectedElement.barcodeQtyKey
+                                  ? '__qty__'
+                                  : '__code__'))
+                      }
+                      onChange={(e) => {
+                        const nextKey = e.target.value || null;
+                        const fields = schema?.fields || [];
+                        const codeField = getCodeField(fields);
+                        const qtyField = getQtyField(fields);
+                        let preview = '000123';
+                        let updates = {
+                          fieldKey: nextKey,
+                          previewValue: preview,
+                          barcodeMode: 'field',
+                          barcodeCodeKey: codeField?.key || null,
+                          barcodeQtyKey: qtyField?.key || null
+                        };
+
+                        if (nextKey === '__code__') {
+                          preview = codeField?.key ? (schema?.sampleData?.[codeField.key] || '000123') : '000123';
+                          updates = { ...updates, fieldKey: codeField?.key || null, previewValue: preview };
+                        } else if (nextKey === '__qty__') {
+                          preview = qtyField?.key ? (schema?.sampleData?.[qtyField.key] || '0') : '0';
+                          updates = { ...updates, fieldKey: qtyField?.key || null, previewValue: preview };
+                        } else if (nextKey === '__code_qty__') {
+                          const codeVal = codeField?.key ? (schema?.sampleData?.[codeField.key] || '') : '';
+                          const qtyVal = qtyField?.key ? (schema?.sampleData?.[qtyField.key] || '') : '';
+                          preview = `${codeVal} ${qtyVal}`.trim() || '000123';
+                          updates = {
+                            ...updates,
+                            fieldKey: '__code_qty__',
+                            previewValue: preview
+                          };
+                        }
+
+                        updateElement(selectedId, updates);
+                        const url = generateBarcodeDataUrl(preview);
+                        if (url) updateElement(selectedId, { barcodeDataUrl: url });
+                      }}
+                      className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
+                    >
+                      <option value="__code__">Codigo</option>
+                      <option value="__qty__">Quantidade</option>
+                      <option value="__code_qty__">Codigo + Quantidade</option>
+                    </select>
+                    {(schema?.fields || []).filter(isBarcodeField).length === 0 && (
+                      <p className="text-[10px] text-zinc-500">Nenhum campo de código/quantidade encontrado.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <label className="text-[10px] text-zinc-500 uppercase font-bold">Estilo do Texto</label>
@@ -492,14 +683,54 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                   </div>
                   <input type="range" min="6" max="48" value={selectedElement.fontSize} onChange={(e) => updateElement(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full accent-emerald-500" />
                 </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] text-zinc-500 font-bold uppercase">
+                    <span>Fonte</span>
+                    <span className="truncate max-w-[140px]">{selectedElement.fontFamily || 'Arial'}</span>
+                  </div>
+                  <select
+                    value={selectedElement.fontFamily || 'Arial'}
+                    onChange={(e) => updateElement(selectedId, { fontFamily: e.target.value })}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
+                  >
+                    <option value="Arial">Arial</option>
+                    <option value="Tahoma">Tahoma</option>
+                    <option value="Trebuchet MS">Trebuchet MS</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-4">
                 <label className="text-[10px] text-zinc-500 uppercase font-bold">Opções do Bloco</label>
                 <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => updateElement(selectedId, { wrap: !selectedElement.wrap })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.wrap ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Type size={12} /> Quebra</button>
                   <button onClick={() => updateElement(selectedId, { border: !selectedElement.border })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.border ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Square size={12} /> Borda</button>
                   <button onClick={() => updateElement(selectedId, { showLabel: !selectedElement.showLabel })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.showLabel ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><FontIcon size={12} /> Título</button>
                 </div>
+                {showTitleOptions && selectedElement.showLabel && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => updateElement(selectedId, { titlePosition: 'top' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.titlePosition === 'top' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Type size={12} /> Titulo em cima</button>
+                      <button onClick={() => updateElement(selectedId, { titlePosition: 'inline' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.titlePosition !== 'top' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Type size={12} /> Titulo antes</button>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-[10px] text-zinc-500 font-bold uppercase">
+                        <span>Tamanho Titulo</span>
+                        <span>{selectedElement.titleFontSize ?? selectedElement.fontSize}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="6"
+                        max="48"
+                        value={selectedElement.titleFontSize ?? selectedElement.fontSize}
+                        onChange={(e) => updateElement(selectedId, { titleFontSize: parseInt(e.target.value) })}
+                        className="w-full accent-emerald-500"
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center gap-2">
                   <button onClick={() => updateElement(selectedId, { rotation: (selectedElement.rotation + 90) % 360 })} className="flex-1 bg-zinc-950 border border-zinc-800 p-2 rounded-xl text-zinc-500 hover:text-white flex items-center justify-center gap-2 text-[10px] font-bold uppercase"><RotateCw size={12} /> Girar 90°</button>
                 </div>
@@ -515,6 +746,28 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
           )}
 
           <div className="p-4 border-t border-zinc-800 space-y-4 mt-8">
+            <div className="space-y-2 hidden">
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Fundo do Bloco</p>
+              {selectedElement ? (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    value={selectedElement.backgroundColor && selectedElement.backgroundColor !== 'transparent' ? selectedElement.backgroundColor : '#ffffff'}
+                    onChange={(e) => updateElement(selectedId, { backgroundColor: e.target.value })}
+                    className="h-8 w-12 rounded border border-zinc-800 bg-zinc-950"
+                    title="Cor do fundo"
+                  />
+                  <button
+                    onClick={() => updateElement(selectedId, { backgroundColor: 'transparent' })}
+                    className="flex-1 bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-[10px] font-bold uppercase text-zinc-500 hover:text-white"
+                  >
+                    Sem fundo
+                  </button>
+                </div>
+              ) : (
+                <p className="text-zinc-600 text-xs">Selecione um elemento para definir o fundo.</p>
+              )}
+            </div>
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2"><MapPin size={10} /> Localização Padrão</p>
               <div className="grid grid-cols-3 gap-2">
