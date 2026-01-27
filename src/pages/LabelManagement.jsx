@@ -21,7 +21,7 @@ import { syncPendingMovements } from '../services/firebase/stockService';
 import { printLabels } from '../services/pdf/pdfService';
 import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoothPrintService';
 import Dashboard from '../components/dashboard/Dashboard';
-import TourGuide from '../components/ui/TourGuide';
+import TourGuide from '../components/ui/TourGuideBubbles';
 import OnboardingPanel from '../components/ui/OnboardingPanel';
 
 const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, updatePendingCount }) => {
@@ -280,6 +280,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                 setActiveTab(item.id);
                 setSidebarOpen(false);
               }}
+              data-guide={`nav-${item.id}`}
               className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all group ${activeTab === item.id ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/10' : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'}`}
             >
               <item.icon size={20} className={activeTab === item.id ? 'text-black' : 'group-hover:text-emerald-500'} />
@@ -602,8 +603,17 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                       schema={currentSchema}
                       initialTemplate={template}
                       onSaveTemplate={async (newTemplate) => {
-                        await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
-                        setTemplate(newTemplate);
+                        const saved = await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
+                        setTemplate(saved);
+                        setTemplates((prev) => {
+                          const existingIndex = prev.findIndex(t => t.id === saved.id);
+                          if (existingIndex >= 0) {
+                            const next = [...prev];
+                            next[existingIndex] = saved;
+                            return next;
+                          }
+                          return [saved, ...prev];
+                        });
                         alert("Template de engenharia salvo com sucesso!");
                       }}
                     />

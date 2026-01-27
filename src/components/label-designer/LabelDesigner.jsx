@@ -364,7 +364,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
               placeholder="Nome do Modelo"
               className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-32"
             />
-            <button onClick={handleSave} className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2 rounded-xl text-sm font-bold">Salvar Template</button>
+            <button onClick={handleSave} data-guide="save-template" className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2 rounded-xl text-sm font-bold">Salvar Template</button>
           </div>
         </div>
       </div>

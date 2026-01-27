@@ -51,7 +51,7 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint }) 
         <MapPin className="text-emerald-500" size={20} /> Pontos de Estocagem
       </h2>
 
-      <form onSubmit={handleCreateStockPoint} className="flex gap-2">
+      <form onSubmit={handleCreateStockPoint} className="flex gap-2" data-guide="create-stock-point">
         <input 
           type="text" 
           placeholder="Novo Ponto (Ex: Almoxarifado A)"
