@@ -3,6 +3,10 @@
  */
 
 export const isLocalhost = () => {
+  // Allow forcing real Firebase even on localhost via env flag.
+  if (import.meta.env.VITE_USE_FIREBASE_LOCAL === 'true') {
+    return false;
+  }
   return (
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1' ||

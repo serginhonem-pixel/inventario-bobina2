@@ -1,7 +1,7 @@
 import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs } from './mockPersistence';
 import { 
-  collection, addDoc, getDocs, query, where, serverTimestamp, doc, deleteDoc
+  collection, addDoc, getDocs, query, where, serverTimestamp, doc, deleteDoc, updateDoc
 } from 'firebase/firestore';
 
 const TEMPLATE_COLLECTION = 'templates';

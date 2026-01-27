@@ -22,6 +22,7 @@ import { printLabels } from '../services/pdf/pdfService';
 import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoothPrintService';
 import Dashboard from '../components/dashboard/Dashboard';
 import TourGuide from '../components/ui/TourGuide';
+import OnboardingPanel from '../components/ui/OnboardingPanel';
 
 const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, updatePendingCount }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -35,8 +36,16 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   const [skuSubmitting, setSkuSubmitting] = useState(false);
   const [stockPoints, setStockPoints] = useState([]);
   const [manualItem, setManualItem] = useState({});
+  const [tourToken, setTourToken] = useState(0);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   const tenantId = user?.uid || 'default-user';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const dismissed = localStorage.getItem('qtdapp_onboarding_dismissed') === 'true';
+    setOnboardingDismissed(dismissed);
+  }, []);
 
   useEffect(() => {
     if (currentStockPoint) {
@@ -105,6 +114,21 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartTour = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('qtdapp_tour_completed', 'false');
+      localStorage.setItem('qtdapp_tour_step', '1');
+    }
+    setTourToken(Date.now());
+  };
+
+  const handleDismissOnboarding = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('qtdapp_onboarding_dismissed', 'true');
+    }
+    setOnboardingDismissed(true);
   };
 
   const handleAddSku = async (e) => {
@@ -191,7 +215,7 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
 
   return (
     <div className="min-h-screen bg-black text-zinc-300 flex font-sans">
-      <TourGuide activeTab={activeTab} setActiveTab={setActiveTab} />
+      <TourGuide activeTab={activeTab} setActiveTab={setActiveTab} forceOpenToken={tourToken} />
       {/* Mobile Top Bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur border-b border-zinc-900 px-4 py-3 flex items-center justify-between">
         <button
@@ -359,7 +383,21 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
           ) : (
             <>
               {activeTab === 'dashboard' && (
-                <Dashboard tenantId={tenantId} currentSchema={currentSchema} />
+                <div className="space-y-6">
+                  {!onboardingDismissed && (
+                    <OnboardingPanel
+                      stockPointsCount={stockPoints.length}
+                      currentStockPoint={currentStockPoint}
+                      hasSchema={!!currentSchema}
+                      hasItems={items.length > 0}
+                      hasTemplate={templates.length > 0}
+                      onNavigate={(tab) => setActiveTab(tab)}
+                      onStartTour={handleStartTour}
+                      onDismiss={handleDismissOnboarding}
+                    />
+                  )}
+                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} />
+                </div>
               )}
               
               {activeTab === 'stock_points' && (

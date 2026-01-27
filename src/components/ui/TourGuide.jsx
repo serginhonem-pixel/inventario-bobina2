@@ -68,8 +68,20 @@ class TourGuide extends React.Component {
   }
 
   componentDidUpdate(prevProps, prevState) {
-    const { activeTab } = this.props;
+    const { activeTab, forceOpenToken } = this.props;
     const { currentStep, showTour } = this.state;
+
+    if (prevProps.forceOpenToken !== forceOpenToken && forceOpenToken) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('qtdapp_tour_step', '1');
+        localStorage.setItem('qtdapp_tour_completed', 'false');
+      }
+      this.setState({ currentStep: 1, showTour: true });
+      if (this.props.setActiveTab) {
+        this.props.setActiveTab('dashboard');
+      }
+      return;
+    }
 
     if (!showTour) return;
 
