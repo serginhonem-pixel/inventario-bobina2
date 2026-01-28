@@ -471,7 +471,7 @@ export default function LandingPage({ onEnter }) {
       </section>
 
       {/* --- Planos --- */}
-      <PlanosSection />
+      <PlanosSection onEnter={onEnter} />
 
       {/* --- CTA Section --- */}
       <section className="py-24 bg-gray-50">
