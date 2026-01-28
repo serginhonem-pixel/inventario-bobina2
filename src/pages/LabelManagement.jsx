@@ -201,20 +201,36 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       const shouldUseGlobalDefault = (org?.planId || 'free') === 'free';
       const globalDefault = shouldUseGlobalDefault ? await getDefaultTemplate('free') : null;
 
-      if (existingTemplates.length === 0) {
-        const defaultTemplate = globalDefault
-          ? {
-              name: globalDefault.name,
-              size: globalDefault.size,
-              elements: globalDefault.elements,
-              logistics: globalDefault.logistics
-            }
-          : {
-              name: 'Etiqueta Padrao',
-              size: { width: 100, height: 50 },
-              elements: [],
-              logistics: { street: '', shelf: '', level: '' }
-            };
+      const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
+      if (!hasUsableTemplate && globalDefault) {
+        const defaultTemplate = {
+          name: globalDefault.name,
+          size: globalDefault.size,
+          elements: globalDefault.elements,
+          logistics: globalDefault.logistics
+        };
+        const saved = await templateService.saveTemplate(
+          tenantId,
+          schema.id,
+          schema.version || 1,
+          defaultTemplate
+        );
+        setTemplate(saved);
+        setTemplates([saved]);
+        if (existingTemplates.length === 0) {
+          try {
+            await incrementOrgUsage(tenantId, 'templatesUsed', 1);
+          } catch (error) {
+            console.error('Erro ao atualizar limite de templates:', error);
+          }
+        }
+      } else if (existingTemplates.length === 0) {
+        const defaultTemplate = {
+          name: 'Etiqueta Padrao',
+          size: { width: 100, height: 50 },
+          elements: [],
+          logistics: { street: '', shelf: '', level: '' }
+        };
         const saved = await templateService.saveTemplate(
           tenantId,
           schema.id,
