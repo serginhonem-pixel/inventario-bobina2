@@ -38,8 +38,8 @@ const PricingPage = () => {
       id: 'pro',
       name: 'Pro',
       subtitle: 'Etiquetas Personalizadas',
-      priceMonthly: 'R$ 89',
-      priceAnnual: 'R$ 75', // ~15% desconto
+      priceMonthly: 'R$ 69,90',
+      priceAnnual: 'R$ 59,90', // ~15% desconto
       period: '/mês',
       description: 'Padronização visual profissional para seus itens.',
       features: [
@@ -50,6 +50,8 @@ const PricingPage = () => {
         'Histórico de contagens'
       ],
       cta: 'Organizar Meu Estoque',
+      ctaLinkMonthly: 'https://betinistudio.mycartpanda.com/checkout?subscription=3862',
+      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout/206394722:1?subscription=3863',
       ctaStyle: 'solid',
       highlight: true,
       borderColor: 'border-green-500/50',
@@ -219,25 +221,50 @@ const PricingPage = () => {
               </ul>
 
               {/* CTA Button */}
-              <button 
-                className={`
-                  w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200
-                  ${plan.ctaStyle === 'outline'
-                    ? 'bg-transparent border border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-500'
-                    : ''}
-                  ${plan.ctaStyle === 'solid'
-                    ? 'bg-green-600 text-black hover:bg-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'
-                    : ''}
-                  ${plan.ctaStyle === 'primary'
-                    ? 'bg-white text-black hover:bg-gray-200 border border-transparent'
-                    : ''}
-                  ${plan.ctaStyle === 'ghost'
-                    ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
-                    : ''}
-                `}
-              >
-                {plan.cta}
-              </button>
+              {plan.ctaLinkMonthly || plan.ctaLinkAnnual ? (
+                <a
+                  href={isAnnual ? plan.ctaLinkAnnual : plan.ctaLinkMonthly}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`
+                    w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200 text-center inline-block
+                    ${plan.ctaStyle === 'outline'
+                      ? 'bg-transparent border border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-500'
+                      : ''}
+                    ${plan.ctaStyle === 'solid'
+                      ? 'bg-green-600 text-black hover:bg-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                      : ''}
+                    ${plan.ctaStyle === 'primary'
+                      ? 'bg-white text-black hover:bg-gray-200 border border-transparent'
+                      : ''}
+                    ${plan.ctaStyle === 'ghost'
+                      ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
+                      : ''}
+                  `}
+                >
+                  {plan.cta}
+                </a>
+              ) : (
+                <button 
+                  className={`
+                    w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200
+                    ${plan.ctaStyle === 'outline'
+                      ? 'bg-transparent border border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-500'
+                      : ''}
+                    ${plan.ctaStyle === 'solid'
+                      ? 'bg-green-600 text-black hover:bg-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                      : ''}
+                    ${plan.ctaStyle === 'primary'
+                      ? 'bg-white text-black hover:bg-gray-200 border border-transparent'
+                      : ''}
+                    ${plan.ctaStyle === 'ghost'
+                      ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
+                      : ''}
+                  `}
+                >
+                  {plan.cta}
+                </button>
+              )}
             </div>
           ))}
         </div>

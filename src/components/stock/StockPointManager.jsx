@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Plus, MapPin, Loader2, CheckCircle2, X } from 'lucide-react';
 import * as stockPointService from '../../services/firebase/stockPointService';
 import * as stockService from '../../services/firebase/stockService';
+import { isUnlimited } from '../../core/plansConfig';
 
-const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint }) => {
+const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, planConfig, currentCount = 0, onStockPointCreated }) => {
   const [stockPoints, setStockPoints] = useState([]);
   const [newPointName, setNewPointName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const stockPointsLimit = planConfig?.stockPointsMax;
+  const limitReached = !isUnlimited(stockPointsLimit) && currentCount >= stockPointsLimit;
 
   useEffect(() => {
     loadStockPoints();
@@ -29,6 +32,10 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint }) 
   const handleCreateStockPoint = async (e) => {
     e.preventDefault();
     if (!newPointName.trim()) return;
+    if (limitReached) {
+      setError("Limite de pontos de estocagem atingido para o seu plano.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -37,6 +44,9 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint }) 
       setStockPoints([...stockPoints, newPoint]);
       setNewPointName('');
       onSelectStockPoint(newPoint);
+      if (typeof onStockPointCreated === 'function') {
+        onStockPointCreated(newPoint);
+      }
     } catch (err) {
       setError("Erro ao criar ponto de estocagem.");
       console.error(err);
@@ -63,7 +73,7 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint }) 
         <button 
           type="submit"
           className="bg-emerald-500 hover:bg-emerald-400 text-black p-2.5 rounded-xl transition-all disabled:opacity-50"
-          disabled={loading || !newPointName.trim()}
+          disabled={loading || !newPointName.trim() || limitReached}
         >
           {loading ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
         </button>
