@@ -782,15 +782,15 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
 
               <div className="space-y-4">
                 <label className="text-[10px] text-zinc-500 uppercase font-bold">Opções do Bloco</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => updateElement(selectedId, { wrap: !selectedElement.wrap })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.wrap ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Type size={12} /> Quebra</button>
-                  <button onClick={() => updateElement(selectedId, { border: !selectedElement.border })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.border ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Square size={12} /> Borda</button>
-                  <button onClick={() => updateElement(selectedId, { showLabel: !selectedElement.showLabel })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.showLabel ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><FontIcon size={12} /> Título</button>
-                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <button onClick={() => updateElement(selectedId, { vAlign: 'top' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase ${selectedElement.vAlign === 'top' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>Topo</button>
                   <button onClick={() => updateElement(selectedId, { vAlign: 'middle' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase ${!selectedElement.vAlign || selectedElement.vAlign === 'middle' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>Meio</button>
                   <button onClick={() => updateElement(selectedId, { vAlign: 'bottom' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase ${selectedElement.vAlign === 'bottom' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>Baixo</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => updateElement(selectedId, { wrap: !selectedElement.wrap })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.wrap ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Type size={12} /> Quebra</button>
+                  <button onClick={() => updateElement(selectedId, { border: !selectedElement.border })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.border ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Square size={12} /> Borda</button>
+                  <button onClick={() => updateElement(selectedId, { showLabel: !selectedElement.showLabel })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.showLabel ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><FontIcon size={12} /> Título</button>
                 </div>
                 {showTitleOptions && selectedElement.showLabel && (
                   <>
