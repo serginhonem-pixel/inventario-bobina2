@@ -122,7 +122,8 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
         ]);
         setItems(loadedItems);
         setTemplates(loadedTemplates);
-        setTemplate(loadedTemplates.length > 0 ? loadedTemplates[0] : null);
+        const templateWithElements = loadedTemplates.find((tpl) => (tpl.elements || []).length > 0) || null;
+        setTemplate(templateWithElements || (loadedTemplates.length > 0 ? loadedTemplates[0] : null));
       } else {
         setItems([]);
         setTemplates([]);
