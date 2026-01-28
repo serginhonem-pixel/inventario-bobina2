@@ -9,7 +9,7 @@ import {
   Zap
 } from 'lucide-react';
 
-const PricingPage = () => {
+const PricingPage = ({ onEnter }) => {
   const [isAnnual, setIsAnnual] = useState(false);
 
   // Dados dos planos atualizados com lógica de preço
@@ -248,6 +248,8 @@ const PricingPage = () => {
                 </button>
               ) : (
                 <button 
+                  type="button"
+                  onClick={plan.id === 'free' && typeof onEnter === 'function' ? onEnter : undefined}
                   className={`
                     w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200
                     ${plan.ctaStyle === 'outline'
