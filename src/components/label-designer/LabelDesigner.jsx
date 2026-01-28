@@ -83,6 +83,15 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
   }, [selectedElement?.id, selectedElement?.showLabel]);
 
   useEffect(() => {
+    if (!initialTemplate) return;
+    setTemplateName(initialTemplate.name || 'Novo Modelo');
+    setLabelSize(initialTemplate.size || { width: 100, height: 50 });
+    setLabelPadding(initialTemplate.padding ?? 0);
+    setElements(initialTemplate.elements || []);
+    setLogistics(initialTemplate.logistics || { street: '', shelf: '', level: '' });
+  }, [initialTemplate?.id]);
+
+  useEffect(() => {
     const updateZoom = () => {
       if (containerRef.current && canvasRef.current) {
         const container = containerRef.current.getBoundingClientRect();
