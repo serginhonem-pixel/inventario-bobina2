@@ -17,6 +17,7 @@ import * as schemaService from '../services/firebase/schemaService';
 import * as itemService from '../services/firebase/itemService';
 import * as templateService from '../services/firebase/templateService';
 import * as stockPointService from '../services/firebase/stockPointService';
+import { getDefaultTemplate, saveDefaultTemplate } from '../services/firebase/defaultTemplateService';
 import { syncPendingMovements } from '../services/firebase/stockService';
 import { printLabels } from '../services/pdf/pdfService';
 import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoothPrintService';
@@ -44,6 +45,9 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
   const tenantId = tenantIdProp || user?.uid || 'default-user';
   const planConfig = getPlanConfig(org?.planId || 'free');
+  const canCreateDefaultTemplate = true;
+  const canSaveFreeDefault =
+    (user?.email || '').toLowerCase() === 'pcp@metalosa.com.br';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -141,6 +145,137 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       localStorage.setItem('qtdapp_onboarding_dismissed', 'true');
     }
     setOnboardingDismissed(true);
+  };
+
+  const ensureDefaultStockPointAndSchema = async () => {
+    const templatesLimit = planConfig.templatesMax;
+    if (!isUnlimited(templatesLimit) && templates.length >= templatesLimit) {
+      throw new Error('templates_limit');
+    }
+
+    let points = await stockPointService.getStockPointsByTenant(tenantId);
+    let point = points[0] || null;
+
+    if (!point) {
+      const stockPointsLimit = planConfig.stockPointsMax;
+      if (!isUnlimited(stockPointsLimit) && stockPoints.length >= stockPointsLimit) {
+        throw new Error('stockpoints_limit');
+      }
+      point = await stockPointService.createStockPoint(tenantId, 'Ponto Padrao');
+      points = [point, ...points];
+      setStockPoints(points);
+      try {
+        await incrementOrgUsage(tenantId, 'stockPointsUsed', 1);
+      } catch (error) {
+        console.error('Erro ao atualizar limite de pontos:', error);
+      }
+    }
+
+    let schema = await schemaService.getSchemaByStockPoint(tenantId, point.id);
+    if (!schema) {
+      const schemaData = {
+        name: `Itens - ${point.name}`,
+        fields: [
+          { key: 'codigo', label: 'Codigo', type: 'text', required: true },
+          { key: 'descricao', label: 'Descricao', type: 'text', required: false },
+          { key: 'quantidade', label: 'Qtd', type: 'number', required: false },
+          { key: 'data', label: 'Data', type: 'date', required: false }
+        ],
+        sampleData: {
+          codigo: '000123',
+          descricao: 'Produto Padrao',
+          quantidade: 10,
+          data: '2025-01-01'
+        }
+      };
+      schema = await schemaService.saveSchema(tenantId, schemaData, point.id);
+    }
+
+    return { point, schema };
+  };
+
+  const handleCreateDefaultTemplate = async () => {
+    try {
+      const { point, schema } = await ensureDefaultStockPointAndSchema();
+      const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
+      const shouldUseGlobalDefault = (org?.planId || 'free') === 'free';
+      const globalDefault = shouldUseGlobalDefault ? await getDefaultTemplate('free') : null;
+
+      if (existingTemplates.length === 0) {
+        const defaultTemplate = globalDefault
+          ? {
+              name: globalDefault.name,
+              size: globalDefault.size,
+              elements: globalDefault.elements,
+              logistics: globalDefault.logistics
+            }
+          : {
+              name: 'Etiqueta Padrao',
+              size: { width: 100, height: 50 },
+              elements: [],
+              logistics: { street: '', shelf: '', level: '' }
+            };
+        const saved = await templateService.saveTemplate(
+          tenantId,
+          schema.id,
+          schema.version || 1,
+          defaultTemplate
+        );
+        setTemplate(saved);
+        setTemplates([saved]);
+        try {
+          await incrementOrgUsage(tenantId, 'templatesUsed', 1);
+        } catch (error) {
+          console.error('Erro ao atualizar limite de templates:', error);
+        }
+      } else {
+        setTemplates(existingTemplates);
+        setTemplate(existingTemplates[0]);
+      }
+
+      setCurrentStockPoint(point);
+      setCurrentSchema(schema);
+      setActiveTab('designer');
+    } catch (error) {
+      if (error?.message === 'templates_limit') {
+        alert('Limite de templates do seu plano.');
+        return;
+      }
+      if (error?.message === 'stockpoints_limit') {
+        alert('Limite de pontos de estocagem do seu plano.');
+        return;
+      }
+      console.error("Erro ao criar etiqueta padrao:", error);
+      alert("Erro ao criar etiqueta padrao.");
+    }
+  };
+
+  const handleSaveFreeDefaultTemplate = async (templateData) => {
+    try {
+      await saveDefaultTemplate('free', templateData);
+      if (currentSchema) {
+        const saved = await templateService.saveTemplate(
+          tenantId,
+          currentSchema.id,
+          currentSchema.version || 1,
+          templateData
+        );
+        setTemplate(saved);
+        setTemplates((prev) => {
+          const existingIndex = prev.findIndex(t => t.id === saved.id);
+          if (existingIndex >= 0) {
+            const next = [...prev];
+            next[existingIndex] = saved;
+            return next;
+          }
+          return [saved, ...prev];
+        });
+      }
+      alert('Template padrao do Free atualizado.');
+    } catch (error) {
+      console.error('Erro ao salvar template padrao:', error);
+      alert('Erro ao salvar template padrao.');
+    }
   };
 
   const handleStockPointCreated = async () => {
@@ -555,6 +690,21 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         </div>
                       )}
 
+                      {currentSchema && templates.length === 0 && canCreateDefaultTemplate && (
+                        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <PenTool size={18} className="text-emerald-500" />
+                            <span className="text-sm font-bold text-white">Sem etiqueta padrÃ£o</span>
+                          </div>
+                          <button 
+                            onClick={handleCreateDefaultTemplate}
+                            className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest hover:underline"
+                          >
+                            Criar Etiqueta PadrÃ£o
+                          </button>
+                        </div>
+                      )}
+
                       {currentSchema && currentStockPoint ? (
                         <ItemTable 
                           items={items} 
@@ -614,27 +764,40 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                     <div className="text-sm text-zinc-400">
                       Selecione o ponto de estocagem para carregar os campos.
                     </div>
-                    <select
-                      className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-full md:w-72"
-                      value={currentStockPoint?.id || ''}
-                      onChange={(e) => {
-                        const selected = stockPoints.find(p => p.id === e.target.value) || null;
-                        setCurrentStockPoint(selected);
-                      }}
-                    >
-                      <option value="">Selecione um ponto de estocagem</option>
-                      {stockPoints.map(point => (
-                        <option key={point.id} value={point.id}>{point.name}</option>
-                      ))}
-                    </select>
+                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                      <select
+                        className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-full md:w-72"
+                        value={currentStockPoint?.id || ''}
+                        onChange={(e) => {
+                          const selected = stockPoints.find(p => p.id === e.target.value) || null;
+                          setCurrentStockPoint(selected);
+                        }}
+                      >
+                        <option value="">Selecione um ponto de estocagem</option>
+                        {stockPoints.map(point => (
+                          <option key={point.id} value={point.id}>{point.name}</option>
+                        ))}
+                      </select>
+                      {canCreateDefaultTemplate && (
+                        <button
+                          type="button"
+                          onClick={handleCreateDefaultTemplate}
+                          className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all"
+                        >
+                          Criar Etiqueta Padrao
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {currentSchema ? (
                     <LabelDesigner 
                       schema={currentSchema}
                       initialTemplate={template}
+                      canSaveAsDefault={canSaveFreeDefault}
+                      onSaveAsDefault={handleSaveFreeDefaultTemplate}
                       onSaveTemplate={async (newTemplate) => {
                         const templatesLimit = planConfig.templatesMax;
-                        const templatesUsed = orgUsage.templatesUsed || templates.length;
+                        const templatesUsed = templates.length;
                         const isNewTemplate = !newTemplate.id;
                         if (!isUnlimited(templatesLimit) && isNewTemplate && templatesUsed >= templatesLimit) {
                           alert("Limite de templates do seu plano.");

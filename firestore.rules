@@ -61,5 +61,11 @@ service cloud.firestore {
       allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
       allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
     }
+
+    match /defaultTemplates/{docId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.token.email == "pcp@metalosa.com.br";
+      allow delete: if false;
+    }
   }
 }
