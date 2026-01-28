@@ -75,6 +75,12 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   }, [tenantId, currentStockPoint]);
 
   useEffect(() => {
+    if (!tenantId || currentStockPoint) return;
+    if ((org?.planId || 'free') !== 'free') return;
+    handleCreateDefaultTemplate().catch(() => {});
+  }, [tenantId, org?.planId, currentStockPoint]);
+
+  useEffect(() => {
     if (currentSchema?.fields?.length) {
       setManualItem((prev) => {
         const next = {};
