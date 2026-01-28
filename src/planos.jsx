@@ -51,7 +51,7 @@ const PricingPage = () => {
       ],
       cta: 'Organizar Meu Estoque',
       ctaLinkMonthly: 'https://betinistudio.mycartpanda.com/checkout?subscription=3862',
-      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout/206394722:1?subscription=3863',
+      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout/206394722:1?subscription=3864',
       ctaStyle: 'solid',
       highlight: true,
       borderColor: 'border-green-500/50',
