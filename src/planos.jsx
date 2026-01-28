@@ -222,10 +222,12 @@ const PricingPage = () => {
 
               {/* CTA Button */}
               {plan.ctaLinkMonthly || plan.ctaLinkAnnual ? (
-                <a
-                  href={isAnnual ? plan.ctaLinkAnnual : plan.ctaLinkMonthly}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    const href = isAnnual ? plan.ctaLinkAnnual : plan.ctaLinkMonthly;
+                    if (href) window.open(href, '_blank', 'noopener');
+                  }}
                   className={`
                     w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200 text-center inline-block
                     ${plan.ctaStyle === 'outline'
@@ -243,7 +245,7 @@ const PricingPage = () => {
                   `}
                 >
                   {plan.cta}
-                </a>
+                </button>
               ) : (
                 <button 
                   className={`
