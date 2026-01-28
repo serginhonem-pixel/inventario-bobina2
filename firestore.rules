@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOrgMember(orgId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
+    }
+
+    function tenantMatch(tenantId) {
+      return tenantId != null && isOrgMember(tenantId);
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && isOrgMember(orgId);
+    }
+
+    match /organizations/{orgId}/members/{uid} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow create: if isSignedIn() && uid == request.auth.uid;
+      allow update: if isSignedIn() && isOrgMember(orgId);
+      allow delete: if isSignedIn() && isOrgMember(orgId);
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && uid == request.auth.uid;
+      allow create: if isSignedIn() && uid == request.auth.uid;
+      allow update: if isSignedIn() && uid == request.auth.uid;
+    }
+
+    match /items/{docId} {
+      allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+    }
+
+    match /schemas/{docId} {
+      allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+    }
+
+    match /templates/{docId} {
+      allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+    }
+
+    match /stockPoints/{docId} {
+      allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+    }
+
+    match /stock_adjustments/{docId} {
+      allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
+      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+    }
+  }
+}

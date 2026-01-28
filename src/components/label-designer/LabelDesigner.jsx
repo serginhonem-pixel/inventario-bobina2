@@ -271,6 +271,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
 
   const handleSave = () => {
     onSaveTemplate({ 
+      id: initialTemplate?.id || null,
       name: templateName,
       size: labelSize, 
       elements,

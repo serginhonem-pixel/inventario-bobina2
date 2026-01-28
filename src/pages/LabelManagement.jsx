@@ -23,8 +23,10 @@ import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoo
 import Dashboard from '../components/dashboard/Dashboard';
 import TourGuide from '../components/ui/TourGuideBubbles';
 import OnboardingPanel from '../components/ui/OnboardingPanel';
+import { getPlanConfig, isUnlimited } from '../core/plansConfig';
+import { incrementOrgUsage } from '../services/firebase/orgService';
 
-const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, updatePendingCount }) => {
+const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline, pendingMovementsCount, updatePendingCount }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [currentSchema, setCurrentSchema] = useState(null);
   const [items, setItems] = useState([]);
@@ -38,14 +40,24 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
   const [manualItem, setManualItem] = useState({});
   const [tourToken, setTourToken] = useState(0);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [orgUsage, setOrgUsage] = useState({ seatsUsed: 0, stockPointsUsed: 0, templatesUsed: 0 });
 
-  const tenantId = user?.uid || 'default-user';
+  const tenantId = tenantIdProp || user?.uid || 'default-user';
+  const planConfig = getPlanConfig(org?.planId || 'free');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const dismissed = localStorage.getItem('qtdapp_onboarding_dismissed') === 'true';
     setOnboardingDismissed(dismissed);
   }, []);
+
+  useEffect(() => {
+    setOrgUsage({
+      seatsUsed: org?.seatsUsed ?? 0,
+      stockPointsUsed: org?.stockPointsUsed ?? 0,
+      templatesUsed: org?.templatesUsed ?? 0
+    });
+  }, [org?.id]);
 
   useEffect(() => {
     if (currentStockPoint) {
@@ -129,6 +141,18 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
       localStorage.setItem('qtdapp_onboarding_dismissed', 'true');
     }
     setOnboardingDismissed(true);
+  };
+
+  const handleStockPointCreated = async () => {
+    setOrgUsage((prev) => ({
+      ...prev,
+      stockPointsUsed: (prev.stockPointsUsed || 0) + 1
+    }));
+    try {
+      await incrementOrgUsage(tenantId, 'stockPointsUsed', 1);
+    } catch (error) {
+      console.error('Erro ao atualizar limite de pontos:', error);
+    }
   };
 
   const handleAddSku = async (e) => {
@@ -431,6 +455,9 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         tenantId={tenantId}
                         currentStockPoint={currentStockPoint}
                         onSelectStockPoint={setCurrentStockPoint}
+                        planConfig={planConfig}
+                        currentCount={stockPoints.length}
+                        onStockPointCreated={handleStockPointCreated}
                       />
 
                       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -554,6 +581,9 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                         tenantId={tenantId}
                         currentStockPoint={currentStockPoint}
                         onSelectStockPoint={setCurrentStockPoint}
+                        planConfig={planConfig}
+                        currentCount={stockPoints.length}
+                        onStockPointCreated={handleStockPointCreated}
                       />
                     </div>
                     <div className="lg:col-span-8 space-y-6">
@@ -603,6 +633,14 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                       schema={currentSchema}
                       initialTemplate={template}
                       onSaveTemplate={async (newTemplate) => {
+                        const templatesLimit = planConfig.templatesMax;
+                        const templatesUsed = orgUsage.templatesUsed || templates.length;
+                        const isNewTemplate = !newTemplate.id;
+                        if (!isUnlimited(templatesLimit) && isNewTemplate && templatesUsed >= templatesLimit) {
+                          alert("Limite de templates do seu plano.");
+                          return;
+                        }
+
                         const saved = await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
                         setTemplate(saved);
                         setTemplates((prev) => {
@@ -614,6 +652,17 @@ const LabelManagement = ({ user, onLogout, isOnline, pendingMovementsCount, upda
                           }
                           return [saved, ...prev];
                         });
+                        if (isNewTemplate) {
+                          setOrgUsage((prev) => ({
+                            ...prev,
+                            templatesUsed: (prev.templatesUsed || 0) + 1
+                          }));
+                          try {
+                            await incrementOrgUsage(tenantId, 'templatesUsed', 1);
+                          } catch (error) {
+                            console.error('Erro ao atualizar limite de templates:', error);
+                          }
+                        }
                         alert("Template de engenharia salvo com sucesso!");
                       }}
                     />

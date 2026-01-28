@@ -4,6 +4,7 @@ import LandingPage from "./landing"; // Mantém sua landing original
 import LabelManagement from "./pages/LabelManagement"; // Novo sistema refatorado
 import useNetworkStatus from "./hooks/useNetworkStatus";
 import { auth } from "./services/firebase/config";
+import { ensureUserOrganization } from "./services/firebase/orgService";
 import { 
   onAuthStateChanged, 
   signOut, 
@@ -23,8 +24,11 @@ const App = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [orgLoading, setOrgLoading] = useState(false);
+  const [orgError, setOrgError] = useState("");
+  const [org, setOrg] = useState(null);
   const { isOnline, pendingMovementsCount, updatePendingCount } = useNetworkStatus();
-  const allowedEmails = ["pcp@metalosa.com.br", "sergiobetinim@gmail.com"];
+  const allowedEmails = [];
 
   useEffect(() => {
     let unsubscribe = () => {};
@@ -54,6 +58,27 @@ const App = () => {
       });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setOrg(null);
+      setOrgError("");
+      setOrgLoading(false);
+      return;
+    }
+
+    setOrgLoading(true);
+    setOrgError("");
+    ensureUserOrganization(user)
+      .then((result) => {
+        setOrg(result?.org || null);
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar organizaÇõÇœo:", error);
+        setOrgError("Erro ao carregar organizaÇõÇœo.");
+      })
+      .finally(() => setOrgLoading(false));
+  }, [user]);
 
   const handleStart = async () => {
     setShowLanding(false);
@@ -85,7 +110,7 @@ const App = () => {
     }
   };
 
-  if (loading) {
+  if (loading || orgLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500"></div>
@@ -107,7 +132,7 @@ const App = () => {
             {authMode === "login" ? "Entrar" : "Criar conta"}
           </h1>
           <p className="text-zinc-400 text-sm mb-6">
-            Acesso restrito. Use seu e-mail autorizado.
+            Acesse sua conta para continuar.
           </p>
 
           {authError && (
@@ -161,11 +186,30 @@ const App = () => {
     );
   }
 
+  if (orgError) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+        <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
+          <h1 className="text-xl font-black text-white mb-2">Erro</h1>
+          <p className="text-zinc-400 text-sm">{orgError}</p>
+          <button
+            onClick={() => signOut(auth)}
+            className="mt-6 w-full bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-xl font-bold transition-all"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Após o "Começar", mostra o novo sistema de etiquetas refatorado
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <LabelManagement 
-        user={user} 
+        user={user}
+        tenantId={org?.id || user?.uid}
+        org={org}
         onLogout={async () => {
           try {
             await signOut(auth);
@@ -174,6 +218,7 @@ const App = () => {
           } finally {
             setUser(null);
             setShowLanding(true);
+            setOrg(null);
           }
         }}
         isOnline={isOnline}
