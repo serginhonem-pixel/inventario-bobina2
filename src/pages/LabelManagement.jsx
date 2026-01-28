@@ -455,7 +455,9 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-white truncate">{user?.email || 'Usuário'}</p>
-              <p className="text-[10px] text-zinc-500 uppercase font-bold">Plano Pro</p>
+              <p className="text-[10px] text-zinc-500 uppercase font-bold">
+                Plano {(org?.planId || 'free').charAt(0).toUpperCase() + (org?.planId || 'free').slice(1)}
+              </p>
             </div>
           </div>
           <button 
