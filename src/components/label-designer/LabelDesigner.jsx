@@ -35,9 +35,25 @@ const isBarcodeField = (field = {}) => isCodeField(field) || isQtyField(field);
 const getCodeField = (fields = []) => fields.find(isCodeField) || null;
 const getQtyField = (fields = []) => fields.find(isQtyField) || null;
 
-const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
+const formatDateValue = (value) => {
+  if (!value) return value;
+  if (value instanceof Date) {
+    const dd = String(value.getDate()).padStart(2, '0');
+    const mm = String(value.getMonth() + 1).padStart(2, '0');
+    const yyyy = value.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  if (typeof value === 'string') {
+    const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  }
+  return value;
+};
+
+const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefault = false, initialTemplate = null }) => {
   const [templateName, setTemplateName] = useState(initialTemplate?.name || 'Novo Modelo');
   const [labelSize, setLabelSize] = useState(initialTemplate?.size || { width: 100, height: 50 });
+  const [labelPadding, setLabelPadding] = useState(initialTemplate?.padding ?? 0);
   const [elements, setElements] = useState(initialTemplate?.elements || []);
   const [selectedId, setSelectedId] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -54,6 +70,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   const containerRef = useRef(null);
   const fileInputRef = useRef(null);
   const BASE_SCALE = 4;
+  const lastPaddingRef = useRef(labelPadding);
 
   const selectedElement = elements.find(el => el.id === selectedId);
 
@@ -81,16 +98,41 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
     updateZoom();
     window.addEventListener('resize', updateZoom);
     return () => window.removeEventListener('resize', updateZoom);
-  }, [labelSize]);
+  }, [labelSize, labelPadding]);
+
+  useEffect(() => {
+    const prev = lastPaddingRef.current;
+    if (prev === labelPadding) return;
+    const delta = labelPadding - prev;
+    lastPaddingRef.current = labelPadding;
+
+    setElements((prevElements) => {
+      const maxW = Math.max(labelSize.width - labelPadding * 2, 10);
+      const maxH = Math.max(labelSize.height - labelPadding * 2, 10);
+      const colW = maxW / layoutGrid.cols;
+      const rowH = maxH / layoutGrid.rows;
+      return prevElements.map((el) => {
+        const snappedW = Math.max(colW, Math.round(el.width / colW) * colW);
+        const snappedH = Math.max(rowH, Math.round(el.height / rowH) * rowH);
+        const snappedX = labelPadding + Math.round((el.x + delta - labelPadding) / colW) * colW;
+        const snappedY = labelPadding + Math.round((el.y + delta - labelPadding) / rowH) * rowH;
+        const nextX = Math.max(labelPadding, Math.min(snappedX, labelPadding + maxW - snappedW));
+        const nextY = Math.max(labelPadding, Math.min(snappedY, labelPadding + maxH - snappedH));
+        return { ...el, x: nextX, y: nextY, width: snappedW, height: snappedH };
+      });
+    });
+  }, [labelPadding, labelSize.width, labelSize.height]);
 
   const autoOrganize = () => {
-    const colW = labelSize.width / layoutGrid.cols;
-    const rowH = labelSize.height / layoutGrid.rows;
+    const innerW = Math.max(labelSize.width - labelPadding * 2, 10);
+    const innerH = Math.max(labelSize.height - labelPadding * 2, 10);
+    const colW = innerW / layoutGrid.cols;
+    const rowH = innerH / layoutGrid.rows;
     setElements((prev) =>
       prev.map((el, index) => {
         const col = index % layoutGrid.cols;
         const row = Math.floor(index / layoutGrid.cols);
-        return { ...el, x: col * colW, y: row * rowH, width: colW, height: rowH };
+        return { ...el, x: labelPadding + col * colW, y: labelPadding + row * rowH, width: colW, height: rowH };
       })
     );
   };
@@ -106,8 +148,10 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   };
 
   const addElement = (type, field = null, extra = {}) => {
-    const colW = labelSize.width / layoutGrid.cols;
-    const rowH = labelSize.height / layoutGrid.rows;
+    const innerW = Math.max(labelSize.width - labelPadding * 2, 10);
+    const innerH = Math.max(labelSize.height - labelPadding * 2, 10);
+    const colW = innerW / layoutGrid.cols;
+    const rowH = innerH / layoutGrid.rows;
     const index = elements.length;
     const col = index % layoutGrid.cols;
     const row = Math.floor(index / layoutGrid.cols);
@@ -127,7 +171,8 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
     if (type === 'logistics') preview = logistics[extra.logKey] || extra.logKey.toUpperCase();
     
     if (field) {
-      preview = schema?.sampleData?.[field.key] || schema?.sampleData?.[field.label] || `Exemplo ${field.label}`;
+      const raw = schema?.sampleData?.[field.key] || schema?.sampleData?.[field.label] || `Exemplo ${field.label}`;
+      preview = field.type === 'date' ? formatDateValue(raw) : raw;
     }
 
     const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
@@ -158,8 +203,8 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
       qrDataUrl: null,
       barcodeDataUrl: null,
       showLabel: true,
-      x: col * colW,
-      y: row * rowH,
+      x: labelPadding + col * colW,
+      y: labelPadding + row * rowH,
       width: colW,
       height: rowH,
       fontSize: 10,
@@ -172,6 +217,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
       wrap: false,
       fontFamily: 'Arial',
       titlePosition: 'inline',
+      vAlign: 'middle',
       backgroundColor: 'transparent',
       ...extra
     };
@@ -241,18 +287,20 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
   const handleMouseMove = (e) => {
     if (!selectedId) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const colW = labelSize.width / layoutGrid.cols;
-    const rowH = labelSize.height / layoutGrid.rows;
+    const innerW = Math.max(labelSize.width - labelPadding * 2, 10);
+    const innerH = Math.max(labelSize.height - labelPadding * 2, 10);
+    const colW = innerW / layoutGrid.cols;
+    const rowH = innerH / layoutGrid.rows;
 
     if (isDragging) {
       let newX = (e.clientX - rect.left) / (BASE_SCALE * zoom) - dragStart.x;
       let newY = (e.clientY - rect.top) / (BASE_SCALE * zoom) - dragStart.y;
       if (snapToGrid) {
-        newX = Math.round(newX / colW) * colW;
-        newY = Math.round(newY / rowH) * rowH;
+        newX = Math.round((newX - labelPadding) / colW) * colW + labelPadding;
+        newY = Math.round((newY - labelPadding) / rowH) * rowH + labelPadding;
       }
-      newX = Math.max(0, Math.min(newX, labelSize.width - selectedElement.width));
-      newY = Math.max(0, Math.min(newY, labelSize.height - selectedElement.height));
+      newX = Math.max(labelPadding, Math.min(newX, labelSize.width - labelPadding - selectedElement.width));
+      newY = Math.max(labelPadding, Math.min(newY, labelSize.height - labelPadding - selectedElement.height));
       updateElement(selectedId, { x: newX, y: newY });
     } else if (isResizing) {
       const deltaX = (e.clientX - dragStart.x) / (BASE_SCALE * zoom);
@@ -263,20 +311,29 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
         newW = Math.round(newW / colW) * colW;
         newH = Math.round(newH / rowH) * rowH;
       }
-      newW = Math.max(colW, Math.min(newW, labelSize.width - selectedElement.x));
-      newH = Math.max(rowH, Math.min(newH, labelSize.height - selectedElement.y));
+      newW = Math.max(colW, Math.min(newW, labelSize.width - labelPadding - selectedElement.x));
+      newH = Math.max(rowH, Math.min(newH, labelSize.height - labelPadding - selectedElement.y));
       updateElement(selectedId, { width: newW, height: newH });
     }
   };
 
+  const buildTemplatePayload = () => ({
+    id: initialTemplate?.id || null,
+    name: templateName,
+    size: labelSize,
+    padding: labelPadding,
+    elements,
+    logistics
+  });
+
   const handleSave = () => {
-    onSaveTemplate({ 
-      id: initialTemplate?.id || null,
-      name: templateName,
-      size: labelSize, 
-      elements,
-      logistics 
-    });
+    onSaveTemplate(buildTemplatePayload());
+  };
+
+  const handleSaveAsDefault = () => {
+    if (typeof onSaveAsDefault === 'function') {
+      onSaveAsDefault(buildTemplatePayload());
+    }
   };
 
   const generateQrDataUrl = async (value) => {
@@ -335,6 +392,19 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
           <div className="h-6 w-px bg-zinc-800" />
 
           <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500 uppercase font-bold">Padding:</span>
+            <input
+              type="number"
+              value={labelPadding}
+              onChange={(e) => setLabelPadding(parseFloat(e.target.value) || 0)}
+              className="w-14 bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-xs text-white"
+            />
+            <span className="text-[10px] text-zinc-600">mm</span>
+          </div>
+
+          <div className="h-6 w-px bg-zinc-800" />
+
+          <div className="flex items-center gap-2">
             <span className="text-[10px] text-zinc-500 uppercase font-bold">Grade:</span>
             <input type="number" value={layoutGrid.cols} onChange={(e) => setLayoutGrid({...layoutGrid, cols: parseInt(e.target.value) || 1})} className="w-10 bg-zinc-950 border border-zinc-800 rounded px-1 py-1 text-xs text-white" />
             <span className="text-zinc-600">×</span>
@@ -365,6 +435,15 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
               placeholder="Nome do Modelo"
               className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-32"
             />
+            {canSaveAsDefault && (
+              <button
+                type="button"
+                onClick={handleSaveAsDefault}
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold uppercase"
+              >
+                Salvar Padrao Free
+              </button>
+            )}
             <button onClick={handleSave} data-guide="save-template" className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2 rounded-xl text-sm font-bold">Salvar Template</button>
           </div>
         </div>
@@ -382,18 +461,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
             ))}
           </div>
 
-          <h3 className="text-[10px] font-bold text-zinc-500 uppercase mb-4 tracking-widest flex items-center gap-2"><Map size={12} /> Localização</h3>
-          <div className="grid grid-cols-1 gap-2">
-            <button onClick={() => addElement('logistics', null, { logKey: 'street' })} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-lg text-[10px] text-zinc-400 flex items-center gap-2">
-              <MapPin size={12} /> Adicionar Rua
-            </button>
-            <button onClick={() => addElement('logistics', null, { logKey: 'shelf' })} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-lg text-[10px] text-zinc-400 flex items-center gap-2">
-              <MapPin size={12} /> Adicionar Prateleira
-            </button>
-            <button onClick={() => addElement('logistics', null, { logKey: 'level' })} className="w-full text-left bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 p-2 rounded-lg text-[10px] text-zinc-400 flex items-center gap-2">
-              <MapPin size={12} /> Adicionar Nível
-            </button>
-          </div>
+          <div className="hidden"></div>
         </div>
 
         <div ref={containerRef} className="flex-1 bg-zinc-950 overflow-auto p-8 relative flex" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
@@ -415,18 +483,27 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                 transformOrigin: 'top left'
               }}
             >
+            {labelPadding > 0 && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  border: `${labelPadding * BASE_SCALE}px solid rgba(16, 185, 129, 0.2)`
+                }}
+              />
+            )}
             {showGrid && (
               <div className="absolute inset-0 pointer-events-none" style={{ 
                 backgroundImage: `
                   linear-gradient(to right, rgba(16, 185, 129, 0.1) 1px, transparent 1px),
                   linear-gradient(to bottom, rgba(16, 185, 129, 0.1) 1px, transparent 1px)
                 `,
-                backgroundSize: `${(labelSize.width / layoutGrid.cols) * BASE_SCALE}px ${(labelSize.height / layoutGrid.rows) * BASE_SCALE}px`
+                backgroundSize: `${(Math.max(labelSize.width - labelPadding * 2, 10) / layoutGrid.cols) * BASE_SCALE}px ${(Math.max(labelSize.height - labelPadding * 2, 10) / layoutGrid.rows) * BASE_SCALE}px`,
+                backgroundPosition: `${labelPadding * BASE_SCALE}px ${labelPadding * BASE_SCALE}px`
               }} />
             )}
 
             {elements.map(el => (
-              <div key={el.id} onMouseDown={(e) => handleMouseDown(e, el)} className={`absolute cursor-move flex items-center ${selectedId === el.id ? 'ring-2 ring-emerald-500 z-50' : 'z-10'}`} style={{ left: `${el.x * BASE_SCALE}px`, top: `${el.y * BASE_SCALE}px`, width: `${el.width * BASE_SCALE}px`, height: `${el.height * BASE_SCALE}px`, fontSize: `${el.fontSize * (BASE_SCALE/3)}px`, fontWeight: el.bold ? 'bold' : 'normal', textAlign: el.align, transform: `rotate(${el.rotation}deg)`, border: el.border ? '1px solid black' : 'none', color: 'black', justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start', alignItems: (el.wrap || (el.titlePosition === 'top' && el.showLabel && el.fieldKey)) ? 'flex-start' : 'center', padding: '0 4px', overflow: 'hidden', lineHeight: el.lineHeight, fontFamily: el.fontFamily || 'Arial', backgroundColor: el.backgroundColor || 'transparent' }}>
+              <div key={el.id} onMouseDown={(e) => handleMouseDown(e, el)} className={`absolute cursor-move flex items-center ${selectedId === el.id ? 'ring-2 ring-emerald-500 z-50' : 'z-10'}`} style={{ left: `${el.x * BASE_SCALE}px`, top: `${el.y * BASE_SCALE}px`, width: `${el.width * BASE_SCALE}px`, height: `${el.height * BASE_SCALE}px`, fontSize: `${el.fontSize * (BASE_SCALE/3)}px`, fontWeight: el.bold ? 'bold' : 'normal', textAlign: el.align, transform: `rotate(${el.rotation}deg)`, border: el.border ? '1px solid black' : 'none', color: 'black', justifyContent: el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start', alignItems: el.vAlign === 'top' ? 'flex-start' : el.vAlign === 'bottom' ? 'flex-end' : 'center', padding: '0 4px', overflow: 'hidden', lineHeight: el.lineHeight, fontFamily: el.fontFamily || 'Arial', backgroundColor: el.backgroundColor || 'transparent' }}>
                 {el.type === 'qr' ? (
                   <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
                     {el.qrDataUrl ? (
@@ -710,6 +787,11 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
                   <button onClick={() => updateElement(selectedId, { border: !selectedElement.border })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.border ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><Square size={12} /> Borda</button>
                   <button onClick={() => updateElement(selectedId, { showLabel: !selectedElement.showLabel })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase flex items-center justify-center gap-2 ${selectedElement.showLabel ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}><FontIcon size={12} /> Título</button>
                 </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => updateElement(selectedId, { vAlign: 'top' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase ${selectedElement.vAlign === 'top' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>Topo</button>
+                  <button onClick={() => updateElement(selectedId, { vAlign: 'middle' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase ${!selectedElement.vAlign || selectedElement.vAlign === 'middle' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>Meio</button>
+                  <button onClick={() => updateElement(selectedId, { vAlign: 'bottom' })} className={`p-2 rounded-xl border text-[10px] font-bold uppercase ${selectedElement.vAlign === 'bottom' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-zinc-950 border-zinc-800 text-zinc-500'}`}>Baixo</button>
+                </div>
                 {showTitleOptions && selectedElement.showLabel && (
                   <>
                     <div className="grid grid-cols-2 gap-2">
@@ -747,48 +829,43 @@ const LabelDesigner = ({ schema, onSaveTemplate, initialTemplate = null }) => {
           )}
 
           <div className="p-4 border-t border-zinc-800 space-y-4 mt-8">
-            <div className="space-y-2 hidden">
+            <div className="space-y-2">
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Fundo do Bloco</p>
               {selectedElement ? (
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={selectedElement.backgroundColor && selectedElement.backgroundColor !== 'transparent' ? selectedElement.backgroundColor : '#ffffff'}
-                    onChange={(e) => updateElement(selectedId, { backgroundColor: e.target.value })}
-                    className="h-8 w-12 rounded border border-zinc-800 bg-zinc-950"
-                    title="Cor do fundo"
-                  />
-                  <button
-                    onClick={() => updateElement(selectedId, { backgroundColor: 'transparent' })}
-                    className="flex-1 bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-[10px] font-bold uppercase text-zinc-500 hover:text-white"
-                  >
-                    Sem fundo
-                  </button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={selectedElement.backgroundColor && selectedElement.backgroundColor !== 'transparent' ? selectedElement.backgroundColor : '#ffffff'}
+                      onChange={(e) => updateElement(selectedId, { backgroundColor: e.target.value })}
+                      className="h-8 w-12 rounded border border-zinc-800 bg-zinc-950"
+                      title="Cor do fundo"
+                    />
+                    <button
+                      onClick={() => updateElement(selectedId, { backgroundColor: 'transparent' })}
+                      className="flex-1 bg-zinc-950 border border-zinc-800 p-2 rounded-lg text-[10px] font-bold uppercase text-zinc-500 hover:text-white"
+                    >
+                      Sem fundo
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-6 gap-2">
+                    {['#e5e7eb', '#dbeafe', '#dcfce7', '#fee2e2', '#fef9c3', '#ffffff'].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => updateElement(selectedId, { backgroundColor: color })}
+                        className="h-6 rounded border border-zinc-800"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <p className="text-zinc-600 text-xs">Selecione um elemento para definir o fundo.</p>
               )}
             </div>
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2"><MapPin size={10} /> Localização Padrão</p>
-              <div className="grid grid-cols-3 gap-2">
-                <input 
-                  type="text" placeholder="Rua" 
-                  className="bg-zinc-950 border border-zinc-800 rounded p-1 text-xs text-white"
-                  value={logistics.street} onChange={e => setLogistics({...logistics, street: e.target.value})}
-                />
-                <input 
-                  type="text" placeholder="Prat." 
-                  className="bg-zinc-950 border border-zinc-800 rounded p-1 text-xs text-white"
-                  value={logistics.shelf} onChange={e => setLogistics({...logistics, shelf: e.target.value})}
-                />
-                <input 
-                  type="text" placeholder="Nível" 
-                  className="bg-zinc-950 border border-zinc-800 rounded p-1 text-xs text-white"
-                  value={logistics.level} onChange={e => setLogistics({...logistics, level: e.target.value})}
-                />
-              </div>
-            </div>
+            <div className="hidden"></div>
             <button 
               onClick={handleSave}
               className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"

@@ -6,6 +6,26 @@ export const printLabels = (template, items) => {
   if (!template || !items || items.length === 0) return;
 
   const { size, elements } = template;
+
+  const formatDateValue = (value) => {
+    if (!value) return value;
+    const dateObj = value instanceof Date
+      ? value
+      : typeof value?.toDate === 'function'
+        ? value.toDate()
+        : null;
+    if (dateObj) {
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const yyyy = dateObj.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    if (typeof value === 'string') {
+      const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+    }
+    return value;
+  };
   
   // Cria um iframe oculto para a impressão
   const iframe = document.createElement('iframe');
@@ -92,9 +112,10 @@ export const printLabels = (template, items) => {
           <div class="label-page">
             ${elements.map(el => {
               let content = '';
-              const val = el.fieldKey
+              const rawVal = el.fieldKey
                 ? (el.fieldKey === '__item__' ? JSON.stringify(item) : (item[el.fieldKey] || ''))
                 : el.previewValue;
+              const val = formatDateValue(rawVal);
               const hasLabel = el.showLabel && el.fieldKey;
               const titlePosition = el.titlePosition || 'inline';
 
@@ -149,6 +170,7 @@ export const printLabels = (template, items) => {
                   font-family: ${el.fontFamily || 'Arial'};
                   text-align: ${el.align};
                   justify-content: ${el.align === 'center' ? 'center' : el.align === 'right' ? 'flex-end' : 'flex-start'};
+                  align-items: ${el.vAlign === 'top' ? 'flex-start' : el.vAlign === 'bottom' ? 'flex-end' : 'center'};
                   background-color: ${el.backgroundColor || 'transparent'};
                   transform: rotate(${el.rotation}deg);
                   border: ${el.border ? '0.1mm solid black' : 'none'};
