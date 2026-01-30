@@ -95,6 +95,22 @@ export const printLabels = (template, items) => {
       align-items: center;
       justify-content: center;
     }
+    .qr-img {
+      width: 80%;
+      height: auto;
+      max-width: 80%;
+      max-height: 80%;
+      object-fit: contain;
+      display: block;
+    }
+    .barcode-img {
+      width: 95%;
+      height: auto;
+      max-width: 95%;
+      max-height: 60%;
+      object-fit: contain;
+      display: block;
+    }
     .logo-img {
       width: 100%;
       height: 100%;
@@ -124,7 +140,7 @@ export const printLabels = (template, items) => {
                   ? JSON.stringify(item)
                   : (el.qrFieldKey ? (item[el.qrFieldKey] || '') : (el.fieldKey ? (item[el.fieldKey] || '') : ''));
                 content = `<div class="qr-container">
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}" style="width: 80%; height: 80%;" />
+                  <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}" />
                   <span style="font-size: 6px; margin-top: 2px;">${qrValue}</span>
                 </div>`;
               } else if (el.type === 'barcode') {
@@ -134,7 +150,7 @@ export const printLabels = (template, items) => {
                   ? `${codeVal} ${qtyVal}`.trim() || '000123'
                   : (val || '000123');
                 content = `<div class="qr-container">
-                  <img src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(barcodeValue)}&code=Code128&translate-esc=on" style="width: 95%; height: 60%;" />
+                  <img class="barcode-img" src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(barcodeValue)}&code=Code128&translate-esc=on" />
                   <span style="font-size: 6px; margin-top: 2px;">${barcodeValue}</span>
                 </div>`;
               } else if (el.type === 'image') {
