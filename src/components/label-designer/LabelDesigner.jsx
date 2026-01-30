@@ -5,8 +5,9 @@ import {
   Move, Type, QrCode, Trash2, AlignLeft, AlignCenter, AlignRight, 
   Bold, RotateCw, Square, Type as TypeIcon, Grid3X3, Eye, Maximize2, 
   Database, Edit3, Image as ImageIcon, ZoomIn, ZoomOut, LayoutGrid, EyeOff,
-  Type as FontIcon, Save, MapPin, Map, Barcode
+  Type as FontIcon, Save, MapPin, Map, Barcode, Printer
 } from 'lucide-react';
+import { printLabels } from '../../services/pdf/pdfService';
 
 const normalizeText = (value = '') =>
   String(value)
@@ -335,6 +336,49 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     logistics
   });
 
+  const buildSampleItem = () => {
+    const sample = { ...(schema?.sampleData || {}) };
+    const fields = schema?.fields || [];
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const codeField = getCodeField(fields);
+    const qtyField = getQtyField(fields);
+
+    fields.forEach((field) => {
+      if (sample[field.key] !== undefined && sample[field.key] !== null) return;
+      if (field.type === 'boolean') {
+        sample[field.key] = true;
+        return;
+      }
+      if (field.type === 'number') {
+        sample[field.key] = field.key === qtyField?.key ? 10 : 1;
+        return;
+      }
+      if (field.type === 'date') {
+        sample[field.key] = todayIso;
+        return;
+      }
+      if (field.key === codeField?.key) {
+        sample[field.key] = '000123';
+        return;
+      }
+      sample[field.key] = 'Produto Padrao';
+    });
+
+    if (codeField && sample[codeField.key] === undefined) sample[codeField.key] = '000123';
+    if (qtyField && sample[qtyField.key] === undefined) sample[qtyField.key] = 10;
+    return sample;
+  };
+
+  const handleTestPrint = () => {
+    const payload = buildTemplatePayload();
+    if (!payload?.elements?.length) {
+      alert('Adicione elementos na etiqueta antes de imprimir.');
+      return;
+    }
+    const sampleItem = buildSampleItem();
+    printLabels(payload, [sampleItem]);
+  };
+
   const handleSave = () => {
     onSaveTemplate(buildTemplatePayload());
   };
@@ -453,6 +497,14 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
                 Salvar Padrao Free
               </button>
             )}
+            <button
+              type="button"
+              onClick={handleTestPrint}
+              className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+              title="Imprimir etiqueta de teste"
+            >
+              <Printer size={16} /> Imprimir teste
+            </button>
             <button onClick={handleSave} data-guide="save-template" className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2 rounded-xl text-sm font-bold">Salvar Template</button>
           </div>
         </div>
