@@ -301,7 +301,13 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     }
   };
 
-  const handleStockPointCreated = async () => {
+  const handleStockPointCreated = async (newPoint) => {
+    if (newPoint?.id) {
+      setStockPoints((prev) => {
+        if (prev.some((p) => p.id === newPoint.id)) return prev;
+        return [newPoint, ...prev];
+      });
+    }
     setOrgUsage((prev) => ({
       ...prev,
       stockPointsUsed: (prev.stockPointsUsed || 0) + 1
@@ -310,6 +316,14 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       await incrementOrgUsage(tenantId, 'stockPointsUsed', 1);
     } catch (error) {
       console.error('Erro ao atualizar limite de pontos:', error);
+    }
+  };
+
+  const handleStockPointDeleted = (deletedPoint) => {
+    if (!deletedPoint?.id) return;
+    setStockPoints((prev) => prev.filter((p) => p.id !== deletedPoint.id));
+    if (currentStockPoint?.id === deletedPoint.id) {
+      setCurrentStockPoint(null);
     }
   };
 
@@ -581,7 +595,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                       onDismiss={handleDismissOnboarding}
                     />
                   )}
-                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} />
+                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} view="dashboard" />
                 </div>
               )}
               
@@ -618,6 +632,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         planConfig={planConfig}
                         currentCount={stockPoints.length}
                         onStockPointCreated={handleStockPointCreated}
+                        onStockPointDeleted={handleStockPointDeleted}
                       />
 
                       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
@@ -679,6 +694,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         stockPointId={currentStockPoint?.id || null}
                         defaultName={currentStockPoint?.name ? `Itens - ${currentStockPoint.name}` : ''}
                         currentSchema={currentSchema}
+                        isFreePlan={(org?.planId || 'free') === 'free'}
                         onImported={(schema, itemCount = 0) => {
                           if (schema) {
                             setCurrentSchema(schema);
@@ -759,6 +775,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         planConfig={planConfig}
                         currentCount={stockPoints.length}
                         onStockPointCreated={handleStockPointCreated}
+                        onStockPointDeleted={handleStockPointDeleted}
                       />
                     </div>
                     <div className="lg:col-span-8 space-y-6">
@@ -881,9 +898,9 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
 
 
-	              {activeTab === 'reports' && (
-	                <Dashboard tenantId={tenantId} currentSchema={currentSchema} />
-	              )}
+                {activeTab === 'reports' && (
+                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} view="reports" />
+                )}
 
               {activeTab === 'settings' && (
                 <NotificationSettings />

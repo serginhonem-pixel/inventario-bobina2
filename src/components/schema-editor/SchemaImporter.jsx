@@ -3,7 +3,7 @@ import { parseFileToItemsBySchema, parseFileToSchemaAndItems, slugify } from '..
 import { saveSchema } from '../../services/firebase/schemaService';
 import { createItemsBulk } from '../../services/firebase/itemService';
 
-const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = null, defaultName = '', currentSchema = null }) => {
+const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = null, defaultName = '', currentSchema = null, isFreePlan = false }) => {
   const [file, setFile] = useState(null);
   const [previewRows, setPreviewRows] = useState([]);
   const [itemsData, setItemsData] = useState([]);
@@ -47,9 +47,18 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
     if (selectedFile) {
       setFile(selectedFile);
       try {
-        if (!schemaSaved) {
+        let useExcelColumns = false;
+        if (!isFreePlan) {
+          useExcelColumns = window.confirm(
+            "Deseja usar as colunas do Excel?\n\nSim: usar as colunas do arquivo\nNão: manter as colunas criadas/padrão"
+          );
+        }
+
+        if (useExcelColumns) {
           const { fields: parsedFields, items } = await parseFileToSchemaAndItems(selectedFile);
           setFields(ensureFieldIds(parsedFields));
+          setSchemaSaved(false);
+          setSavedSchema(null);
           setItemsData(items || []);
           setPreviewRows((items || []).slice(0, 5));
         } else {

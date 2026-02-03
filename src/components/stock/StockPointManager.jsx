@@ -4,7 +4,7 @@ import * as stockPointService from '../../services/firebase/stockPointService';
 import * as stockService from '../../services/firebase/stockService';
 import { isUnlimited } from '../../core/plansConfig';
 
-const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, planConfig, currentCount = 0, onStockPointCreated }) => {
+const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, planConfig, currentCount = 0, onStockPointCreated, onStockPointDeleted }) => {
   const [stockPoints, setStockPoints] = useState([]);
   const [newPointName, setNewPointName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,6 +55,30 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
     }
   };
 
+  const handleDeleteStockPoint = async (point) => {
+    if (!point?.id) return;
+    const confirmed = window.confirm(`Tem certeza que deseja excluir o ponto "${point.name}"?`);
+    if (!confirmed) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      await stockPointService.deleteStockPoint(point.id);
+      setStockPoints((prev) => prev.filter((p) => p.id !== point.id));
+      if (currentStockPoint?.id === point.id) {
+        onSelectStockPoint(null);
+      }
+      if (typeof onStockPointDeleted === 'function') {
+        onStockPointDeleted(point);
+      }
+    } catch (err) {
+      setError("Erro ao excluir ponto de estocagem.");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-6">
       <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -82,20 +106,41 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
       {error && <p className="text-rose-500 text-xs">{error}</p>}
 
       <div className="space-y-2 max-h-60 overflow-y-auto">
-        {stockPoints.map(point => (
-          <button
-            key={point.id}
-            onClick={() => onSelectStockPoint(point)}
-            className={`w-full text-left p-3 rounded-xl transition-all flex items-center justify-between ${
-              currentStockPoint?.id === point.id 
-                ? 'bg-emerald-500 text-black font-bold' 
-                : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-300'
-            }`}
-          >
-            <span className="text-sm">{point.name}</span>
-            {currentStockPoint?.id === point.id && <CheckCircle2 size={16} />}
-          </button>
-        ))}
+        {stockPoints.map(point => {
+          const isActive = currentStockPoint?.id === point.id;
+          return (
+            <div
+              key={point.id}
+              className={`w-full p-3 rounded-xl transition-all flex items-center justify-between gap-2 ${
+                isActive
+                  ? 'bg-emerald-500 text-black font-bold'
+                  : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-300'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onSelectStockPoint(point)}
+                className="flex-1 text-left flex items-center justify-between gap-2"
+              >
+                <span className="text-sm">{point.name}</span>
+                {isActive && <CheckCircle2 size={16} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteStockPoint(point)}
+                className={`p-1.5 rounded-lg transition-all ${
+                  isActive
+                    ? 'bg-black/10 hover:bg-black/20 text-black'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-rose-400'
+                }`}
+                aria-label={`Excluir ${point.name}`}
+                title="Excluir ponto"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
       </div>
       
       {stockPoints.length === 0 && !loading && (

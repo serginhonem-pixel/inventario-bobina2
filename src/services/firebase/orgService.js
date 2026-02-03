@@ -28,7 +28,9 @@ export const getUserProfile = async (uid) => {
 
 export const ensureUserOrganization = async (user, defaultPlanId = 'free') => {
   if (!user?.uid) return null;
-  const plan = getPlanConfig(defaultPlanId);
+  const isMetalosa = (user?.email || '').toLowerCase() === 'pcp@metalosa.com.br';
+  const effectivePlanId = isMetalosa ? 'enterprise' : defaultPlanId;
+  const plan = getPlanConfig(effectivePlanId);
   const userRef = doc(db, USER_COLLECTION, user.uid);
 
   return runTransaction(db, async (tx) => {
@@ -37,16 +39,34 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'free') => {
       const profile = userSnap.data();
       const orgRef = doc(db, ORG_COLLECTION, profile.orgId);
       const orgSnap = await tx.get(orgRef);
+      let nextOrg = orgSnap.exists() ? { id: orgSnap.id, ...orgSnap.data() } : null;
+      if (isMetalosa && orgSnap.exists()) {
+        const orgData = orgSnap.data();
+        if (orgData?.planId !== 'enterprise') {
+          tx.update(orgRef, {
+            planId: 'enterprise',
+            seatsPurchased: plan.seatsMax ?? null,
+            status: 'active',
+            updatedAt: serverTimestamp()
+          });
+          nextOrg = {
+            ...nextOrg,
+            planId: 'enterprise',
+            seatsPurchased: plan.seatsMax ?? null,
+            status: 'active'
+          };
+        }
+      }
       return {
         userProfile: { id: user.uid, ...profile },
-        org: orgSnap.exists() ? { id: orgSnap.id, ...orgSnap.data() } : null
+        org: nextOrg
       };
     }
 
     const orgRef = doc(collection(db, ORG_COLLECTION));
     const orgData = {
       name: user.displayName || user.email || 'Nova Empresa',
-      planId: defaultPlanId,
+      planId: effectivePlanId,
       status: 'active',
       seatsPurchased: plan.seatsMax ?? null,
       seatsUsed: 1,

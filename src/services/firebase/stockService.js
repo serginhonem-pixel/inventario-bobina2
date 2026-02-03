@@ -106,6 +106,28 @@ export const getStockLogsByStockPoint = async (stockPointId, tenantId) => {
   }
 };
 
+export const getStockLogsByTenant = async (tenantId) => {
+  if (isLocalhost()) {
+    const logs = await mockGetDocs(STOCK_COLLECTION);
+    return logs
+      .filter(log => log.tenantId === tenantId)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }
+
+  try {
+    const q = query(
+      collection(db, STOCK_COLLECTION),
+      where('tenantId', '==', tenantId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Erro ao buscar logs por tenant:", error);
+    return [];
+  }
+};
+
 export const syncPendingMovements = async () => {
   if (isLocalhost() || !navigator.onLine) {
     const pending = getPendingMovements();

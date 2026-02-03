@@ -1,5 +1,5 @@
 import { db } from './config';
-import { isLocalhost, mockAddDoc, mockGetDocs } from './mockPersistence';
+import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc } from './mockPersistence';
 import { 
   collection, addDoc, getDocs, query, where, serverTimestamp, doc, deleteDoc, updateDoc
 } from 'firebase/firestore';
@@ -16,13 +16,14 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
     size,
     elements,
     logistics,
-    updatedAt: serverTimestamp()
+    updatedAt: new Date()
   };
 
   if (isLocalhost()) {
     if (id) {
-      // Mock update logic
-      return { id, ...dataToSave };
+      // Mock update logic - salva no localStorage
+      const updated = await mockUpdateDoc(TEMPLATE_COLLECTION, id, dataToSave);
+      return updated || { id, ...dataToSave };
     }
     // Mock create logic
     return await mockAddDoc(TEMPLATE_COLLECTION, { ...dataToSave, createdAt: new Date() });
