@@ -1,7 +1,7 @@
 import { db } from './config';
-import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc } from './mockPersistence';
+import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc, mockDeleteDoc } from './mockPersistence';
 import { 
-  collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, doc, updateDoc
+  collection, addDoc, getDocs, query, where, orderBy, serverTimestamp, doc, updateDoc, deleteDoc
 } from 'firebase/firestore';
 
 const STOCK_POINT_COLLECTION = 'stockPoints';
@@ -64,4 +64,17 @@ export const updateStockPoint = async (stockPointId, updates) => {
   }
 };
 
-// A função de exclusão pode ser adicionada se necessário, mas por enquanto vamos focar em CRUD básico.
+export const deleteStockPoint = async (stockPointId) => {
+  if (isLocalhost()) {
+    return await mockDeleteDoc(STOCK_POINT_COLLECTION, stockPointId);
+  }
+
+  try {
+    const docRef = doc(db, STOCK_POINT_COLLECTION, stockPointId);
+    await deleteDoc(docRef);
+    return true;
+  } catch (error) {
+    console.error("Erro ao excluir ponto de estocagem:", error);
+    throw error;
+  }
+};
