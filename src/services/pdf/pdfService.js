@@ -2,10 +2,16 @@
  * Serviço de Impressão de Alta Fidelidade
  * Converte o layout do Designer em um documento pronto para impressoras térmicas.
  */
-export const printLabels = (template, items) => {
+export const printLabels = (template, items, options = {}) => {
   if (!template || !items || items.length === 0) return;
 
   const { size, elements } = template;
+  const usePreview = !!options.usePreview;
+  const normalizeKey = (value = '') =>
+    String(value)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
 
   const formatDateValue = (value) => {
     if (!value) return value;
@@ -124,21 +130,38 @@ export const printLabels = (template, items) => {
         <style>${style}</style>
       </head>
       <body>
-        ${items.map(item => `
+        ${items.map(item => {
+          const keyMap = new Map(
+            Object.keys(item || {}).map((key) => [normalizeKey(key), key])
+          );
+          return `
           <div class="label-page">
             ${elements.map(el => {
               let content = '';
-              const rawVal = el.fieldKey
-                ? (el.fieldKey === '__item__' ? JSON.stringify(item) : (item[el.fieldKey] || ''))
-                : el.previewValue;
+              const labelKey = el.label ? keyMap.get(normalizeKey(el.label)) : null;
+              const fieldKey = el.fieldKey;
+              const shouldUseLabelKey = labelKey && labelKey !== fieldKey && item?.[labelKey] !== undefined;
+              const rawVal = usePreview && el.previewValue !== undefined
+                ? el.previewValue
+                : (el.fieldKey
+                  ? (el.fieldKey === '__item__'
+                    ? JSON.stringify(item)
+                    : (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || '')))
+                  : el.previewValue);
               const val = formatDateValue(rawVal);
               const hasLabel = el.showLabel && el.fieldKey;
               const titlePosition = el.titlePosition || 'inline';
 
               if (el.type === 'qr') {
-                const qrValue = el.qrMode === 'item' || el.fieldKey === '__item__'
-                  ? JSON.stringify(item)
-                  : (el.qrFieldKey ? (item[el.qrFieldKey] || '') : (el.fieldKey ? (item[el.fieldKey] || '') : ''));
+                const qrValue = usePreview && el.previewValue !== undefined
+                  ? String(el.previewValue)
+                  : (el.qrMode === 'item' || el.fieldKey === '__item__'
+                    ? JSON.stringify(item)
+                    : (el.qrFieldKey
+                      ? (item[el.qrFieldKey] || '')
+                      : (el.fieldKey
+                        ? (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || ''))
+                        : '')));
                 content = `<div class="qr-container">
                   <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}" />
                   <span style="font-size: 6px; margin-top: 2px;">${qrValue}</span>
@@ -146,9 +169,11 @@ export const printLabels = (template, items) => {
               } else if (el.type === 'barcode') {
                 const codeVal = el.barcodeCodeKey ? (item[el.barcodeCodeKey] || '') : '';
                 const qtyVal = el.barcodeQtyKey ? (item[el.barcodeQtyKey] || '') : '';
-                const barcodeValue = el.fieldKey === '__code_qty__'
-                  ? `${codeVal} ${qtyVal}`.trim() || '000123'
-                  : (val || '000123');
+                const barcodeValue = usePreview && el.previewValue !== undefined
+                  ? String(el.previewValue || '000123')
+                  : (el.fieldKey === '__code_qty__'
+                    ? `${codeVal} ${qtyVal}`.trim() || '000123'
+                    : (val || '000123'));
                 content = `<div class="qr-container">
                   <img class="barcode-img" src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(barcodeValue)}&code=Code128&translate-esc=on" />
                   <span style="font-size: 6px; margin-top: 2px;">${barcodeValue}</span>
@@ -197,7 +222,8 @@ export const printLabels = (template, items) => {
               `;
             }).join('')}
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </body>
     </html>
   `;

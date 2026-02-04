@@ -376,7 +376,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
       return;
     }
     const sampleItem = buildSampleItem();
-    printLabels(payload, [sampleItem]);
+    printLabels(payload, [sampleItem], { usePreview: true });
   };
 
   const handleSave = () => {
