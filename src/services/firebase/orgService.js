@@ -6,7 +6,8 @@ import {
   getDoc,
   runTransaction,
   serverTimestamp,
-  increment
+  increment,
+  Timestamp
 } from 'firebase/firestore';
 
 const ORG_COLLECTION = 'organizations';
@@ -28,8 +29,8 @@ export const getUserProfile = async (uid) => {
 
 export const ensureUserOrganization = async (user, defaultPlanId = 'free') => {
   if (!user?.uid) return null;
-  const isMetalosa = (user?.email || '').toLowerCase() === 'pcp@metalosa.com.br';
-  const effectivePlanId = isMetalosa ? 'enterprise' : defaultPlanId;
+  const isSuperAdmin = user?.superAdmin === true;
+  const effectivePlanId = isSuperAdmin ? 'enterprise' : defaultPlanId;
   const plan = getPlanConfig(effectivePlanId);
   const userRef = doc(db, USER_COLLECTION, user.uid);
 
@@ -40,7 +41,7 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'free') => {
       const orgRef = doc(db, ORG_COLLECTION, profile.orgId);
       const orgSnap = await tx.get(orgRef);
       let nextOrg = orgSnap.exists() ? { id: orgSnap.id, ...orgSnap.data() } : null;
-      if (isMetalosa && orgSnap.exists()) {
+      if (isSuperAdmin && orgSnap.exists()) {
         const orgData = orgSnap.data();
         if (orgData?.planId !== 'enterprise') {
           tx.update(orgRef, {
@@ -64,11 +65,16 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'free') => {
     }
 
     const orgRef = doc(collection(db, ORG_COLLECTION));
+    const TRIAL_DAYS = 7;
+    const trialEndDate = new Date(Date.now() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+    const trialPlanId = isSuperAdmin ? effectivePlanId : 'pro';
+    const trialPlan = isSuperAdmin ? plan : getPlanConfig('pro');
     const orgData = {
       name: user.displayName || user.email || 'Nova Empresa',
-      planId: effectivePlanId,
-      status: 'active',
-      seatsPurchased: plan.seatsMax ?? null,
+      planId: trialPlanId,
+      status: isSuperAdmin ? 'active' : 'trialing',
+      trialEndsAt: isSuperAdmin ? null : Timestamp.fromDate(trialEndDate),
+      seatsPurchased: trialPlan.seatsMax ?? null,
       seatsUsed: 1,
       stockPointsUsed: 0,
       templatesUsed: 0,

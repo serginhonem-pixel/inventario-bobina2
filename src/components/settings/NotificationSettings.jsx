@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Bell, MessageSquare, Save, CheckCircle2, Loader2, Globe, Key, Smartphone } from 'lucide-react';
 import { getWhatsAppConfig, saveWhatsAppConfig, sendTestMessage } from '../../services/notifications/whatsappService';
+import { toast } from '../ui/toast';
 
 const NotificationSettings = () => {
   const [config, setConfig] = useState({ enabled: false, number: '', apiKey: '', instance: '', apiUrl: '' });
@@ -28,13 +29,13 @@ const NotificationSettings = () => {
   };
 
   const handleTest = async () => {
-    if (!config.number) return alert("Insira um número primeiro!");
+    if (!config.number) return toast("Insira um número primeiro!", { type: 'warning' });
     setTesting(true);
     try {
       await sendTestMessage();
-      alert("Mensagem de teste enviada! Verifique o console do navegador.");
+      toast("Mensagem de teste enviada! Verifique o console do navegador.", { type: 'success' });
     } catch (error) {
-      alert(error.message);
+      toast(error.message || "Erro ao enviar mensagem de teste.", { type: 'error' });
     } finally {
       setTesting(false);
     }
@@ -158,3 +159,5 @@ const NotificationSettings = () => {
 };
 
 export default NotificationSettings;
+
+

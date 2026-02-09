@@ -1,3 +1,5 @@
+﻿import { toast } from '../../components/ui/toast';
+
 // Função auxiliar para criar um link de download
 const downloadFile = (data, filename, mimeType) => {
   const blob = new Blob([data], { type: mimeType });
@@ -130,7 +132,7 @@ export const exportToPDF = (data, schema, filename = 'inventario_qtdapp.pdf') =>
   // Cria HTML para impressão/PDF
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
-    alert('Permita pop-ups para exportar PDF');
+    toast('Permita pop-ups para exportar PDF.', { type: 'warning' });
     return;
   }
 
@@ -176,7 +178,7 @@ export const exportToPDF = (data, schema, filename = 'inventario_qtdapp.pdf') =>
       </style>
     </head>
     <body>
-      <h1>📦 Planilha de Inventário</h1>
+      <h1>ðŸ“¦ Planilha de Inventário</h1>
       <div class="info">
         <strong>${schema.name || 'Inventário'}</strong> | 
         Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
@@ -230,3 +232,6 @@ export const exportToPDF = (data, schema, filename = 'inventario_qtdapp.pdf') =>
 // Mantém funções antigas para compatibilidade
 export const exportToCSV = exportToExcel;
 export const exportToText = exportToPDF;
+
+
+

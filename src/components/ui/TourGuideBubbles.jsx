@@ -1,11 +1,11 @@
-import React from 'react';
+﻿import React from 'react';
 import { ArrowRight, X, MapPin, ScanLine, CheckCircle } from 'lucide-react';
 
 const TOUR_STEPS = [
   {
     id: 1,
     title: "Bem-vindo ao QtdApp!",
-    content: "Este tour rapido vai guia-lo pelos passos essenciais para comecar.",
+    content: "Este tour rápido vai guiá-lo pelos passos essenciais para começar.",
     target: 'nav-stock_points',
     targetTab: 'stock_points',
     action: 'navigate',
@@ -23,7 +23,7 @@ const TOUR_STEPS = [
   {
     id: 3,
     title: "2. Defina as colunas",
-    content: "Cadastre as colunas do ponto (SKU, Descricao, Lote, etc.) e salve.",
+    content: "Cadastre as colunas do ponto (SKU, Descrição, Lote, etc.) e salve.",
     targetTab: 'stock_points',
     target: 'save-columns',
     action: 'next',
@@ -58,7 +58,7 @@ const TOUR_STEPS = [
   },
   {
     id: 7,
-    title: "Pronto para comecar!",
+    title: "Pronto para começar!",
     content: "Voce concluiu o tour. Agora pode operar o inventario normalmente.",
     targetTab: 'dashboard',
     action: 'finish',
@@ -259,3 +259,5 @@ class TourGuideBubbles extends React.Component {
 }
 
 export default TourGuideBubbles;
+
+

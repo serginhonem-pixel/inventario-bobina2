@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+﻿import * as XLSX from 'xlsx';
 
 /**
  * Normaliza uma string para ser usada como chave (slug)
@@ -85,7 +85,7 @@ export const parseFileToSchema = (file) => {
 };
 
 /**
- * LÃª um arquivo Excel/CSV e retorna schema + itens normalizados
+ * Lê um arquivo Excel/CSV e retorna schema + itens normalizados
  */
 export const parseFileToSchemaAndItems = (file) => {
   return new Promise((resolve, reject) => {
@@ -100,7 +100,7 @@ export const parseFileToSchemaAndItems = (file) => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: null });
 
         if (jsonData.length === 0) {
-          throw new Error("A planilha estÃ¡ vazia.");
+          throw new Error("A planilha está vazia.");
         }
 
         const headers = Object.keys(jsonData[0]);
@@ -256,3 +256,5 @@ export const parseFileToItemsBySchema = (file, schemaFields = []) => {
     reader.readAsArrayBuffer(file);
   });
 };
+
+

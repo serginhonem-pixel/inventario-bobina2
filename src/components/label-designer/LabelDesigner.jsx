@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
 import { 
@@ -8,6 +8,7 @@ import {
   Type as FontIcon, Save, MapPin, Map, Barcode, Printer
 } from 'lucide-react';
 import { printLabels } from '../../services/pdf/pdfService';
+import { toast } from '../ui/toast';
 
 const normalizeText = (value = '') =>
   String(value)
@@ -18,7 +19,7 @@ const normalizeText = (value = '') =>
 const isCodeField = (field = {}) => {
   const key = normalizeText(field.key);
   const label = normalizeText(field.label);
-  return ['codigo', 'cod', 'sku', 'code', 'barcode', 'codigo_barras', 'codigobarras'].some(
+  return ['Código', 'cod', 'sku', 'code', 'barcode', 'Código_barras', 'Códigobarras'].some(
     (token) => key.includes(token) || label.includes(token)
   );
 };
@@ -361,7 +362,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
         sample[field.key] = '000123';
         return;
       }
-      sample[field.key] = 'Produto Padrao';
+      sample[field.key] = 'Produto Padrão';
     });
 
     if (codeField && sample[codeField.key] === undefined) sample[codeField.key] = '000123';
@@ -369,14 +370,14 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     return sample;
   };
 
-  const handleTestPrint = () => {
+  const handleTestPrint = async () => {
     const payload = buildTemplatePayload();
     if (!payload?.elements?.length) {
-      alert('Adicione elementos na etiqueta antes de imprimir.');
+      toast('Adicione elementos na etiqueta antes de imprimir.', { type: 'warning' });
       return;
     }
     const sampleItem = buildSampleItem();
-    printLabels(payload, [sampleItem], { usePreview: true });
+    await printLabels(payload, [sampleItem], { usePreview: true });
   };
 
   const handleSave = () => {
@@ -494,7 +495,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
                 onClick={handleSaveAsDefault}
                 className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold uppercase"
               >
-                Salvar Padrao Free
+                Salvar Padrão Free
               </button>
             )}
             <button
@@ -794,9 +795,9 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
                       }}
                       className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
                     >
-                      <option value="__code__">Codigo</option>
+                      <option value="__code__">Código</option>
                       <option value="__qty__">Quantidade</option>
-                      <option value="__code_qty__">Codigo + Quantidade</option>
+                      <option value="__code_qty__">Código + Quantidade</option>
                     </select>
                     {(schema?.fields || []).filter(isBarcodeField).length === 0 && (
                       <p className="text-[10px] text-zinc-500">Nenhum campo de código/quantidade encontrado.</p>
@@ -941,3 +942,6 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
 };
 
 export default LabelDesigner;
+
+
+
