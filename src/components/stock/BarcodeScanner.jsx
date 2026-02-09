@@ -1,23 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { X } from 'lucide-react';
 
-const pickBackCamera = (cameras = []) => {
-  if (!cameras.length) return null;
+const pickBackcâmera = (câmeras = []) => {
+  if (!câmeras.length) return null;
   const isBack = (label = '') => /back|rear|traseira|environment/i.test(label);
   const isUltra = (label = '') => /ultra|wide|0\.6|0,6/i.test(label);
-  const backCams = cameras.filter((c) => isBack(c.label));
+  const backCams = câmeras.filter((c) => isBack(c.label));
   const preferred = backCams.find((c) => !isUltra(c.label));
-  return (preferred || backCams[0] || cameras[0]).id;
+  return (preferred || backCams[0] || câmeras[0]).id;
 };
 
-const formatCameraLabel = (camera, index) => {
-  const label = (camera.label || '').trim();
+const formatcâmeraLabel = (câmera, index) => {
+  const label = (câmera.label || '').trim();
   const isBack = /back|rear|traseira|environment/i.test(label);
   const isFront = /front|frontal|user/i.test(label);
   const isUltra = /ultra|wide|0\.6|0,6/i.test(label);
-  const base = isBack ? (isUltra ? 'Traseira (0.6x)' : 'Traseira') : isFront ? 'Frontal' : 'Camera';
-  const clean = label.replace(/camera|webcam|facing/gi, '').replace(/\s+/g, ' ').trim();
+  const base = isBack ? (isUltra ? 'Traseira (0.6x)' : 'Traseira') : isFront ? 'Frontal' : 'câmera';
+  const clean = label.replace(/câmera|webcam|facing/gi, '').replace(/\s+/g, ' ').trim();
   return clean ? `${base} - ${clean}` : `${base} ${index + 1}`;
 };
 
@@ -29,7 +29,7 @@ const safeStop = async (scanner) => {
   } catch (err) {
     const msg = String(err || '');
     if (!msg.includes('not running') && !msg.includes('not running or paused')) {
-      console.warn('Erro ao parar camera:', err);
+      console.warn('Erro ao parar câmera:', err);
     }
   }
 };
@@ -37,12 +37,12 @@ const safeStop = async (scanner) => {
 const BarcodeScanner = ({ onScan, onClose }) => {
   const scannerRef = useRef(null);
   const startTokenRef = useRef(0);
-  const [cameras, setCameras] = useState([]);
-  const [selectedCameraId, setSelectedCameraId] = useState('');
+  const [câmeras, setcâmeras] = useState([]);
+  const [selectedcâmeraId, setSelectedcâmeraId] = useState('');
   const [useFacingMode, setUseFacingMode] = useState(false);
   const [error, setError] = useState('');
 
-  const startScanner = async (cameraConfig) => {
+  const startScanner = async (câmeraConfig) => {
     const scanner = scannerRef.current;
     if (!scanner) return;
     const token = ++startTokenRef.current;
@@ -51,7 +51,7 @@ const BarcodeScanner = ({ onScan, onClose }) => {
       await safeStop(scanner);
       if (token != startTokenRef.current) return;
       await scanner.start(
-        cameraConfig,
+        câmeraConfig,
         { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
         (decodedText) => {
           onScan(decodedText);
@@ -61,8 +61,8 @@ const BarcodeScanner = ({ onScan, onClose }) => {
       );
     } catch (err) {
       if (token == startTokenRef.current) {
-        console.error('Erro ao iniciar camera:', err);
-        setError('Nao foi possivel iniciar a camera selecionada.');
+        console.error('Erro ao iniciar câmera:', err);
+        setError('Não foi possível iniciar a câmera selecionada.');
       }
     }
   };
@@ -71,22 +71,22 @@ const BarcodeScanner = ({ onScan, onClose }) => {
     const scanner = new Html5Qrcode('reader');
     scannerRef.current = scanner;
 
-    Html5Qrcode.getCameras()
+    Html5Qrcode.getcâmeras()
       .then((cams) => {
-        setCameras(cams);
-        const camId = pickBackCamera(cams);
+        setcâmeras(cams);
+        const camId = pickBackcâmera(cams);
         if (camId) {
-          setSelectedCameraId(camId);
+          setSelectedcâmeraId(camId);
           setUseFacingMode(false);
         } else {
-          setSelectedCameraId('');
+          setSelectedcâmeraId('');
           setUseFacingMode(true);
         }
       })
       .catch((err) => {
-        console.error('Erro ao listar cameras:', err);
+        console.error('Erro ao listar câmeras:', err);
         setUseFacingMode(true);
-        setError('Nao foi possivel acessar a camera.');
+        setError('Não foi possível acessar a câmera.');
       });
 
     return () => {
@@ -104,10 +104,10 @@ const BarcodeScanner = ({ onScan, onClose }) => {
       startScanner({ facingMode: 'environment' });
       return;
     }
-    if (selectedCameraId) {
-      startScanner({ deviceId: { exact: selectedCameraId } });
+    if (selectedcâmeraId) {
+      startScanner({ deviceId: { exact: selectedcâmeraId } });
     }
-  }, [selectedCameraId, useFacingMode]);
+  }, [selectedcâmeraId, useFacingMode]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
@@ -115,7 +115,7 @@ const BarcodeScanner = ({ onScan, onClose }) => {
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center gap-3">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="QtdApp" className="h-12 w-auto" />
-            <h3 className="font-bold text-white">Escanear Codigo</h3>
+            <h3 className="font-bold text-white">Escanear Código</h3>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400">
             <X size={20} />
@@ -124,20 +124,20 @@ const BarcodeScanner = ({ onScan, onClose }) => {
 
         <div id="reader" className="w-full"></div>
 
-        {cameras.length > 1 && !useFacingMode && (
+        {câmeras.length > 1 && !useFacingMode && (
           <div className="px-6 pt-4">
-            <label className="block text-[11px] uppercase tracking-wide text-zinc-400">Camera</label>
+            <label className="block text-[11px] uppercase tracking-wide text-zinc-400">câmera</label>
             <select
-              value={selectedCameraId}
+              value={selectedcâmeraId}
               onChange={(e) => {
-                setSelectedCameraId(e.target.value);
+                setSelectedcâmeraId(e.target.value);
                 setUseFacingMode(false);
               }}
               className="mt-2 w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white"
             >
-              {cameras.map((camera, index) => (
-                <option key={camera.id} value={camera.id}>
-                  {formatCameraLabel(camera, index)}
+              {câmeras.map((câmera, index) => (
+                <option key={câmera.id} value={câmera.id}>
+                  {formatcâmeraLabel(câmera, index)}
                 </option>
               ))}
             </select>
@@ -151,7 +151,7 @@ const BarcodeScanner = ({ onScan, onClose }) => {
         )}
 
         <div className="p-6 text-center">
-          <p className="text-xs text-zinc-500">Posicione o QR Code ou Codigo de Barras dentro do quadrado</p>
+          <p className="text-xs text-zinc-500">Posicione o QR Code ou Código de Barras dentro do quadrado</p>
         </div>
       </div>
     </div>
@@ -159,3 +159,5 @@ const BarcodeScanner = ({ onScan, onClose }) => {
 };
 
 export default BarcodeScanner;
+
+

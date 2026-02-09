@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { ArrowRight, CheckCircle2, Circle, MapPin, LayoutTemplate, Package, PenTool } from 'lucide-react';
 
 const OnboardingPanel = ({
@@ -24,7 +24,7 @@ const OnboardingPanel = ({
     {
       id: 'schema',
       title: 'Defina as colunas do ponto',
-      description: 'Ex: SKU, Descricao, Lote, Validade.',
+      description: 'Ex: SKU, Descrição, Lote, Validade.',
       done: hasSchema,
       actionTab: 'stock_points',
       actionLabel: 'Criar colunas',
@@ -59,9 +59,9 @@ const OnboardingPanel = ({
     <div className="bg-zinc-900 border border-emerald-500/20 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl shadow-emerald-500/5">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h3 className="text-xl md:text-2xl font-black text-white">Onboarding rapido</h3>
+          <h3 className="text-xl md:text-2xl font-black text-white">Onboarding rápido</h3>
           <p className="text-zinc-400 text-sm mt-1">
-            Conclua os passos abaixo para comecar a operar em minutos.
+            Conclua os passos abaixo para começar a operar em minutos.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -139,3 +139,5 @@ const OnboardingPanel = ({
 };
 
 export default OnboardingPanel;
+
+

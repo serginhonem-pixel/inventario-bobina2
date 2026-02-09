@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Printer, FileSpreadsheet, FileText, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../../services/export/exportService';
+import { toast } from './toast';
 
 // Helper para agrupar itens iguais e somar quantidades
 const groupItems = (items, schema) => {
@@ -41,7 +42,7 @@ const groupItems = (items, schema) => {
   return Array.from(grouped.values());
 };
 
-const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBluetooth }) => {
+const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBluetooth, searchTerm = '' }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState(new Set());
@@ -103,19 +104,34 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
       (item._originalIds || [item.id]).forEach(id => originalIds.add(id));
     });
     const selectedItems = items.filter(item => originalIds.has(item.id));
-    if (selectedItems.length === 0) return alert("Selecione ao menos um item");
+    if (selectedItems.length === 0) return toast("Selecione ao menos um item.", { type: 'warning' });
     onPrintSelected(selectedItems);
   };
 
   const handleExportExcel = () => {
-    if (items.length === 0) return alert("Não há itens para exportar.");
+    if (items.length === 0) return toast("Não há itens para exportar.", { type: 'warning' });
     exportToExcel(items, schema);
   };
 
   const handleExportPDF = () => {
-    if (items.length === 0) return alert("Não há itens para exportar.");
+    if (items.length === 0) return toast("Não há itens para exportar.", { type: 'warning' });
     exportToPDF(items, schema);
   };
+
+  if (groupedItems.length === 0) {
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-2xl p-16 text-center">
+        <p className="text-zinc-300 font-semibold">
+          {searchTerm ? `Nenhum item encontrado para "${searchTerm}".` : "Nenhum item cadastrado ainda."}
+        </p>
+        <p className="text-zinc-500 text-sm mt-2">
+          {searchTerm
+            ? "Tente outro termo ou limpe a busca para ver tudo."
+            : "Cadastre SKUs ou importe um arquivo para começar."}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
@@ -288,3 +304,5 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
 };
 
 export default ItemTable;
+
+

@@ -1,7 +1,8 @@
-import { db } from './config';
+﻿import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs } from './mockPersistence';
+import { getDocsWithPagination } from './pagination';
 import { 
-  collection, addDoc, getDocs, query, where, serverTimestamp, doc, updateDoc, deleteDoc
+  collection, addDoc, query, where, serverTimestamp, doc, updateDoc, deleteDoc, writeBatch, orderBy
 } from 'firebase/firestore';
 
 const ITEM_COLLECTION = 'items';
@@ -39,7 +40,7 @@ export const createItem = async (tenantId, schemaId, schemaVersion, itemData, st
   }
 };
 
-export const getItemsBySchema = async (tenantId, schemaId) => {
+export const getItemsBySchema = async (tenantId, schemaId, options = {}) => {
   if (isLocalhost()) {
     return await mockGetDocs(ITEM_COLLECTION, [
       { field: 'tenantId', value: tenantId },
@@ -51,19 +52,24 @@ export const getItemsBySchema = async (tenantId, schemaId) => {
     const q = query(
       collection(db, ITEM_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('schemaId', '==', schemaId)
+      where('schemaId', '==', schemaId),
+      orderBy('createdAt', 'desc')
     );
     
-    const querySnapshot = await getDocs(q);
-    const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+    const { docs, cursor } = await getDocsWithPagination(q, options);
+    const items = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const sorted = items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+    if (options.fetchAll === false) {
+      return { items: sorted, cursor };
+    }
+    return sorted;
   } catch (error) {
     console.error("Erro ao buscar itens:", error);
     throw error;
   }
 };
 
-export const getItemsByStockPoint = async (tenantId, stockPointId) => {
+export const getItemsByStockPoint = async (tenantId, stockPointId, options = {}) => {
   if (isLocalhost()) {
     return await mockGetDocs(ITEM_COLLECTION, [
       { field: 'tenantId', value: tenantId },
@@ -75,12 +81,17 @@ export const getItemsByStockPoint = async (tenantId, stockPointId) => {
     const q = query(
       collection(db, ITEM_COLLECTION),
       where('tenantId', '==', tenantId),
-      where('stockPointId', '==', stockPointId)
+      where('stockPointId', '==', stockPointId),
+      orderBy('createdAt', 'desc')
     );
     
-    const querySnapshot = await getDocs(q);
-    const items = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+    const { docs, cursor } = await getDocsWithPagination(q, options);
+    const items = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const sorted = items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
+    if (options.fetchAll === false) {
+      return { items: sorted, cursor };
+    }
+    return sorted;
   } catch (error) {
     console.error("Erro ao buscar itens por ponto de estocagem:", error);
     throw error;
@@ -88,12 +99,41 @@ export const getItemsByStockPoint = async (tenantId, stockPointId) => {
 };
 
 export const createItemsBulk = async (tenantId, schemaId, schemaVersion, stockPointId, itemsData) => {
-  const created = [];
-  for (const itemData of itemsData) {
-    // Inserção sequencial simples (pode ser trocada por batch futuramente)
-    const item = await createItem(tenantId, schemaId, schemaVersion, itemData, stockPointId);
-    created.push(item);
+  if (isLocalhost()) {
+    const created = [];
+    for (const itemData of itemsData) {
+      const item = await createItem(tenantId, schemaId, schemaVersion, itemData, stockPointId);
+      created.push(item);
+    }
+    return created;
   }
+
+  const created = [];
+  const chunkSize = 450;
+  for (let i = 0; i < itemsData.length; i += chunkSize) {
+    const batch = writeBatch(db);
+    const slice = itemsData.slice(i, i + chunkSize);
+    const pending = [];
+
+    slice.forEach((itemData) => {
+      const docRef = doc(collection(db, ITEM_COLLECTION));
+      const payload = {
+        tenantId,
+        schemaId,
+        schemaVersion,
+        data: itemData,
+        stockPointId: stockPointId ?? null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+      batch.set(docRef, payload);
+      pending.push({ id: docRef.id, ...payload });
+    });
+
+    await batch.commit();
+    created.push(...pending);
+  }
+
   return created;
 };
 
@@ -110,3 +150,5 @@ export const deleteItem = async (itemId) => {
   await deleteDoc(docRef);
   return true;
 };
+
+

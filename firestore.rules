@@ -9,21 +9,131 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
     }
 
+    function isOrgAdmin(orgId) {
+      return isSignedIn()
+        && isOrgMember(orgId)
+        && (
+          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin'
+          || (
+            exists(/databases/$(database)/documents/organizations/$(orgId))
+            && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
+          )
+        );
+    }
+
     function tenantMatch(tenantId) {
       return tenantId != null && isOrgMember(tenantId);
+    }
+
+    function orgData(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)).data;
+    }
+
+    function orgUsage(orgId, field) {
+      return orgData(orgId) == null || orgData(orgId)[field] == null ? 0 : orgData(orgId)[field];
+    }
+
+    function planMaxStockPoints(planId) {
+      return planId == 'free' ? 1
+        : planId == 'pro' ? 1
+        : planId == 'business' ? 3
+        : null; // enterprise
+    }
+
+    function planMaxTemplates(planId) {
+      return planId == 'free' ? 1
+        : planId == 'pro' ? 3
+        : null; // business/enterprise
+    }
+
+    function planMaxSeats(planId) {
+      return planId == 'free' ? 3
+        : planId == 'pro' ? 3
+        : planId == 'business' ? 10
+        : null; // enterprise
+    }
+
+    function orgPlanId(orgId) {
+      return orgData(orgId) != null
+        ? orgData(orgId).planId
+        : (existsAfter(/databases/$(database)/documents/organizations/$(orgId))
+          ? getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.planId
+          : null);
+    }
+
+    function hasUsageIncrement(orgId, field) {
+      return existsAfter(/databases/$(database)/documents/organizations/$(orgId))
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)).data[field]
+          == (orgUsage(orgId, field) + 1);
+    }
+
+    function hasUsageDecrement(orgId, field) {
+      return existsAfter(/databases/$(database)/documents/organizations/$(orgId))
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)).data[field]
+          == (orgUsage(orgId, field) > 0 ? orgUsage(orgId, field) - 1 : 0);
+    }
+
+    function canCreateStockPoint(orgId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId))
+        && (
+          planMaxStockPoints(orgData(orgId).planId) == null
+          || (orgUsage(orgId, 'stockPointsUsed') + 1) <= planMaxStockPoints(orgData(orgId).planId)
+        );
+    }
+
+    function canCreateTemplate(orgId) {
+      return exists(/databases/$(database)/documents/organizations/$(orgId))
+        && (
+          planMaxTemplates(orgData(orgId).planId) == null
+          || (orgUsage(orgId, 'templatesUsed') + 1) <= planMaxTemplates(orgData(orgId).planId)
+        );
+    }
+
+    function canAddSeat(orgId) {
+      return (
+        exists(/databases/$(database)/documents/organizations/$(orgId))
+        || existsAfter(/databases/$(database)/documents/organizations/$(orgId))
+      )
+        && (
+          planMaxSeats(orgPlanId(orgId)) == null
+          || (orgUsage(orgId, 'seatsUsed') + 1) <= planMaxSeats(orgPlanId(orgId))
+        );
     }
 
     match /organizations/{orgId} {
       allow read: if isSignedIn() && isOrgMember(orgId);
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && isOrgMember(orgId);
+      allow update: if isOrgAdmin(orgId);
     }
 
     match /organizations/{orgId}/members/{uid} {
       allow read: if isSignedIn() && isOrgMember(orgId);
-      allow create: if isSignedIn() && uid == request.auth.uid;
-      allow update: if isSignedIn() && isOrgMember(orgId);
-      allow delete: if isSignedIn() && isOrgMember(orgId);
+      allow create: if isSignedIn()
+        && (
+          (uid == request.auth.uid
+            && (
+              !exists(/databases/$(database)/documents/organizations/$(orgId))
+              || get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
+            )
+          )
+          || isOrgAdmin(orgId)
+        )
+        && canAddSeat(orgId)
+        && hasUsageIncrement(orgId, 'seatsUsed');
+      allow update: if isOrgAdmin(orgId);
+      allow delete: if isOrgAdmin(orgId);
+    }
+
+    match /organizations/{orgId}/inventorySessions/{sessionId} {
+      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow create: if isSignedIn() && isOrgAdmin(orgId);
+      allow update, delete: if isSignedIn() && isOrgAdmin(orgId);
+
+      match /counts/{countId} {
+        allow read: if isSignedIn() && isOrgMember(orgId);
+        allow create, update: if isSignedIn() && isOrgMember(orgId);
+        allow delete: if isSignedIn() && isOrgAdmin(orgId);
+      }
     }
 
     match /users/{uid} {
@@ -46,14 +156,34 @@ service cloud.firestore {
 
     match /templates/{docId} {
       allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
-      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn()
+        && tenantMatch(request.resource.data.tenantId)
+        && isOrgAdmin(request.resource.data.tenantId)
+        && canCreateTemplate(request.resource.data.tenantId)
+        && hasUsageIncrement(request.resource.data.tenantId, 'templatesUsed');
+      allow update: if isSignedIn()
+        && tenantMatch(resource.data.tenantId)
+        && isOrgAdmin(resource.data.tenantId);
+      allow delete: if isSignedIn()
+        && tenantMatch(resource.data.tenantId)
+        && isOrgAdmin(resource.data.tenantId)
+        && hasUsageDecrement(resource.data.tenantId, 'templatesUsed');
     }
 
     match /stockPoints/{docId} {
       allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
-      allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow create: if isSignedIn()
+        && tenantMatch(request.resource.data.tenantId)
+        && isOrgAdmin(request.resource.data.tenantId)
+        && canCreateStockPoint(request.resource.data.tenantId)
+        && hasUsageIncrement(request.resource.data.tenantId, 'stockPointsUsed');
+      allow update: if isSignedIn()
+        && tenantMatch(resource.data.tenantId)
+        && isOrgAdmin(resource.data.tenantId);
+      allow delete: if isSignedIn()
+        && tenantMatch(resource.data.tenantId)
+        && isOrgAdmin(resource.data.tenantId)
+        && hasUsageDecrement(resource.data.tenantId, 'stockPointsUsed');
     }
 
     match /stock_adjustments/{docId} {
@@ -64,7 +194,7 @@ service cloud.firestore {
 
     match /defaultTemplates/{docId} {
       allow read: if isSignedIn();
-      allow create, update: if isSignedIn() && request.auth.token.email == "pcp@metalosa.com.br";
+      allow create, update: if isSignedIn() && request.auth.token.superAdmin == true;
       allow delete: if false;
     }
   }

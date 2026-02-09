@@ -1,8 +1,11 @@
+﻿import QRCode from 'qrcode';
+import JsBarcode from 'jsbarcode';
+
 /**
  * Serviço de Impressão de Alta Fidelidade
  * Converte o layout do Designer em um documento pronto para impressoras térmicas.
  */
-export const printLabels = (template, items, options = {}) => {
+export const printLabels = async (template, items, options = {}) => {
   if (!template || !items || items.length === 0) return;
 
   const { size, elements } = template;
@@ -32,14 +35,101 @@ export const printLabels = (template, items, options = {}) => {
     }
     return value;
   };
-  
+
+  const generateQrDataUrl = async (value) => {
+    try {
+      return await QRCode.toDataURL(String(value || ''), {
+        width: 300,
+        margin: 1
+      });
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error);
+      return '';
+    }
+  };
+
+  const generateBarcodeDataUrl = (value) => {
+    try {
+      const canvas = document.createElement('canvas');
+      JsBarcode(canvas, String(value || '000123'), {
+        format: 'CODE128',
+        displayValue: false,
+        margin: 0
+      });
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('Erro ao gerar Barcode:', error);
+      return '';
+    }
+  };
+
+  const qrCache = new Map();
+  const barcodeCache = new Map();
+
+  const getQr = async (value) => {
+    const key = String(value || '');
+    if (qrCache.has(key)) return qrCache.get(key);
+    const dataUrl = await generateQrDataUrl(key);
+    qrCache.set(key, dataUrl);
+    return dataUrl;
+  };
+
+  const getBarcode = (value) => {
+    const key = String(value || '');
+    if (barcodeCache.has(key)) return barcodeCache.get(key);
+    const dataUrl = generateBarcodeDataUrl(key);
+    barcodeCache.set(key, dataUrl);
+    return dataUrl;
+  };
+
+  for (const item of items) {
+    const keyMap = new Map(Object.keys(item || {}).map((key) => [normalizeKey(key), key]));
+    for (const el of elements) {
+      const labelKey = el.label ? keyMap.get(normalizeKey(el.label)) : null;
+      const fieldKey = el.fieldKey;
+      const shouldUseLabelKey = labelKey && labelKey !== fieldKey && item?.[labelKey] !== undefined;
+      const rawVal = usePreview && el.previewValue !== undefined
+        ? el.previewValue
+        : (el.fieldKey
+          ? (el.fieldKey === '__item__'
+            ? JSON.stringify(item)
+            : (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || '')))
+          : el.previewValue);
+      const val = formatDateValue(rawVal);
+
+      if (el.type === 'qr') {
+        const qrValue = usePreview && el.previewValue !== undefined
+          ? String(el.previewValue)
+          : (el.qrMode === 'item' || el.fieldKey === '__item__'
+            ? JSON.stringify(item)
+            : (el.qrFieldKey
+              ? (item[el.qrFieldKey] || '')
+              : (el.fieldKey
+                ? (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || ''))
+                : '')));
+        await getQr(qrValue);
+      }
+
+      if (el.type === 'barcode') {
+        const codeVal = el.barcodeCodeKey ? (item[el.barcodeCodeKey] || '') : '';
+        const qtyVal = el.barcodeQtyKey ? (item[el.barcodeQtyKey] || '') : '';
+        const barcodeValue = usePreview && el.previewValue !== undefined
+          ? String(el.previewValue || '000123')
+          : (el.fieldKey === '__code_qty__'
+            ? `${codeVal} ${qtyVal}`.trim() || '000123'
+            : (val || '000123'));
+        getBarcode(barcodeValue);
+      }
+    }
+  }
+
   // Cria um iframe oculto para a impressão
   const iframe = document.createElement('iframe');
   iframe.style.display = 'none';
   document.body.appendChild(iframe);
-  
+
   const doc = iframe.contentWindow.document;
-  
+
   // Estilos CSS para garantir precisão milimétrica e suporte a logos
   const style = `
     @page {
@@ -162,8 +252,9 @@ export const printLabels = (template, items, options = {}) => {
                       : (el.fieldKey
                         ? (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || ''))
                         : '')));
+                const qrDataUrl = qrCache.get(String(qrValue || '')) || '';
                 content = `<div class="qr-container">
-                  <img class="qr-img" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrValue)}" />
+                  ${qrDataUrl ? `<img class="qr-img" src="${qrDataUrl}" />` : ''}
                   <span style="font-size: 6px; margin-top: 2px;">${qrValue}</span>
                 </div>`;
               } else if (el.type === 'barcode') {
@@ -174,8 +265,9 @@ export const printLabels = (template, items, options = {}) => {
                   : (el.fieldKey === '__code_qty__'
                     ? `${codeVal} ${qtyVal}`.trim() || '000123'
                     : (val || '000123'));
+                const barcodeDataUrl = barcodeCache.get(String(barcodeValue || '')) || '';
                 content = `<div class="qr-container">
-                  <img class="barcode-img" src="https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(barcodeValue)}&code=Code128&translate-esc=on" />
+                  ${barcodeDataUrl ? `<img class="barcode-img" src="${barcodeDataUrl}" />` : ''}
                   <span style="font-size: 6px; margin-top: 2px;">${barcodeValue}</span>
                 </div>`;
               } else if (el.type === 'image') {

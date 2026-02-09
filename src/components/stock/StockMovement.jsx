@@ -7,8 +7,9 @@ import { saveAdjustment } from '../../services/firebase/stockService';
 import { isLocalhost } from '../../services/firebase/mockPersistence';
 import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
+import { toast } from '../ui/toast';
 
-const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendingCount }) => {
+const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendingCount, onItemsUpdated }) => {
   const [type, setType] = useState('in'); // 'in' ou 'out'
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,7 +42,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
     if (found) {
       addToCart(found);
     } else {
-      alert("Item não encontrado.");
+      toast("Item não encontrado.", { type: 'warning' });
     }
   };
 
@@ -51,7 +52,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
     if (found) {
       addToCart(found);
     } else {
-      alert("Código não reconhecido.");
+      toast("Código não reconhecido.", { type: 'warning' });
     }
   };
 
@@ -67,12 +68,14 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
   const handleProcess = async () => {
     if (cart.length === 0) return;
     setLoading(true);
+    const updatedMap = new Map();
     try {
       for (const item of cart) {
         const currentQty = Number(item.data.quantidade || 0);
         const adjustment = type === 'in' ? item.qty : -item.qty;
         
         const newQty = currentQty + adjustment; // Simplificação: a quantidade real deve ser calculada a partir dos logs por ponto de estocagem
+        updatedMap.set(item.id, newQty);
         
         const movementData = {
           id: `offline_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`, // ID único para rastreamento
@@ -116,11 +119,14 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
           }
         }
       }
+      if (typeof onItemsUpdated === 'function' && updatedMap.size > 0) {
+        onItemsUpdated(updatedMap);
+      }
       setSuccess(true);
       setCart([]);
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
-      alert("Erro ao processar movimentação.");
+      toast("Erro ao processar movimentação.", { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -181,6 +187,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
               <div className="flex flex-col items-center justify-center h-64 text-zinc-600">
                 <Package size={48} className="mb-2 opacity-20" />
                 <p className="text-sm">Nenhum item selecionado</p>
+                <p className="text-xs text-zinc-500 mt-1">Use a busca ou o scanner para adicionar itens à carga.</p>
               </div>
             ) : (
               <div className="space-y-3">

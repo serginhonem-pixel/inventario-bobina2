@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { parseFileToItemsBySchema, parseFileToSchemaAndItems, slugify } from '../../services/excel/excelParser';
 import { saveSchema } from '../../services/firebase/schemaService';
 import { createItemsBulk } from '../../services/firebase/itemService';
+import { toast } from '../ui/toast';
 
 const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = null, defaultName = '', currentSchema = null, isFreePlan = false }) => {
   const [file, setFile] = useState(null);
@@ -68,7 +69,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
         }
         if (!schemaName) setSchemaName(selectedFile.name.split('.')[0]);
       } catch (error) {
-        alert("Erro ao processar arquivo: " + error);
+        toast(`Erro ao processar arquivo: ${error}`, { type: 'error' });
       }
     }
   };
@@ -97,16 +98,16 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
   };
 
   const handleSaveSchema = async () => {
-    if (!schemaName) return alert("De um nome ao conjunto de itens");
-    if (!stockPointId) return alert("Selecione um ponto de estocagem antes de importar.");
-    if (fields.length === 0) return alert("Adicione ao menos uma coluna.");
+    if (!schemaName) return toast("Dê um nome ao conjunto de itens.", { type: 'warning' });
+    if (!stockPointId) return toast("Selecione um ponto de estocagem antes de importar.", { type: 'warning' });
+    if (fields.length === 0) return toast("Adicione ao menos uma coluna.", { type: 'warning' });
     if (fields.some(field => !field.label || !field.label.trim())) {
-      return alert("Preencha o nome de todas as colunas.");
+      return toast("Preencha o nome de todas as colunas.", { type: 'warning' });
     }
     const keys = fields.map(field => slugify(field.label || field.key || ''));
     const uniqueKeys = new Set(keys);
     if (uniqueKeys.size !== keys.length) {
-      return alert("Existem colunas com nomes duplicados.");
+      return toast("Existem colunas com nomes duplicados.", { type: 'warning' });
     }
     setLoading(true);
     try {
@@ -126,7 +127,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
       return savedSchema;
     } catch (error) {
       console.error("Erro ao salvar colunas:", error);
-      alert("Erro ao salvar colunas. Tente novamente.");
+      toast("Erro ao salvar colunas. Tente novamente.", { type: 'error' });
       return null;
     } finally {
       setLoading(false);
@@ -141,7 +142,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
       schemaToUse = created;
     }
     if (itemsData.length === 0) {
-      alert("Nenhum item para importar.");
+      toast("Nenhum item para importar.", { type: 'warning' });
       return;
     }
     setLoading(true);
@@ -159,7 +160,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
       setFile(null);
     } catch (error) {
       console.error("Erro ao salvar itens:", error);
-      alert("Erro ao salvar itens. Tente novamente.");
+      toast("Erro ao salvar itens. Tente novamente.", { type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -167,7 +168,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
 
   const handleDownloadTemplate = () => {
     if (fields.length === 0) {
-      alert("Adicione ao menos uma coluna.");
+      toast("Adicione ao menos uma coluna.", { type: 'warning' });
       return;
     }
     const headers = fields.map(field => field.label || field.key);
@@ -200,7 +201,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
           <div key={field.id || `${field.key}-${idx}`} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
             <input
               type="text"
-              placeholder="Nome da coluna (ex: Descricao)"
+              placeholder="Nome da coluna (ex: Descrição)"
               className="md:col-span-5 bg-zinc-950 border border-zinc-800 rounded-xl p-2 text-sm text-white min-w-0"
               value={field.label}
               onChange={(e) => updateField(idx, 'label', e.target.value)}
@@ -213,7 +214,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
               <option value="text">Texto</option>
               <option value="number">Numero</option>
               <option value="date">Data</option>
-              <option value="boolean">Sim/Nao</option>
+              <option value="boolean">Sim/Não</option>
             </select>
             <label className="md:col-span-2 flex items-center gap-1 text-[10px] text-zinc-400 leading-tight whitespace-nowrap min-w-0">
               <input
@@ -313,3 +314,6 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
 };
 
 export default SchemaImporter;
+
+
+

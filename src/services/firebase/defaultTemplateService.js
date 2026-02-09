@@ -1,4 +1,4 @@
-import { db } from './config';
+﻿import { db } from './config';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const COLLECTION = 'defaultTemplates';
@@ -11,7 +11,7 @@ export const getDefaultTemplate = async (planId = 'free') => {
 
 export const saveDefaultTemplate = async (planId = 'free', template = {}) => {
   const payload = {
-    name: template.name || 'Etiqueta Padrao',
+    name: template.name || 'Etiqueta Padrão',
     size: template.size || { width: 100, height: 50 },
     elements: template.elements || [],
     logistics: template.logistics || { street: '', shelf: '', level: '' },
@@ -22,3 +22,4 @@ export const saveDefaultTemplate = async (planId = 'free', template = {}) => {
   await setDoc(ref, payload, { merge: true });
   return { id: planId, ...payload };
 };
+

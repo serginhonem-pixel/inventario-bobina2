@@ -1,10 +1,12 @@
 import { db } from './config';
-import { isLocalhost, mockAddDoc, mockGetDocs } from './mockPersistence';
+import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc } from './mockPersistence';
+import { getDocsWithPagination } from './pagination';
 import { 
-  collection, addDoc, getDocs, query, where, orderBy, serverTimestamp
+  collection, query, where, orderBy, serverTimestamp, doc, runTransaction
 } from 'firebase/firestore';
 
 const STOCK_COLLECTION = 'stock_adjustments';
+const ITEM_COLLECTION = 'items';
 
 const getPendingMovements = () => {
   const pending = localStorage.getItem('pending_stock_movements');
@@ -25,7 +27,7 @@ export const saveAdjustment = async (tenantId, schemaId, itemId, stockPointIdOrD
   }
 
   if (isLocalhost()) {
-    return await mockAddDoc(STOCK_COLLECTION, { 
+    const saved = await mockAddDoc(STOCK_COLLECTION, { 
       tenantId, 
       schemaId, 
       itemId, 
@@ -33,9 +35,22 @@ export const saveAdjustment = async (tenantId, schemaId, itemId, stockPointIdOrD
       ...adjustmentData,
       timestamp: new Date().toISOString()
     });
+    const items = await mockGetDocs(ITEM_COLLECTION);
+    const item = items.find((it) => it.id === itemId);
+    if (item) {
+      const data = { ...(item.data || {}) };
+      const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
+      const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
+      const targetField = existingField || 'quantidade';
+      data[targetField] = adjustmentData.newQty;
+      await mockUpdateDoc(ITEM_COLLECTION, itemId, { data });
+    }
+    return saved;
   }
 
   try {
+    const adjustmentRef = doc(collection(db, STOCK_COLLECTION));
+    const itemRef = doc(db, ITEM_COLLECTION, itemId);
     const newAdjustment = {
       tenantId,
       schemaId,
@@ -50,15 +65,30 @@ export const saveAdjustment = async (tenantId, schemaId, itemId, stockPointIdOrD
       createdAt: serverTimestamp()
     };
 
-    const docRef = await addDoc(collection(db, STOCK_COLLECTION), newAdjustment);
-    return { id: docRef.id, ...newAdjustment };
+    await runTransaction(db, async (tx) => {
+      const itemSnap = await tx.get(itemRef);
+      if (!itemSnap.exists()) {
+        throw new Error('Item não encontrado para atualizar o saldo.');
+      }
+      const item = itemSnap.data() || {};
+      const data = { ...(item.data || {}) };
+      const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
+      const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
+      const targetField = existingField || 'quantidade';
+
+      data[targetField] = adjustmentData.newQty;
+      tx.update(itemRef, { data, updatedAt: serverTimestamp() });
+      tx.set(adjustmentRef, newAdjustment);
+    });
+
+    return { id: adjustmentRef.id, ...newAdjustment };
   } catch (error) {
     console.error("Erro ao salvar ajuste de estoque:", error);
     throw error;
   }
 };
 
-export const getStockLogs = async (itemId, tenantId) => {
+export const getStockLogs = async (itemId, tenantId, options = {}) => {
   if (isLocalhost()) {
     const logs = await mockGetDocs(STOCK_COLLECTION);
     return logs
@@ -74,15 +104,19 @@ export const getStockLogs = async (itemId, tenantId) => {
     if (tenantId) constraints.unshift(where('tenantId', '==', tenantId));
     const q = query(collection(db, STOCK_COLLECTION), ...constraints);
     
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { docs, cursor } = await getDocsWithPagination(q, options);
+    const logs = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (options.fetchAll === false) {
+      return { logs, cursor };
+    }
+    return logs;
   } catch (error) {
     console.error("Erro ao buscar logs:", error);
     return [];
   }
 };
 
-export const getStockLogsByStockPoint = async (stockPointId, tenantId) => {
+export const getStockLogsByStockPoint = async (stockPointId, tenantId, options = {}) => {
   if (isLocalhost()) {
     const logs = await mockGetDocs(STOCK_COLLECTION);
     return logs
@@ -98,15 +132,19 @@ export const getStockLogsByStockPoint = async (stockPointId, tenantId) => {
     if (tenantId) constraints.unshift(where('tenantId', '==', tenantId));
     const q = query(collection(db, STOCK_COLLECTION), ...constraints);
     
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { docs, cursor } = await getDocsWithPagination(q, options);
+    const logs = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (options.fetchAll === false) {
+      return { logs, cursor };
+    }
+    return logs;
   } catch (error) {
     console.error("Erro ao buscar logs por ponto de estocagem:", error);
     return [];
   }
 };
 
-export const getStockLogsByTenant = async (tenantId) => {
+export const getStockLogsByTenant = async (tenantId, options = {}) => {
   if (isLocalhost()) {
     const logs = await mockGetDocs(STOCK_COLLECTION);
     return logs
@@ -120,8 +158,12 @@ export const getStockLogsByTenant = async (tenantId) => {
       where('tenantId', '==', tenantId),
       orderBy('createdAt', 'desc')
     );
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { docs, cursor } = await getDocsWithPagination(q, options);
+    const logs = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    if (options.fetchAll === false) {
+      return { logs, cursor };
+    }
+    return logs;
   } catch (error) {
     console.error("Erro ao buscar logs por tenant:", error);
     return [];

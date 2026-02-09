@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef } from "react";
 import appLogo from "../logo.png";
 import landingImage from "../landingpage.png";
 import PlanosSection from "./planos";
@@ -440,7 +440,7 @@ export default function LandingPage({ onEnter }) {
               <div className="bg-emerald-900/50 w-14 h-14 rounded-xl flex items-center justify-center mb-6 relative z-10">
                 <ShieldCheck className="w-7 h-7 text-emerald-400" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 relative z-10">Cadastro Único</h3>
+              <h3 className="text-2xl font-bold mb-4 relative z-10">Cadastro Ênico</h3>
               <p className="text-gray-400 mb-6 leading-relaxed relative z-10">
                 Pare de digitar o mesmo produto toda vez que for contar. Cadastre uma vez e reutilize os dados para inventários mensais, rotativos ou gerais.
               </p>
@@ -501,7 +501,7 @@ export default function LandingPage({ onEnter }) {
         </div>
       </section>
 
-      {/* --- Footer --- */}
+      {/* --- Footer --- */}\n{/* --- Footer --- */}
       <footer className="bg-white border-t border-gray-200 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
@@ -536,8 +536,8 @@ export default function LandingPage({ onEnter }) {
             <div>
               <h4 className="font-bold text-gray-900 mb-4">Legal</h4>
               <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#" className="hover:text-emerald-600">Privacidade</a></li>
-                <li><a href="#" className="hover:text-emerald-600">Termos de Uso</a></li>
+                <li><a href="/privacidade" className="hover:text-emerald-600">Privacidade</a></li>
+                <li><a href="/termos" className="hover:text-emerald-600">Termos de Uso</a></li>
               </ul>
             </div>
           </div>
@@ -567,5 +567,8 @@ function StatItemDark({ value, label }) {
     </div>
   );
 }
+
+
+
 
 

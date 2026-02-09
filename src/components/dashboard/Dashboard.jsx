@@ -1,30 +1,46 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { BarChart3, AlertCircle, MapPin, Loader2, TrendingUp, TrendingDown, Package, Clock, AlertTriangle } from 'lucide-react';
 import * as analyticsService from '../../services/firebase/analyticsService';
 
-// Componente de Gráfico de Curva ABC (Simulado)
+// Componente de Gráfico de Curva ABC
 const TurnoverChart = ({ data }) => {
-  // NOTA: Em um projeto real, você usaria uma biblioteca como Recharts ou Chart.js aqui.
-  // Exemplo de uso de Recharts: <PieChart width={400} height={400}><Pie data={data} ... /></PieChart>
-  
+  const total = data.reduce((acc, item) => acc + (item.value || 0), 0);
+  const hasData = total > 0;
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
       <h3 className="text-lg font-bold text-white flex items-center gap-2">
         <BarChart3 className="text-emerald-500" size={20} /> Giro de Estoque (Curva ABC)
       </h3>
-      <div className="h-48 flex items-center justify-center bg-zinc-950 rounded-xl">
-        <p className="text-zinc-500 text-sm">
-          [Placeholder para Gráfico de Pizza/Barra]
-        </p>
-      </div>
-      <div className="flex justify-around text-xs font-bold">
-        {data.map(item => (
-          <div key={item.name} className="text-center">
-            <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{ backgroundColor: item.color }}></div>
-            <p className="text-zinc-400">{item.name}</p>
-            <p className="text-white">{item.value} Itens</p>
+      <div className="h-48 flex flex-col items-center justify-center bg-zinc-950 rounded-xl px-4">
+        {hasData ? (
+          <div className="w-full space-y-4">
+            <div className="h-4 w-full bg-zinc-800 rounded-full overflow-hidden flex">
+              {data.map((item) => (
+                <div
+                  key={item.name}
+                  className="h-full"
+                  style={{ width: `${((item.value || 0) / total) * 100}%`, backgroundColor: item.color }}
+                  title={`${item.name}: ${item.value}`}
+                />
+              ))}
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-xs text-zinc-400">
+              {data.map((item) => (
+                <div key={item.name} className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span>{item.name}</span>
+                  <span className="ml-auto text-white font-bold">{item.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        ) : (
+          <div className="text-center">
+            <p className="text-zinc-400 text-sm font-semibold">Sem dados suficientes para o gráfico.</p>
+            <p className="text-zinc-600 text-xs mt-2">Adicione itens e registre movimentações para gerar a curva ABC.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -159,7 +175,8 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
   if (!currentSchema) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
-        <p className="text-zinc-500">Selecione um catálogo para visualizar o Dashboard de BI.</p>
+        <p className="text-zinc-300 font-semibold">Seu dashboard está pronto para receber dados.</p>
+        <p className="text-zinc-500 text-sm mt-2">Selecione um ponto de estocagem e importe itens para começar.</p>
       </div>
     );
   }

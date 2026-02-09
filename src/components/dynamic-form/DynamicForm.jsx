@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toast } from '../ui/toast';
 
 const DynamicForm = ({ schema, onSubmit, initialData = {} }) => {
   // Inicializa o estado com os campos do schema para evitar problemas de controle
@@ -31,7 +32,7 @@ const DynamicForm = ({ schema, onSubmit, initialData = {} }) => {
       .map(f => f.label);
 
     if (missingFields.length > 0) {
-      alert(`Por favor, preencha os campos obrigatórios: ${missingFields.join(', ')}`);
+      toast(`Por favor, preencha os campos obrigatórios: ${missingFields.join(', ')}`, { type: 'warning' });
       return;
     }
 

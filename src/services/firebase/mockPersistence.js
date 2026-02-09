@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Utilitário para simular o Firestore em Localhost
  */
 
@@ -84,3 +84,4 @@ export const mockDeleteDoc = async (collectionName, docId) => {
   
   return db[collectionName].length < initialLength;
 };
+
