@@ -145,13 +145,15 @@ service cloud.firestore {
     match /items/{docId} {
       allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
       allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow update: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow delete: if isSignedIn() && tenantMatch(resource.data.tenantId) && isOrgAdmin(resource.data.tenantId);
     }
 
     match /schemas/{docId} {
       allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
       allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow update: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow delete: if isSignedIn() && tenantMatch(resource.data.tenantId) && isOrgAdmin(resource.data.tenantId);
     }
 
     match /templates/{docId} {
@@ -189,7 +191,8 @@ service cloud.firestore {
     match /stock_adjustments/{docId} {
       allow read: if isSignedIn() && tenantMatch(resource.data.tenantId);
       allow create: if isSignedIn() && tenantMatch(request.resource.data.tenantId);
-      allow update, delete: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow update: if isSignedIn() && tenantMatch(resource.data.tenantId);
+      allow delete: if isSignedIn() && tenantMatch(resource.data.tenantId) && isOrgAdmin(resource.data.tenantId);
     }
 
     match /defaultTemplates/{docId} {

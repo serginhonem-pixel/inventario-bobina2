@@ -182,19 +182,23 @@ exports.expireTrials = functions.pubsub
       return null;
     }
 
-    const batch = db.batch();
+    const BATCH_LIMIT = 450;
+    const docs = snapshot.docs;
     let count = 0;
 
-    snapshot.forEach((doc) => {
-      batch.update(doc.ref, {
-        planId: 'free',
-        status: 'expired_trial',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+      const batch = db.batch();
+      const slice = docs.slice(i, i + BATCH_LIMIT);
+      slice.forEach((doc) => {
+        batch.update(doc.ref, {
+          planId: 'free',
+          status: 'expired_trial',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
       });
-      count++;
-    });
-
-    await batch.commit();
+      await batch.commit();
+      count += slice.length;
+    }
     console.log(`${count} trial(s) expirado(s) e rebaixado(s) para free.`);
     return null;
   });

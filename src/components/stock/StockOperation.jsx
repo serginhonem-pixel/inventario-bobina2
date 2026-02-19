@@ -14,6 +14,7 @@ import {
 import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 import { toast } from '../ui/toast';
+import { resolveItemQty } from '../../core/utils';
 
 const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpdated, currentUserId }) => {
   const [mode, setMode] = useState('adjust'); // adjust | inventory
@@ -33,15 +34,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
   const [applyLoading, setApplyLoading] = useState(false);
   const [inventorySummary, setInventorySummary] = useState({ total: 0, counted: 0, divergences: 0 });
 
-  const resolveItemQty = (item) => {
-    const data = item?.data || {};
-    const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-    const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
-    const targetField = existingField || 'quantidade';
-    const raw = data[targetField];
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
+  // resolveItemQty importado de core/utils
 
   useEffect(() => {
     if (!currentStockPoint?.id || !tenantId) {

@@ -8,6 +8,7 @@ import { isLocalhost } from '../../services/firebase/mockPersistence';
 import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 import { toast } from '../ui/toast';
+import { resolveItemQty } from '../../core/utils';
 
 const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendingCount, onItemsUpdated }) => {
   const [type, setType] = useState('in'); // 'in' ou 'out'
@@ -71,7 +72,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
     const updatedMap = new Map();
     try {
       for (const item of cart) {
-        const currentQty = Number(item.data.quantidade || 0);
+        const currentQty = resolveItemQty(item);
         const adjustment = type === 'in' ? item.qty : -item.qty;
         
         const newQty = currentQty + adjustment; // Simplificação: a quantidade real deve ser calculada a partir dos logs por ponto de estocagem

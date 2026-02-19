@@ -1,4 +1,5 @@
 ﻿import { toast } from '../../components/ui/toast';
+import { resolveItemQty, QTY_FIELDS } from '../../core/utils';
 
 // Função auxiliar para criar um link de download
 const downloadFile = (data, filename, mimeType) => {
@@ -13,12 +14,8 @@ const downloadFile = (data, filename, mimeType) => {
   URL.revokeObjectURL(url);
 };
 
-// Helper para obter valor de quantidade
-const getQtyValue = (item) => {
-  const data = item?.data || {};
-  const val = data.quantidade || data.qtd || data.estoque || data.quantidade_atual || data.saldo || 0;
-  return Number(val) || 0;
-};
+// Helper para obter valor de quantidade (usa utilitário compartilhado)
+const getQtyValue = resolveItemQty;
 
 // Helper para obter código do item (para agrupar)
 const getItemCode = (item) => {
@@ -28,7 +25,7 @@ const getItemCode = (item) => {
 
 // Helper para agrupar itens iguais e somar quantidades
 const groupItems = (data, schema) => {
-  const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
+  const qtyFields = QTY_FIELDS;
   const codeField = schema.fields.find(f => ['codigo', 'sku', 'cod', 'code'].includes(f.key || f.name));
   const codeKey = codeField?.key || codeField?.name || 'codigo';
   

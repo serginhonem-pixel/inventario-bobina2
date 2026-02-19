@@ -28,6 +28,7 @@ import OnboardingPanel from '../components/ui/OnboardingPanel';
 import { getPlanConfig, isUnlimited, getTrialInfo } from '../core/plansConfig';
 import { normalizeText } from '../catalogUtils';
 import { toast } from '../components/ui/toast';
+import { setItemQty } from '../core/utils';
 
 const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline, pendingMovementsCount, updatePendingCount }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -894,11 +895,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                               setItems((prev) => prev.map((item) => {
                                 if (!updates.has(item.id)) return item;
                                 const nextQty = updates.get(item.id);
-                                const data = { ...(item.data || {}) };
-                                const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-                                const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
-                                const targetField = existingField || 'quantidade';
-                                data[targetField] = nextQty;
+                                const data = setItemQty(item.data, nextQty);
                                 return { ...item, data };
                               }));
                             }}
@@ -1002,11 +999,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         setItems((prev) => prev.map((item) => {
                           if (!updates.has(item.id)) return item;
                           const nextQty = updates.get(item.id);
-                          const data = { ...(item.data || {}) };
-                          const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-                          const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
-                          const targetField = existingField || 'quantidade';
-                          data[targetField] = nextQty;
+                          const data = setItemQty(item.data, nextQty);
                           return { ...item, data };
                         }));
                       }}
