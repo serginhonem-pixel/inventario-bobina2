@@ -7,15 +7,6 @@ import {
 
 const SCHEMA_COLLECTION = 'schemas';
 
-const getTimestampMillis = (value) => {
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') return value.toDate().getTime();
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === 'number') return value;
-  return 0;
-};
-
 export const saveSchema = async (tenantId, schemaData, stockPointId = null) => {
   if (isLocalhost()) {
     return await mockAddDoc(SCHEMA_COLLECTION, { ...schemaData, tenantId, stockPointId, version: 1, active: true });

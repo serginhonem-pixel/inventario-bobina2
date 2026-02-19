@@ -1,23 +1,7 @@
 import * as stockService from './stockService';
 import * as itemService from './itemService';
 import * as stockPointService from './stockPointService';
-
-const toNumber = (value) => {
-  if (value === null || value === undefined || value === '') return 0;
-  const num = Number(value);
-  return Number.isNaN(num) ? 0 : num;
-};
-
-const getItemQty = (item) => {
-  const data = item?.data || {};
-  return (
-    toNumber(data.quantidade) ||
-    toNumber(data.qtd) ||
-    toNumber(data.estoque) ||
-    toNumber(data.quantidade_atual) ||
-    toNumber(data.saldo)
-  );
-};
+import { resolveItemQty as getItemQty, toNumber } from '../../core/utils';
 
 const getItemMinQty = (item, fallback = 5) => {
   const data = item?.data || {};

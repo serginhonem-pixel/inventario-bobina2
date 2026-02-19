@@ -7,15 +7,6 @@ import {
 
 const ITEM_COLLECTION = 'items';
 
-const getTimestampMillis = (value) => {
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') return value.toDate().getTime();
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === 'number') return value;
-  return 0;
-};
-
 export const createItem = async (tenantId, schemaId, schemaVersion, itemData, stockPointId = null) => {
   if (isLocalhost()) {
     return await mockAddDoc(ITEM_COLLECTION, { tenantId, schemaId, schemaVersion, stockPointId, data: itemData });
@@ -58,11 +49,10 @@ export const getItemsBySchema = async (tenantId, schemaId, options = {}) => {
     
     const { docs, cursor } = await getDocsWithPagination(q, options);
     const items = docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const sorted = items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
     if (options.fetchAll === false) {
-      return { items: sorted, cursor };
+      return { items, cursor };
     }
-    return sorted;
+    return items;
   } catch (error) {
     console.error("Erro ao buscar itens:", error);
     throw error;
@@ -87,11 +77,10 @@ export const getItemsByStockPoint = async (tenantId, stockPointId, options = {})
     
     const { docs, cursor } = await getDocsWithPagination(q, options);
     const items = docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    const sorted = items.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
     if (options.fetchAll === false) {
-      return { items: sorted, cursor };
+      return { items, cursor };
     }
-    return sorted;
+    return items;
   } catch (error) {
     console.error("Erro ao buscar itens por ponto de estocagem:", error);
     throw error;

@@ -16,21 +16,12 @@ import {
 } from 'firebase/firestore';
 import { getDocsWithPagination } from './pagination';
 import { saveAdjustment } from './stockService';
+import { resolveItemQty } from '../../core/utils';
 
 const ORG_COLLECTION = 'organizations';
 const INVENTORY_COLLECTION = 'inventorySessions';
 const COUNT_COLLECTION = 'counts';
 const CHUNK_SIZE = 450;
-
-const resolveItemQty = (item) => {
-  const data = item?.data || {};
-  const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-  const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
-  const targetField = existingField || 'quantidade';
-  const raw = data[targetField];
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
 
 export const getActiveInventorySession = async (tenantId, stockPointId) => {
   if (!tenantId || !stockPointId) return null;

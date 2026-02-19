@@ -4,6 +4,7 @@ import { getDocsWithPagination } from './pagination';
 import { 
   collection, query, where, orderBy, serverTimestamp, doc, runTransaction
 } from 'firebase/firestore';
+import { QTY_FIELDS, setItemQty } from '../../core/utils';
 
 const STOCK_COLLECTION = 'stock_adjustments';
 const ITEM_COLLECTION = 'items';
@@ -38,11 +39,7 @@ export const saveAdjustment = async (tenantId, schemaId, itemId, stockPointIdOrD
     const items = await mockGetDocs(ITEM_COLLECTION);
     const item = items.find((it) => it.id === itemId);
     if (item) {
-      const data = { ...(item.data || {}) };
-      const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-      const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
-      const targetField = existingField || 'quantidade';
-      data[targetField] = adjustmentData.newQty;
+      const data = setItemQty(item.data, adjustmentData.newQty);
       await mockUpdateDoc(ITEM_COLLECTION, itemId, { data });
     }
     return saved;
@@ -71,12 +68,7 @@ export const saveAdjustment = async (tenantId, schemaId, itemId, stockPointIdOrD
         throw new Error('Item não encontrado para atualizar o saldo.');
       }
       const item = itemSnap.data() || {};
-      const data = { ...(item.data || {}) };
-      const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-      const existingField = qtyFields.find((field) => data[field] !== undefined && data[field] !== null);
-      const targetField = existingField || 'quantidade';
-
-      data[targetField] = adjustmentData.newQty;
+      const data = setItemQty(item.data, adjustmentData.newQty);
       tx.update(itemRef, { data, updatedAt: serverTimestamp() });
       tx.set(adjustmentRef, newAdjustment);
     });

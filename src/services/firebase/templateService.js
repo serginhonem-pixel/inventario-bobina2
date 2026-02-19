@@ -1,5 +1,5 @@
 import { db } from './config';
-import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc } from './mockPersistence';
+import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc, mockDeleteDoc } from './mockPersistence';
 import { getDocsWithPagination } from './pagination';
 import { 
   collection, query, where, serverTimestamp, doc, deleteDoc, updateDoc, runTransaction, increment, orderBy
@@ -98,6 +98,17 @@ export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => 
 
 export const deleteTemplate = async (templateId, tenantId) => {
   if (isLocalhost()) {
+    // Mock: remove do localStorage via mockPersistence
+    if (typeof mockDeleteDoc === 'function') {
+      await mockDeleteDoc(TEMPLATE_COLLECTION, templateId);
+    }
+    // Decrementa usage na org mock
+    const orgs = await mockGetDocs(ORG_COLLECTION);
+    const org = orgs.find((item) => item.id === tenantId);
+    if (org) {
+      const current = org.templatesUsed || 0;
+      await mockUpdateDoc(ORG_COLLECTION, tenantId, { templatesUsed: Math.max(0, current - 1) });
+    }
     return true;
   }
   try {
