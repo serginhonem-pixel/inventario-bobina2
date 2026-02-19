@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Plus, MapPin, Loader2, CheckCircle2, X } from 'lucide-react';
 import * as stockPointService from '../../services/firebase/stockPointService';
 import * as stockService from '../../services/firebase/stockService';
 import { isUnlimited } from '../../core/plansConfig';
+import ConfirmModal from '../ui/ConfirmModal';
 
 const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, planConfig, currentCount = 0, onStockPointCreated, onStockPointDeleted }) => {
   const [stockPoints, setStockPoints] = useState([]);
   const [newPointName, setNewPointName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const stockPointsLimit = planConfig?.stockPointsMax;
   const limitReached = !isUnlimited(stockPointsLimit) && currentCount >= stockPointsLimit;
 
@@ -55,11 +57,15 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
     }
   };
 
-  const handleDeleteStockPoint = async (point) => {
+  const handleDeleteStockPoint = (point) => {
     if (!point?.id) return;
-    const confirmed = window.confirm(`Tem certeza que deseja excluir o ponto "${point.name}"?`);
-    if (!confirmed) return;
+    setConfirmDelete(point);
+  };
 
+  const executeDeleteStockPoint = async () => {
+    const point = confirmDelete;
+    if (!point) return;
+    setConfirmDelete(null);
     setLoading(true);
     setError(null);
     try {
@@ -146,6 +152,16 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
       {stockPoints.length === 0 && !loading && (
         <p className="text-zinc-500 text-sm text-center">Nenhum ponto de estocagem criado.</p>
       )}
+
+      <ConfirmModal
+        open={!!confirmDelete}
+        title="Excluir ponto"
+        message={`Tem certeza que deseja excluir o ponto "${confirmDelete?.name}"? Essa aÃ§Ã£o nÃ£o pode ser desfeita.`}
+        confirmText="Excluir"
+        variant="danger"
+        onConfirm={executeDeleteStockPoint}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 };
@@ -178,27 +194,27 @@ const StockPointHistory = ({ stockPointId, tenantId }) => {
   if (!stockPointId) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 text-center">
-        <p className="text-zinc-500 text-sm">Selecione um ponto de estocagem para ver o histórico.</p>
+        <p className="text-zinc-500 text-sm">Selecione um ponto de estocagem para ver o histÃ³rico.</p>
       </div>
     );
   }
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
-      <h3 className="text-lg font-bold text-white">Histórico de Movimentação</h3>
+      <h3 className="text-lg font-bold text-white">HistÃ³rico de MovimentaÃ§Ã£o</h3>
       {loading ? (
         <div className="flex justify-center items-center h-20">
           <Loader2 className="animate-spin text-emerald-500" size={24} />
         </div>
       ) : logs.length === 0 ? (
-        <p className="text-zinc-500 text-sm">Nenhuma movimentação registrada neste ponto.</p>
+        <p className="text-zinc-500 text-sm">Nenhuma movimentaÃ§Ã£o registrada neste ponto.</p>
       ) : (
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {logs.map((log, index) => (
             <div key={index} className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 flex justify-between items-center">
               <div>
-                <p className="text-sm font-bold text-white">{log.notes || `Movimentação de ${log.difference > 0 ? 'Entrada' : 'Saída'}`}</p>
-                <p className="text-[10px] text-zinc-500">{new Date(log.timestamp).toLocaleString()}</p>
+                <p className="text-sm font-bold text-white">{log.notes || `MovimentaÃ§Ã£o de ${log.difference > 0 ? 'Entrada' : 'SaÃ­da'}`}</p>
+                <p className="text-xs text-zinc-500">{new Date(log.timestamp).toLocaleString()}</p>
               </div>
               <span className={`text-xs font-black ${log.difference > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                 {log.difference > 0 ? `+${log.difference}` : log.difference} un

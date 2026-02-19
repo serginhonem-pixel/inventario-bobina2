@@ -3,6 +3,7 @@ import { parseFileToItemsBySchema, parseFileToSchemaAndItems, slugify } from '..
 import { saveSchema } from '../../services/firebase/schemaService';
 import { createItemsBulk } from '../../services/firebase/itemService';
 import { toast } from '../ui/toast';
+import ConfirmModal from '../ui/ConfirmModal';
 
 const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = null, defaultName = '', currentSchema = null, isFreePlan = false }) => {
   const [file, setFile] = useState(null);
@@ -14,6 +15,8 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
   const [schemaSaved, setSchemaSaved] = useState(false);
   const [savedSchema, setSavedSchema] = useState(null);
   const fileInputRef = useRef(null);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [showExcelConfirm, setShowExcelConfirm] = useState(false);
 
   const ensureFieldIds = (list = []) =>
     list.map((field, idx) =>
@@ -43,34 +46,36 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
     }
   }, [currentSchema]);
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      try {
-        let useExcelColumns = false;
-        if (!isFreePlan) {
-          useExcelColumns = window.confirm(
-            "Deseja usar as colunas do Excel?\n\nSim: usar as colunas do arquivo\nNão: manter as colunas criadas/padrão"
-          );
-        }
+    if (!selectedFile) return;
+    setFile(selectedFile);
 
-        if (useExcelColumns) {
-          const { fields: parsedFields, items } = await parseFileToSchemaAndItems(selectedFile);
-          setFields(ensureFieldIds(parsedFields));
-          setSchemaSaved(false);
-          setSavedSchema(null);
-          setItemsData(items || []);
-          setPreviewRows((items || []).slice(0, 5));
-        } else {
-          const { items } = await parseFileToItemsBySchema(selectedFile, fields);
-          setItemsData(items || []);
-          setPreviewRows(items.slice(0, 5));
-        }
-        if (!schemaName) setSchemaName(selectedFile.name.split('.')[0]);
-      } catch (error) {
-        toast(`Erro ao processar arquivo: ${error}`, { type: 'error' });
+    if (!isFreePlan) {
+      setPendingFile(selectedFile);
+      setShowExcelConfirm(true);
+    } else {
+      processFile(selectedFile, false);
+    }
+  };
+
+  const processFile = async (selectedFile, useExcelColumns) => {
+    try {
+      if (useExcelColumns) {
+        const { fields: parsedFields, items } = await parseFileToSchemaAndItems(selectedFile);
+        setFields(ensureFieldIds(parsedFields));
+        setSchemaSaved(false);
+        setSavedSchema(null);
+        setItemsData(items || []);
+        setPreviewRows((items || []).slice(0, 5));
+      } else {
+        const { items } = await parseFileToItemsBySchema(selectedFile, fields);
+        setItemsData(items || []);
+        setPreviewRows(items.slice(0, 5));
       }
+      if (!schemaName) setSchemaName(selectedFile.name.split('.')[0]);
+    } catch (error) {
+      toast(`Erro ao processar arquivo: ${error}`, { type: 'error' });
     }
   };
 
@@ -216,7 +221,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
               <option value="date">Data</option>
               <option value="boolean">Sim/Não</option>
             </select>
-            <label className="md:col-span-2 flex items-center gap-1 text-[10px] text-zinc-400 leading-tight whitespace-nowrap min-w-0">
+            <label className="md:col-span-2 flex items-center gap-1 text-xs text-zinc-400 leading-tight whitespace-nowrap min-w-0">
               <input
                 type="checkbox"
                 checked={field.required}
@@ -228,7 +233,7 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
             <button
               type="button"
               onClick={() => removeField(idx)}
-              className="md:col-span-2 bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-2 text-[10px] text-zinc-400 hover:text-white whitespace-nowrap"
+              className="md:col-span-2 bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-2 text-xs text-zinc-400 hover:text-white whitespace-nowrap"
             >
               Remover
             </button>
@@ -309,6 +314,23 @@ const SchemaImporter = ({ onImported, tenantId = 'default-user', stockPointId = 
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={showExcelConfirm}
+        title="Importar colunas do Excel?"
+        message="Deseja usar as colunas do Excel?&#10;&#10;Sim: substituir as colunas criadas pelas do arquivo.&#10;Não: manter as colunas atuais e só importar os dados."
+        confirmText="Usar colunas do Excel"
+        cancelText="Manter colunas atuais"
+        variant="info"
+        onConfirm={() => {
+          setShowExcelConfirm(false);
+          processFile(pendingFile, true);
+        }}
+        onCancel={() => {
+          setShowExcelConfirm(false);
+          processFile(pendingFile, false);
+        }}
+      />
     </div>
   );
 };

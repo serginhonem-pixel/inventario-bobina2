@@ -82,12 +82,14 @@ class TourGuideBubbles extends React.Component {
     this.handleFinish = this.handleFinish.bind(this);
     this.handleSkip = this.handleSkip.bind(this);
     this.updateTarget = this.updateTarget.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   componentDidMount() {
     if (typeof window === 'undefined') return;
     window.addEventListener('resize', this.updateTarget);
     window.addEventListener('scroll', this.updateTarget, true);
+    document.addEventListener('keydown', this.handleKeyDown);
     this.updateTarget();
   }
 
@@ -95,6 +97,13 @@ class TourGuideBubbles extends React.Component {
     if (typeof window === 'undefined') return;
     window.removeEventListener('resize', this.updateTarget);
     window.removeEventListener('scroll', this.updateTarget, true);
+    document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  handleKeyDown(e) {
+    if (e.key === 'Escape' && this.state.showTour) {
+      this.handleSkip();
+    }
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -210,7 +219,7 @@ class TourGuideBubbles extends React.Component {
     }
 
     return (
-      <div className="fixed inset-0 bg-black/70 z-[100]">
+      <div className="fixed inset-0 bg-black/70 z-[100]" role="dialog" aria-modal="true" aria-label="Tour guiado">
         {targetFound && targetRect && (
           <div
             className="fixed rounded-2xl border-2 border-emerald-400/80 shadow-[0_0_0_6px_rgba(16,185,129,0.15)] pointer-events-none"
@@ -232,7 +241,7 @@ class TourGuideBubbles extends React.Component {
               <currentTourStep.icon className="text-emerald-500" size={22} />
               {currentTourStep.title}
             </h2>
-            <button onClick={this.handleSkip} className="text-zinc-500 hover:text-white transition-colors">
+            <button onClick={this.handleSkip} className="text-zinc-500 hover:text-white transition-colors" aria-label="Fechar tour">
               <X size={18} />
             </button>
           </div>
