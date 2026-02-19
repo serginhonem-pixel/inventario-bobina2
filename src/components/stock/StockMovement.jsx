@@ -9,6 +9,7 @@ import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 import { toast } from '../ui/toast';
 import { resolveItemQty } from '../../core/utils';
+import ConfirmModal from '../ui/ConfirmModal';
 
 const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendingCount, onItemsUpdated }) => {
   const [type, setType] = useState('in'); // 'in' ou 'out'
@@ -17,6 +18,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
   const [showScanner, setShowScanner] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showProcessConfirm, setShowProcessConfirm] = useState(false);
 
   const findItem = (term) => {
     return items.find(item => 
@@ -66,8 +68,14 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
     setCart(cart.map(c => c.id === id ? { ...c, qty: newQty } : c));
   };
 
+  const requestProcess = () => {
+    if (cart.length === 0) return;
+    setShowProcessConfirm(true);
+  };
+
   const handleProcess = async () => {
     if (cart.length === 0) return;
+    setShowProcessConfirm(false);
     setLoading(true);
     const updatedMap = new Map();
     try {
@@ -137,6 +145,16 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
     <div className="space-y-6 animate-in fade-in duration-500">
       {showScanner && <BarcodeScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
 
+      <ConfirmModal
+        open={showProcessConfirm}
+        title={`Confirmar ${type === 'in' ? 'Entrada' : 'Saída'}`}
+        message={`Deseja processar ${cart.length} ite${cart.length === 1 ? 'm' : 'ns'} com volume total de ${cart.reduce((a, c) => a + c.qty, 0)} unidades como ${type === 'in' ? 'ENTRADA' : 'SAÍDA'} em ${currentStockPoint.name}?`}
+        confirmText={type === 'in' ? 'Confirmar Entrada' : 'Confirmar Saída'}
+        variant={type === 'in' ? 'info' : 'warning'}
+        onConfirm={handleProcess}
+        onCancel={() => setShowProcessConfirm(false)}
+      />
+
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Lado Esquerdo: Busca e Seleção */}
         <div className="lg:col-span-7 space-y-6 flex-1">
@@ -176,6 +194,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
               <button 
                 onClick={() => setShowScanner(true)}
                 className="bg-zinc-800 hover:bg-zinc-700 text-white p-3 rounded-2xl transition-all"
+                aria-label="Abrir scanner de código de barras"
               >
                 <ScanLine size={24} />
               </button>
@@ -200,7 +219,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
                       </div>
                       <div>
                         <p className="text-sm font-bold text-white">{item.data.descricao || item.data.nome}</p>
-                        <p className="text-[10px] text-zinc-500 font-mono">ID: {item.id}</p>
+                        <p className="text-xs text-zinc-500 font-mono">{item.data?.codigo || item.data?.sku || item.id.substring(0, 8)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-6">
@@ -214,7 +233,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
                         />
                         <button onClick={() => updateCartQty(item.id, item.qty + 1)} className="p-2 text-zinc-500 hover:text-white">+</button>
                       </div>
-                      <button onClick={() => removeFromCart(item.id)} className="text-zinc-700 hover:text-rose-500 transition-colors">
+                      <button onClick={() => removeFromCart(item.id)} className="text-zinc-700 hover:text-rose-500 transition-colors" aria-label={`Remover ${item.data.descricao || item.data.nome || 'item'}`}>
                         <Trash2 size={18} />
                       </button>
                     </div>
@@ -247,7 +266,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
             </div>
 
             <button 
-              onClick={handleProcess}
+              onClick={requestProcess}
               disabled={cart.length === 0 || loading || success}
               className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 ${
                 success ? 'bg-emerald-500 text-black' : 
@@ -259,7 +278,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
             </button>
 
             {success && (
-              <p className="text-[10px] text-emerald-500 text-center mt-4 font-bold animate-bounce">
+              <p className="text-xs text-emerald-500 text-center mt-4 font-bold animate-bounce">
                 Estoque atualizado com sucesso!
               </p>
             )}

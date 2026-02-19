@@ -59,7 +59,7 @@ const NotificationSettings = () => {
             <MessageSquare className="text-emerald-500" size={20} />
             <div>
               <p className="text-sm font-bold text-white">Alertas via WhatsApp</p>
-              <p className="text-[10px] text-zinc-500 uppercase font-bold">Notificações em tempo real</p>
+              <p className="text-xs text-zinc-500 uppercase font-bold">Notificações em tempo real</p>
             </div>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
@@ -77,7 +77,7 @@ const NotificationSettings = () => {
           <div className="space-y-4 p-6 bg-zinc-950 rounded-2xl border border-zinc-800 animate-in slide-in-from-top-2 duration-300">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
                   <Smartphone size={12} /> Número (com DDI/DDD)
                 </label>
                 <input 
@@ -89,7 +89,7 @@ const NotificationSettings = () => {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
                   <Globe size={12} /> URL da Evolution API
                 </label>
                 <input 
@@ -101,7 +101,7 @@ const NotificationSettings = () => {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
                   <Key size={12} /> API Key
                 </label>
                 <input 
@@ -113,7 +113,7 @@ const NotificationSettings = () => {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
+                <label className="block text-xs font-bold text-zinc-500 uppercase mb-2 flex items-center gap-2">
                   <Smartphone size={12} /> Nome da Instância
                 </label>
                 <input 
@@ -126,7 +126,7 @@ const NotificationSettings = () => {
               </div>
             </div>
             <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-              <p className="text-[10px] text-emerald-500 font-bold leading-relaxed">
+              <p className="text-xs text-emerald-500 font-bold leading-relaxed">
                 DICA: O sistema enviará um alerta automático sempre que um item atingir o nível de estoque mínimo definido no catálogo. Ao salvar, uma mensagem de teste será enviada.
               </p>
             </div>

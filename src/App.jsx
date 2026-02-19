@@ -1,7 +1,7 @@
-﻿import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
-import LandingPage from "./landing"; // Mantém sua landing original
-import LabelManagement from "./pages/LabelManagement"; // Novo sistema refatorado
+import LandingPage from "./landing";
+const LabelManagement = lazy(() => import("./pages/LabelManagement"));
 import useNetworkStatus from "./hooks/useNetworkStatus";
 import { auth } from "./services/firebase/config";
 import { ensureUserOrganization } from "./services/firebase/orgService";
@@ -174,12 +174,24 @@ const App = () => {
       <>
         <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
           <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
-            <h1 className="text-2xl font-black text-white mb-2">
-              {authMode === "login" ? "Entrar" : "Criar conta"}
-            </h1>
-            <p className="text-zinc-400 text-sm mb-6">
-              Acesse sua conta para continuar.
-            </p>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl font-black text-white mb-1">
+                  {authMode === "login" ? "Entrar" : "Criar conta"}
+                </h1>
+                <p className="text-zinc-400 text-sm">
+                  Acesse sua conta para continuar.
+                </p>
+              </div>
+              <img src="/logo.png" alt="QtdApp" className="h-10 w-auto opacity-80" />
+            </div>
+
+            <button
+              onClick={() => setShowLanding(true)}
+              className="mb-4 text-xs text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+            >
+              ← Voltar à página inicial
+            </button>
 
             {authError && (
               <div className="mb-4 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
@@ -268,25 +280,31 @@ const App = () => {
   return (
     <>
       <div className="min-h-screen bg-zinc-950 text-zinc-100">
-        <LabelManagement 
-          user={user}
-          tenantId={org?.id || user?.uid}
-          org={org}
-          onLogout={async () => {
-            try {
-              await signOut(auth);
-            } catch (error) {
-              console.error("Erro ao sair:", error);
-            } finally {
-              setUser(null);
-              setShowLanding(true);
-              setOrg(null);
-            }
-          }}
-          isOnline={isOnline}
-          pendingMovementsCount={pendingMovementsCount}
-          updatePendingCount={updatePendingCount}
-        />
+        <Suspense fallback={
+          <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500"></div>
+          </div>
+        }>
+          <LabelManagement 
+            user={user}
+            tenantId={org?.id || user?.uid}
+            org={org}
+            onLogout={async () => {
+              try {
+                await signOut(auth);
+              } catch (error) {
+                console.error("Erro ao sair:", error);
+              } finally {
+                setUser(null);
+                setShowLanding(true);
+                setOrg(null);
+              }
+            }}
+            isOnline={isOnline}
+            pendingMovementsCount={pendingMovementsCount}
+            updatePendingCount={updatePendingCount}
+          />
+        </Suspense>
       </div>
       <ToastHost />
     </>

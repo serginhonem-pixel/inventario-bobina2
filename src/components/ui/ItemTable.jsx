@@ -135,9 +135,9 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
 
   return (
     <div className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
-      <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+      <div className="p-4 border-b border-zinc-800 flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center bg-zinc-900/50">
         <h3 className="text-white font-bold">{isSkuOnly ? 'SKUs Cadastrados' : 'Itens Cadastrados'}</h3>
-<div className="flex gap-2">
+<div className="flex flex-wrap gap-2">
           <button 
             onClick={handleExportExcel}
             disabled={groupedItems.length === 0}
@@ -176,7 +176,7 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
       
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-zinc-300">
-          <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+          <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
             <tr>
               <th className="p-4 w-10">
                 <input 
@@ -228,6 +228,7 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
                           onClick={() => toggleExpand(item.id)}
                           className="p-1 rounded hover:bg-zinc-700 transition-colors text-zinc-400 hover:text-emerald-400"
                           title={`Ver ${originals.length} lotes`}
+                          aria-label={`Expandir ${originals.length} lotes`}
                         >
                           {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </button>
@@ -238,7 +239,7 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
                         <span className="flex items-center gap-2">
                           {item.data[field.key]?.toString() || '-'}
                           {idx === 0 && hasMultiple && (
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                               <Layers size={10} /> {originals.length}
                             </span>
                           )}

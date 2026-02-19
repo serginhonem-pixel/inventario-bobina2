@@ -410,7 +410,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
+                  <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest">
                     {mode === 'inventory' ? 'Congelado' : 'No Sistema'}
                   </p>
                   <p className="text-3xl font-black text-white">
@@ -422,7 +422,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
               <div className="grid grid-cols-2 gap-4">
                 {Object.entries(selectedItem.data).slice(0, 4).map(([key, value]) => (
                   <div key={key} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800/50">
-                    <p className="text-[10px] text-zinc-600 uppercase font-bold mb-1">{key}</p>
+                    <p className="text-xs text-zinc-600 uppercase font-bold mb-1">{key}</p>
                     <p className="text-sm text-zinc-300 truncate font-medium">{String(value)}</p>
                   </div>
                 ))}
@@ -456,7 +456,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
                       inputMode="numeric"
                       pattern="[0-9]*"
                     />
-                    <p className="text-[10px] text-zinc-600 uppercase font-bold mt-2">
+                    <p className="text-xs text-zinc-600 uppercase font-bold mt-2">
                       {mode === 'inventory' ? 'Unidades Contadas' : 'Unidades Físicas'}
                     </p>
                   </div>
@@ -518,14 +518,14 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
               {history.length > 0 ? history.map((log, idx) => (
                 <div key={idx} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex justify-between items-center group hover:border-emerald-500/30 transition-all">
                   <div>
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold">Ajuste Manual</p>
+                    <p className="text-xs text-zinc-500 uppercase font-bold">Ajuste Manual</p>
                     <p className="text-xs text-zinc-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
                     <p className={`text-lg font-black ${log.difference > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                       {log.difference > 0 ? '+' : ''}{log.difference}
                     </p>
-                    <p className="text-[10px] text-zinc-600 font-bold">Saldo: {log.newQty}</p>
+                    <p className="text-xs text-zinc-600 font-bold">Saldo: {log.newQty}</p>
                   </div>
                 </div>
               )) : (
@@ -543,15 +543,15 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Itens Totais</p>
+                <p className="text-xs text-zinc-500 uppercase font-bold">Itens Totais</p>
                 <p className="text-xl font-black text-white">{inventorySummary.total || items.length}</p>
               </div>
               <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Itens Contados</p>
+                <p className="text-xs text-zinc-500 uppercase font-bold">Itens Contados</p>
                 <p className="text-xl font-black text-white">{inventorySummary.counted}</p>
               </div>
               <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800">
-                <p className="text-[10px] text-zinc-500 uppercase font-bold">Divergências</p>
+                <p className="text-xs text-zinc-500 uppercase font-bold">Divergências</p>
                 <p className="text-xl font-black text-white">{inventorySummary.divergences}</p>
               </div>
             </div>

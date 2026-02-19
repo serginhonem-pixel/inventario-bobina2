@@ -65,6 +65,21 @@ class TourGuide extends React.Component {
     this.handleNext = this.handleNext.bind(this);
     this.handleFinish = this.handleFinish.bind(this);
     this.handleSkip = this.handleSkip.bind(this);
+    this.handleKeyDown = this.handleKeyDown.bind(this);
+  }
+
+  componentDidMount() {
+    document.addEventListener('keydown', this.handleKeyDown);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  handleKeyDown(e) {
+    if (e.key === 'Escape' && this.state.showTour) {
+      this.handleSkip();
+    }
   }
 
   componentDidUpdate(prevProps, prevState) {
@@ -139,14 +154,14 @@ class TourGuide extends React.Component {
     }
 
     return (
-      <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Tour guiado">
         <div className="bg-zinc-900 border border-emerald-500/50 rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 animate-in zoom-in-95 duration-300">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-white flex items-center gap-3">
               <currentTourStep.icon className="text-emerald-500" size={24} />
               {currentTourStep.title}
             </h2>
-            <button onClick={this.handleSkip} className="text-zinc-500 hover:text-white transition-colors">
+            <button onClick={this.handleSkip} className="text-zinc-500 hover:text-white transition-colors" aria-label="Fechar tour">
               <X size={20} />
             </button>
           </div>

@@ -61,7 +61,7 @@ const CriticalItemsList = ({ data }) => (
             <p className="text-sm text-white truncate">{item.name}</p>
             <div className="text-right">
               <p className="text-xs font-bold text-rose-500">{item.currentQty} / {item.minQty}</p>
-              <p className="text-[10px] text-zinc-500">Atual / Mínimo</p>
+              <p className="text-xs text-zinc-500">Atual / Mínimo</p>
             </div>
           </div>
         ))
@@ -121,14 +121,14 @@ const SummaryCards = ({ summary, isReportsView = false }) => (
         <TrendingUp size={12} /> Entradas
       </p>
       <p className="text-2xl font-black text-emerald-400 mt-2">{(summary.totalEntradas || 0).toLocaleString('pt-BR')}</p>
-      <p className="text-[10px] text-zinc-500">{summary.countEntradas || 0} movimentações</p>
+      <p className="text-xs text-zinc-500">{summary.countEntradas || 0} movimentações</p>
     </div>
     <div className="bg-zinc-900 border border-rose-800/50 rounded-2xl p-5">
       <p className="text-xs text-rose-500 uppercase font-bold tracking-widest flex items-center gap-1">
         <TrendingDown size={12} /> Saídas
       </p>
       <p className="text-2xl font-black text-rose-400 mt-2">{(summary.totalSaidas || 0).toLocaleString('pt-BR')}</p>
-      <p className="text-[10px] text-zinc-500">{summary.countSaidas || 0} movimentações</p>
+      <p className="text-xs text-zinc-500">{summary.countSaidas || 0} movimentações</p>
     </div>
   </div>
 );
@@ -144,6 +144,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
   const [recentMovements, setRecentMovements] = useState([]);
   const [zeroStockItems, setZeroStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (currentSchema) {
@@ -155,6 +156,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
 
   const loadAnalytics = async () => {
     setLoading(true);
+    setError(false);
     try {
       const insights = await analyticsService.getDashboardInsights(tenantId, currentSchema.id);
       setTurnoverData(insights.turnover);
@@ -165,8 +167,9 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
       setStagnantItems(insights.stagnantItems || []);
       setRecentMovements(insights.recentMovements || []);
       setZeroStockItems(insights.zeroStockItems || []);
-    } catch (error) {
-      console.error("Erro ao carregar dados de BI:", error);
+    } catch (err) {
+      console.error("Erro ao carregar dados de BI:", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -185,6 +188,19 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="animate-spin text-emerald-500" size={32} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center space-y-4">
+        <AlertCircle className="text-rose-500 mx-auto" size={40} />
+        <p className="text-zinc-300 font-semibold">Não foi possível carregar o dashboard.</p>
+        <p className="text-zinc-500 text-sm">Verifique sua conexão e tente novamente.</p>
+        <button onClick={loadAnalytics} className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95">
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -214,7 +230,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
             <Package size={16} className="text-emerald-500" /> Top 10 SKUs em Estoque
           </h3>
           <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+            <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
               <tr>
                 <th className="p-3">#</th>
                 <th className="p-3">Código</th>
@@ -243,7 +259,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
             <AlertCircle size={16} className="text-rose-500" /> Itens em Estoque Crítico ({criticalItems.length})
           </h3>
           <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+            <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
               <tr>
                 <th className="p-3">Código</th>
                 <th className="p-3">Descrição</th>
@@ -278,7 +294,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
             <MapPin size={16} className="text-blue-500" /> Distribuição por Ponto de Estocagem
           </h3>
           <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+            <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
               <tr>
                 <th className="p-3">Ponto</th>
                 <th className="p-3 text-right">Quantidade</th>
@@ -305,7 +321,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
             <Clock size={16} className="text-blue-500" /> Últimas Movimentações
           </h3>
           <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+            <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
               <tr>
                 <th className="p-3">Item</th>
                 <th className="p-3">Tipo</th>
@@ -340,7 +356,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
             <AlertTriangle size={16} className="text-amber-500" /> Itens Parados (Sem Movimentação)
           </h3>
           <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+            <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
               <tr>
                 <th className="p-3">Código</th>
                 <th className="p-3">Descrição</th>
@@ -367,7 +383,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
             <AlertCircle size={16} className="text-rose-500" /> Itens em Ruptura (Zerados)
           </h3>
           <table className="w-full text-left text-sm text-zinc-300">
-            <thead className="bg-zinc-950 text-zinc-500 uppercase text-[10px] tracking-wider">
+            <thead className="bg-zinc-950 text-zinc-500 uppercase text-xs tracking-wider">
               <tr>
                 <th className="p-3">Código</th>
                 <th className="p-3">Descrição</th>

@@ -110,14 +110,14 @@ const BarcodeScanner = ({ onScan, onClose }) => {
   }, [selectedCameraId, useFacingMode]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-label="Escanear código de barras" onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
       <div className="relative w-full max-w-md bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800">
         <div className="p-4 border-b border-zinc-800 flex justify-between items-center gap-3">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="QtdApp" className="h-12 w-auto" />
             <h3 className="font-bold text-white">Escanear Código</h3>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400">
+          <button onClick={onClose} className="p-2 hover:bg-zinc-800 rounded-xl text-zinc-400" aria-label="Fechar scanner">
             <X size={20} />
           </button>
         </div>

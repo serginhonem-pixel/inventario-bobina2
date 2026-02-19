@@ -51,7 +51,7 @@ const DynamicForm = ({ schema, onSubmit, initialData = {} }) => {
       <div className="grid grid-cols-1 gap-4">
         {schema.fields.map((field) => (
           <div key={field.key} className="space-y-1.5">
-            <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider ml-1">
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider ml-1">
               {field.label} {field.required && <span className="text-rose-500">*</span>}
             </label>
             

@@ -32,7 +32,7 @@ const PricingPage = ({ onEnter }) => {
       cta: 'Começar Grátis',
       ctaStyle: 'outline',
       highlight: false,
-      icon: <Package className="w-6 h-6 text-green-400" />
+      icon: <Package className="w-6 h-6 text-emerald-400" />
     },
     {
       id: 'pro',
@@ -54,8 +54,8 @@ const PricingPage = ({ onEnter }) => {
       ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout/206394722:1?subscription=3864',
       ctaStyle: 'solid',
       highlight: true,
-      borderColor: 'border-green-500/50',
-      icon: <Printer className="w-6 h-6 text-green-400" />
+      borderColor: 'border-emerald-500/50',
+      icon: <Printer className="w-6 h-6 text-emerald-400" />
     },
     {
       id: 'business',
@@ -96,33 +96,33 @@ const PricingPage = ({ onEnter }) => {
       cta: 'Falar com Especialista',
       ctaStyle: 'ghost',
       highlight: false,
-      icon: <Factory className="w-6 h-6 text-gray-400" />
+      icon: <Factory className="w-6 h-6 text-zinc-400" />
     }
   ];
 
   return (
     <section
       id="planos"
-      className="py-24 bg-[#0a0a0a] font-sans text-gray-100 selection:bg-green-500 selection:text-black"
+      className="py-24 bg-zinc-950 font-sans text-zinc-100 selection:bg-emerald-500 selection:text-black"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative overflow-hidden">
         
         {/* Background Gradients */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-500/10 rounded-full blur-[100px] pointer-events-none"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
         {/* Header da Seção */}
         <div className="text-center max-w-3xl mx-auto mb-20 relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-bold uppercase tracking-widest mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-6">
             <Zap className="w-3 h-3" /> Tecnologia Industrial
           </div>
           <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-6 tracking-tight">
             Controle de ponta a ponta.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-600">
               Da etiqueta ao inventário.
             </span>
           </h1>
-          <p className="text-lg text-gray-400 leading-relaxed">
+          <p className="text-lg text-zinc-400 leading-relaxed">
             Abandone o papel. Transforme seu smartphone em um coletor de dados poderoso e padronize seu chão de fábrica.
           </p>
 
@@ -130,21 +130,21 @@ const PricingPage = ({ onEnter }) => {
           <div className="mt-10 flex justify-center items-center gap-4">
             <span 
               onClick={() => setIsAnnual(false)}
-              className={`text-sm font-bold tracking-wide cursor-pointer transition-colors ${!isAnnual ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`text-sm font-bold tracking-wide cursor-pointer transition-colors ${!isAnnual ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
               MENSAL
             </span>
             <button 
               onClick={() => setIsAnnual(!isAnnual)}
-              className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isAnnual ? 'bg-green-600' : 'bg-gray-700'}`}
+              className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isAnnual ? 'bg-emerald-600' : 'bg-zinc-700'}`}
             >
               <span className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isAnnual ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
             <span 
               onClick={() => setIsAnnual(true)}
-              className={`text-sm font-bold tracking-wide cursor-pointer transition-colors ${isAnnual ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+              className={`text-sm font-bold tracking-wide cursor-pointer transition-colors ${isAnnual ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
             >
-              ANUAL <span className="text-black text-[10px] font-black bg-green-400 px-1.5 py-0.5 rounded ml-1 uppercase">Save 15%</span>
+              ANUAL <span className="text-black text-xs font-black bg-emerald-400 px-1.5 py-0.5 rounded ml-1 uppercase">-15%</span>
             </span>
           </div>
         </div>
@@ -157,15 +157,15 @@ const PricingPage = ({ onEnter }) => {
               className={`
                 relative flex flex-col p-6 rounded-xl transition-all duration-300 group
                 ${plan.highlight
-                  ? 'bg-gray-900 border border-green-500/50 shadow-[0_0_30px_rgba(34,197,94,0.1)]'
+                  ? 'bg-zinc-900 border border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.1)]'
                   : plan.isPremium
-                    ? 'bg-gradient-to-b from-gray-800 to-gray-900 border border-gray-700 hover:border-green-500/30'
-                    : 'bg-[#111] border border-gray-800 hover:border-gray-700'
+                    ? 'bg-gradient-to-b from-zinc-800 to-zinc-900 border border-zinc-700 hover:border-emerald-500/30'
+                    : 'bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
                 }
               `}
             >
               {plan.highlight && (
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-green-500 text-black text-[10px] font-black uppercase tracking-widest py-1 px-3 rounded shadow-lg">
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-emerald-500 text-black text-xs font-black uppercase tracking-widest py-1 px-3 rounded shadow-lg">
                   Mais Escolhido
                 </div>
               )}
@@ -173,12 +173,12 @@ const PricingPage = ({ onEnter }) => {
               {/* Card Header */}
               <div className="mb-6">
                 <div className={`w-10 h-10 rounded flex items-center justify-center mb-4 transition-colors ${
-                    plan.isPremium ? 'bg-white' : 'bg-gray-800 group-hover:bg-gray-700'
+                    plan.isPremium ? 'bg-white' : 'bg-zinc-800 group-hover:bg-zinc-700'
                   }`}>
                   {plan.icon}
                 </div>
                 <h3 className="text-xl font-bold text-white tracking-tight">{plan.name}</h3>
-                <p className={`text-xs font-semibold uppercase tracking-wider mt-1 ${plan.highlight ? 'text-green-400' : 'text-gray-500'}`}>
+                <p className={`text-xs font-semibold uppercase tracking-wider mt-1 ${plan.highlight ? 'text-emerald-400' : 'text-zinc-500'}`}>
                   {plan.subtitle}
                 </p>
                 
@@ -188,13 +188,13 @@ const PricingPage = ({ onEnter }) => {
                     {isAnnual ? plan.priceAnnual : plan.priceMonthly}
                   </span>
                   {plan.priceMonthly !== 'Sob Consulta' && (
-                    <span className="text-gray-500 ml-1 font-medium text-sm">{plan.period}</span>
+                    <span className="text-zinc-500 ml-1 font-medium text-sm">{plan.period}</span>
                   )}
                 </div>
                 
                 {/* Nota sobre faturamento anual (apenas se for anual e não for grátis/enterprise) */}
                 {isAnnual && plan.priceMonthly !== 'R$ 0' && plan.priceMonthly !== 'Sob Consulta' ? (
-                  <p className="text-[10px] text-green-400/80 font-medium mt-1">
+                  <p className="text-xs text-emerald-400/80 font-medium mt-1">
                     Faturado anualmente
                   </p>
                 ) : (
@@ -202,20 +202,20 @@ const PricingPage = ({ onEnter }) => {
                   <div className="h-[15px] mt-1"></div>
                 )}
 
-                <p className="mt-2 text-sm text-gray-400 leading-snug min-h-[40px]">
+                <p className="mt-2 text-sm text-zinc-400 leading-snug min-h-[40px]">
                   {plan.description}
                 </p>
               </div>
 
               {/* Divider */}
-              <div className={`h-px w-full mb-6 ${plan.highlight ? 'bg-green-500/20' : 'bg-gray-800'}`}></div>
+              <div className={`h-px w-full mb-6 ${plan.highlight ? 'bg-emerald-500/20' : 'bg-zinc-800'}`}></div>
 
               {/* Features */}
               <ul className="space-y-3 mb-8 flex-1">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-start">
-                    <Check className="w-4 h-4 flex-shrink-0 mr-3 text-green-500 mt-0.5" />
-                    <span className="text-sm text-gray-300 font-medium">{feature}</span>
+                    <Check className="w-4 h-4 flex-shrink-0 mr-3 text-emerald-500 mt-0.5" />
+                    <span className="text-sm text-zinc-300 font-medium">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -231,16 +231,16 @@ const PricingPage = ({ onEnter }) => {
                   className={`
                     w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200 text-center inline-block
                     ${plan.ctaStyle === 'outline'
-                      ? 'bg-transparent border border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-500'
+                      ? 'bg-transparent border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500'
                       : ''}
                     ${plan.ctaStyle === 'solid'
-                      ? 'bg-green-600 text-black hover:bg-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                      ? 'bg-emerald-600 text-black hover:bg-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
                       : ''}
                     ${plan.ctaStyle === 'primary'
-                      ? 'bg-white text-black hover:bg-gray-200 border border-transparent'
+                      ? 'bg-white text-black hover:bg-zinc-200 border border-transparent'
                       : ''}
                     ${plan.ctaStyle === 'ghost'
-                      ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
+                      ? 'bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700'
                       : ''}
                   `}
                 >
@@ -253,16 +253,16 @@ const PricingPage = ({ onEnter }) => {
                   className={`
                     w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200
                     ${plan.ctaStyle === 'outline'
-                      ? 'bg-transparent border border-green-500/30 text-green-400 hover:bg-green-500/10 hover:border-green-500'
+                      ? 'bg-transparent border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500'
                       : ''}
                     ${plan.ctaStyle === 'solid'
-                      ? 'bg-green-600 text-black hover:bg-green-500 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                      ? 'bg-emerald-600 text-black hover:bg-emerald-500 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]'
                       : ''}
                     ${plan.ctaStyle === 'primary'
-                      ? 'bg-white text-black hover:bg-gray-200 border border-transparent'
+                      ? 'bg-white text-black hover:bg-zinc-200 border border-transparent'
                       : ''}
                     ${plan.ctaStyle === 'ghost'
-                      ? 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-700'
+                      ? 'bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700'
                       : ''}
                   `}
                 >
@@ -274,20 +274,20 @@ const PricingPage = ({ onEnter }) => {
         </div>
 
         {/* Footer Banner / Chamada Final */}
-        <div className="mt-24 rounded-2xl bg-black border border-green-900/30 overflow-hidden relative">
+        <div className="mt-24 rounded-2xl bg-black border border-emerald-900/30 overflow-hidden relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-          <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-green-900/20 to-transparent"></div>
+          <div className="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-emerald-900/20 to-transparent"></div>
           
           <div className="relative px-8 py-20 text-center flex flex-col items-center justify-center">
-            <ScanLine className="w-12 h-12 text-green-500 mb-6 animate-pulse" />
+            <ScanLine className="w-12 h-12 text-emerald-500 mb-6 animate-pulse" />
             <h2 className="text-3xl md:text-5xl font-black text-white mb-2 tracking-tighter uppercase">
-              Seu estoque começa na <span className="text-green-500">etiqueta</span>.
+              Seu estoque começa na <span className="text-emerald-500">etiqueta</span>.
             </h2>
-            <p className="text-xl md:text-2xl font-bold text-gray-400 tracking-tight mb-8">
+            <p className="text-xl md:text-2xl font-bold text-zinc-400 tracking-tight mb-8">
               O controle vem na leitura.
             </p>
             
-            <button className="inline-flex items-center justify-center px-8 py-4 bg-green-600 hover:bg-green-500 text-black text-base font-bold rounded uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)]">
+            <button className="inline-flex items-center justify-center px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-black text-base font-bold rounded uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)]">
               Criar Conta Gratuita
               <ChevronRight className="ml-2 w-5 h-5" />
             </button>

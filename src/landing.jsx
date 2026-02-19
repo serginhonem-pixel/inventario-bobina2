@@ -1,8 +1,13 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import appLogo from "../logo.png";
 import landingImage from "../landingpage.png";
+import heroArmazem1 from "../hero-armazem-1.png";
+import heroArmazem2 from "../hero-armazem-2.png";
+import heroArmazem3 from "../hero-armazem-3.png";
+import heroBar from "../hero-bar.png";
+import heroGranito from "../hero-granito.png";
 import PlanosSection from "./planos";
-import { 
+import {
   Printer, 
   FileSpreadsheet, 
   Box, 
@@ -23,12 +28,67 @@ import {
   CheckCircle2,
   BarChart3,
   RefreshCw,
-  ShieldCheck
+  ShieldCheck,
+  Linkedin,
+  Instagram,
+  ChevronUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Wifi,
+  TabletSmartphone,
+  Clock,
+  Shield,
+  HelpCircle
 } from 'lucide-react';
+
+/* ── Scroll fade-in hook ─────────────────────────────── */
+function useFadeIn(threshold = 0.15) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.unobserve(el); } },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [threshold]);
+  return { ref, className: `transition-all duration-700 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}` };
+}
 
 export default function LandingPage({ onEnter }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showTop, setShowTop] = useState(false);
+  const [openFaq, setOpenFaq] = useState(null);
+
+  // Typewriter cycling words
+  const heroWords = ['Contagem de Inventário', 'Gestão de Etiquetas', 'Controle de Estoque'];
+  const [wordIdx, setWordIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const [deleting, setDeleting] = useState(false);
+  const currentWord = heroWords[wordIdx];
+  const displayedText = currentWord.slice(0, charIdx);
+
+  useEffect(() => {
+    const speed = deleting ? 40 : 70;
+    const pause = !deleting && charIdx === currentWord.length ? 2000 : deleting && charIdx === 0 ? 400 : speed;
+    const timer = setTimeout(() => {
+      if (!deleting && charIdx === currentWord.length) {
+        setDeleting(true);
+      } else if (deleting && charIdx === 0) {
+        setDeleting(false);
+        setWordIdx((prev) => (prev + 1) % heroWords.length);
+      } else {
+        setCharIdx((prev) => prev + (deleting ? -1 : 1));
+      }
+    }, pause);
+    return () => clearTimeout(timer);
+  }, [charIdx, deleting, currentWord]);
+
   const canvasRef = useRef(null);
   const dragStateRef = useRef(null);
   const [draggingId, setDraggingId] = useState(null);
@@ -38,10 +98,57 @@ export default function LandingPage({ onEnter }) {
     { id: "barcode", x: 40, y: 250, w: 140, h: 36 },
   ]);
 
-  // Handle scroll effect for navbar
+  // Fade-in refs for each section
+  const fadeWorkflow = useFadeIn();
+  const fadeEtiquetas = useFadeIn();
+  const fadeHistorico = useFadeIn();
+  const fadeDiferenciais = useFadeIn();
+  const fadeFaq = useFadeIn();
+  const fadeCTA = useFadeIn();
+
+  /* ── Hero Carousel ────────────────────────────────── */
+  const heroSlides = [
+    { src: landingImage, alt: "Empilhadeira em armazém com prateleiras" },
+    { src: heroArmazem1, alt: "Armazém com estoque organizado" },
+    { src: heroArmazem2, alt: "Gestão de estoque em armazém" },
+    { src: heroArmazem3, alt: "Operação logística de inventário" },
+    { src: heroBar, alt: "Controle de estoque em bar e restaurante" },
+    { src: heroGranito, alt: "Inventário de chapas de granito" },
+  ];
+  const [slideIdx, setSlideIdx] = useState(0);
+  const touchStartX = useRef(null);
+  const autoPlayRef = useRef(null);
+
+  const goSlide = useCallback((idx) => {
+    setSlideIdx((idx + heroSlides.length) % heroSlides.length);
+  }, [heroSlides.length]);
+
+  // Auto-play: troca a cada 5s
+  useEffect(() => {
+    autoPlayRef.current = setInterval(() => setSlideIdx((p) => (p + 1) % heroSlides.length), 5000);
+    return () => clearInterval(autoPlayRef.current);
+  }, [heroSlides.length]);
+
+  const resetAutoPlay = useCallback(() => {
+    clearInterval(autoPlayRef.current);
+    autoPlayRef.current = setInterval(() => setSlideIdx((p) => (p + 1) % heroSlides.length), 5000);
+  }, [heroSlides.length]);
+
+  const prevSlide = () => { goSlide(slideIdx - 1); resetAutoPlay(); };
+  const nextSlide = () => { goSlide(slideIdx + 1); resetAutoPlay(); };
+  const onTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (touchStartX.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(diff) > 50) { diff < 0 ? nextSlide() : prevSlide(); }
+    touchStartX.current = null;
+  };
+
+  // Handle scroll effect for navbar + back to top
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
+      setShowTop(window.scrollY > 600);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -104,7 +211,7 @@ export default function LandingPage({ onEnter }) {
 
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center space-x-8">
-              {['Solução', 'Inventário', 'Etiquetas', 'Histórico'].map((item) => (
+              {['Solução', 'Etiquetas', 'Histórico', 'Planos'].map((item) => (
                 <a key={item} href={`#${item.toLowerCase().replace(/ /g, '-')}`} className="text-sm font-medium text-zinc-300 hover:text-emerald-300 transition-colors">
                   {item}
                 </a>
@@ -119,7 +226,7 @@ export default function LandingPage({ onEnter }) {
 
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center">
-              <button onClick={toggleMenu} className="p-2 text-gray-600 hover:text-gray-900 focus:outline-none rounded-lg hover:bg-gray-100 transition-colors">
+              <button onClick={toggleMenu} className="p-2 text-zinc-300 hover:text-zinc-100 focus:outline-none rounded-lg hover:bg-zinc-800 transition-colors">
                 {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
             </div>
@@ -129,7 +236,7 @@ export default function LandingPage({ onEnter }) {
         {/* Mobile Menu Dropdown */}
         <div className={`md:hidden absolute top-full left-0 w-full bg-zinc-950 border-t border-zinc-800 shadow-lg transition-all duration-300 origin-top ${isMenuOpen ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0 h-0 overflow-hidden'}`}>
           <div className="px-4 py-6 space-y-4">
-            {['Solução', 'Inventário', 'Etiquetas', 'Histórico'].map((item) => (
+            {['Solução', 'Etiquetas', 'Histórico', 'Planos'].map((item) => (
               <a 
                 key={item} 
                 href={`#${item.toLowerCase().replace(/ /g, '-')}`}
@@ -158,13 +265,10 @@ export default function LandingPage({ onEnter }) {
         <div className="absolute top-20 right-0 w-1/2 h-1/2 bg-gradient-to-b from-emerald-500/20 to-transparent blur-3xl rounded-full opacity-60 pointer-events-none"></div>
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="mx-auto mb-10 flex justify-center">
-            <img src={appLogo} alt="QtdApp" className="h-24 w-auto object-contain" />
-          </div>
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-zinc-100 mb-8 leading-[1.1]">
             A Ferramenta Definitiva para <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-emerald-500">
-              Contagem de Inventário
+              {displayedText}<span className="animate-pulse text-emerald-400">|</span>
             </span>
           </h1>
           
@@ -179,25 +283,80 @@ export default function LandingPage({ onEnter }) {
             >
               Começar Contagem Grátis <ArrowRight className="w-5 h-5" />
             </button>
-            <button className="w-full sm:w-auto flex items-center justify-center gap-2 bg-zinc-900/70 hover:bg-zinc-900 text-zinc-200 border border-zinc-700 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:border-zinc-600">
+            <button
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-zinc-900/70 hover:bg-zinc-900 text-zinc-200 border border-zinc-700 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:border-zinc-600"
+              onClick={onEnter}
+            >
               <ClipboardList className="w-5 h-5" /> Ver Relatório Exemplo
             </button>
           </div>
 
-          {/* Dashboard Preview Mockup */}
-          <div className="mt-20 relative mx-auto max-w-4xl opacity-95 hover:opacity-100 transition-opacity duration-500">
-            <img
-              src={landingImage}
-              alt="Empilhadeira em armazem com prateleiras"
-              className="rounded-2xl shadow-2xl border border-zinc-800"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent h-24 bottom-0 top-auto"></div>
+          {/* Dashboard Preview — Carrossel */}
+          <div
+            className="mt-20 relative mx-auto max-w-4xl group"
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+          >
+            {/* Track */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-800 shadow-2xl">
+              <div
+                className="flex transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${slideIdx * 100}%)` }}
+              >
+                {heroSlides.map((slide, i) => (
+                  <img
+                    key={i}
+                    src={slide.src}
+                    alt={slide.alt}
+                    loading={i === 0 ? "eager" : "lazy"}
+                    className="w-full flex-shrink-0 object-cover"
+                    draggable={false}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Gradient bottom */}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 via-transparent to-transparent rounded-b-2xl pointer-events-none"></div>
+
+            {/* Arrow Left */}
+            <button
+              onClick={prevSlide}
+              className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+              aria-label="Imagem anterior"
+            >
+              <ChevronLeft size={24} />
+            </button>
+
+            {/* Arrow Right */}
+            <button
+              onClick={nextSlide}
+              className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+              aria-label="Próxima imagem"
+            >
+              <ChevronRight size={24} />
+            </button>
+
+            {/* Dots */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {heroSlides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => { goSlide(i); resetAutoPlay(); }}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    i === slideIdx ? 'bg-emerald-400 scale-110' : 'bg-white/40 hover:bg-white/60'
+                  }`}
+                  aria-label={`Ir para imagem ${i + 1}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* --- NEW SECTION: Visão Geral da Solução (Ciclo do Estoque) --- */}
       <section id="solução" className="py-24 bg-zinc-950">
+        <div ref={fadeWorkflow.ref} className={fadeWorkflow.className}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
            <div className="text-center mb-16">
             <h2 className="text-sm font-bold text-emerald-300 tracking-wide uppercase mb-3">Workflow Profissional</h2>
@@ -258,49 +417,54 @@ export default function LandingPage({ onEnter }) {
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       {/* --- Section: Gerador de Etiquetas (Como funcionalidade de apoio) --- */}
-      <section id="etiquetas" className="py-24 bg-white overflow-hidden">
+      <section id="etiquetas" className="py-24 bg-zinc-900/50 overflow-hidden">
+        <div ref={fadeEtiquetas.ref} className={fadeEtiquetas.className}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row items-center gap-16">
             
             {/* Text Content */}
             <div className="lg:w-1/2">
-              <div className="inline-block bg-emerald-100 text-emerald-700 px-4 py-1 rounded-full text-sm font-bold mb-4">
+              <div className="inline-block bg-emerald-500/10 text-emerald-300 px-4 py-1 rounded-full text-sm font-bold mb-4 border border-emerald-500/20">
                 Organize para Contar Melhor
               </div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">Etiquetas Integradas ao Inventário</h2>
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+              <h2 className="text-4xl font-bold text-zinc-100 mb-6">Etiquetas Integradas ao Inventário</h2>
+              <p className="text-lg text-zinc-400 mb-8 leading-relaxed">
                 Não adianta contar se o produto não está identificado. Nosso módulo de etiquetas puxa os dados do seu inventário para garantir que o código na prateleira seja o mesmo do sistema.
               </p>
 
               <div className="space-y-6">
                 <div className="flex gap-4">
-                  <div className="bg-emerald-50 p-3 rounded-lg h-fit"><Edit3 className="w-6 h-6 text-emerald-600" /></div>
+                  <div className="bg-emerald-500/10 p-3 rounded-lg h-fit"><Edit3 className="w-6 h-6 text-emerald-400" /></div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-lg">Evite Erros de Bipagem</h4>
-                    <p className="text-gray-600">Crie etiquetas com códigos de barras nítidos e legíveis, facilitando a leitura durante o balanço.</p>
+                    <h4 className="font-bold text-zinc-100 text-lg">Evite Erros de Bipagem</h4>
+                    <p className="text-zinc-400">Crie etiquetas com códigos de barras nítidos e legíveis, facilitando a leitura durante o balanço.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="bg-indigo-50 p-3 rounded-lg h-fit"><Database className="w-6 h-6 text-indigo-600" /></div>
+                  <div className="bg-indigo-500/10 p-3 rounded-lg h-fit"><Database className="w-6 h-6 text-indigo-400" /></div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-lg">Dados Sincronizados</h4>
-                    <p className="text-gray-600">A etiqueta é gerada a partir do mesmo cadastro usado na contagem. Sem divergências de descrição ou preço.</p>
+                    <h4 className="font-bold text-zinc-100 text-lg">Dados Sincronizados</h4>
+                    <p className="text-zinc-400">A etiqueta é gerada a partir do mesmo cadastro usado na contagem. Sem divergências de descrição ou preço.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="bg-purple-50 p-3 rounded-lg h-fit"><LayoutTemplate className="w-6 h-6 text-purple-600" /></div>
+                  <div className="bg-purple-500/10 p-3 rounded-lg h-fit"><LayoutTemplate className="w-6 h-6 text-purple-400" /></div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-lg">Personalize sua Identificação</h4>
-                    <p className="text-gray-600">Arraste campos, mude tamanhos e salve modelos para Gôndola, Depósito ou Caixa Fechada.</p>
+                    <h4 className="font-bold text-zinc-100 text-lg">Personalize sua Identificação</h4>
+                    <p className="text-zinc-400">Arraste campos, mude tamanhos e salve modelos para Gôndola, Depósito ou Caixa Fechada.</p>
                   </div>
                 </div>
               </div>
 
               <div className="mt-10">
-                <button className="bg-gray-900 hover:bg-black text-white px-8 py-3 rounded-xl font-medium transition-all flex items-center gap-2">
+                <button
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-900/30"
+                  onClick={onEnter}
+                >
                   <Zap className="w-4 h-4" /> Testar Gerador
                 </button>
               </div>
@@ -308,11 +472,11 @@ export default function LandingPage({ onEnter }) {
 
             {/* Interactive Visual Mockup */}
             <div className="lg:w-1/2 w-full">
-              <div className="relative bg-white border border-zinc-200 rounded-2xl p-6 shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+              <div className="relative bg-zinc-900 border border-zinc-800 rounded-2xl p-6 shadow-2xl">
                 {/* Fake Toolbar */}
-                <div className="flex flex-wrap gap-2 mb-4 border-b border-zinc-200 pb-4 overflow-x-auto">
+                <div className="flex flex-wrap gap-2 mb-4 border-b border-zinc-800 pb-4 overflow-x-auto">
                    {['Nome do Produto', 'Preço R$', 'Código Barras', 'Localização'].map(tool => (
-                     <div key={tool} className="bg-white border border-zinc-200 px-3 py-1 rounded-md text-xs font-semibold text-zinc-600 cursor-move shadow-sm whitespace-nowrap hover:border-emerald-500 hover:text-emerald-600 transition-colors">
+                     <div key={tool} className="bg-zinc-800 border border-zinc-700 px-3 py-1 rounded-md text-xs font-semibold text-zinc-400 cursor-move shadow-sm whitespace-nowrap hover:border-emerald-500 hover:text-emerald-400 transition-colors">
                        :: {tool}
                      </div>
                    ))}
@@ -376,8 +540,8 @@ export default function LandingPage({ onEnter }) {
                 </div>
 
                 {/* Save Panel */}
-                <div className="mt-4 flex justify-between items-center bg-zinc-100/80 p-3 rounded-lg">
-                  <div className="text-sm font-medium text-zinc-600">Modelo: <span className="text-zinc-900 font-bold">Etiqueta de Balanço</span></div>
+                <div className="mt-4 flex justify-between items-center bg-zinc-800/80 p-3 rounded-lg">
+                  <div className="text-sm font-medium text-zinc-400">Modelo: <span className="text-zinc-100 font-bold">Etiqueta de Balanço</span></div>
                   <button className="bg-emerald-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold flex items-center gap-1 hover:bg-emerald-700 transition">
                     <Save className="w-3 h-3" /> Salvar Modelo
                   </button>
@@ -389,26 +553,31 @@ export default function LandingPage({ onEnter }) {
 
           </div>
         </div>
+        </div>
       </section>
 
       {/* --- Section: Banco de Dados e Histórico Deep Dive --- */}
-      <section id="histórico" className="py-24 bg-gray-900 text-white">
+      <section id="histórico" className="py-24 bg-zinc-950 text-white">
+        <div ref={fadeHistorico.ref} className={fadeHistorico.className}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
             <div className="max-w-3xl">
               <h2 className="text-3xl sm:text-4xl font-bold mb-6">A Inteligência do seu Inventário</h2>
-              <p className="text-gray-400 text-lg">
+              <p className="text-zinc-400 text-lg">
                 Inventário é coisa séria. O QtdApp armazena seus dados para que você possa auditar contagens, verificar divergências e manter um histórico confiável para a contabilidade.
               </p>
             </div>
-            <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2 whitespace-nowrap">
+            <button
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-lg font-bold transition-colors flex items-center gap-2 whitespace-nowrap"
+              onClick={onEnter}
+            >
               <Database className="w-4 h-4" /> Acessar Meus Dados
             </button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-12">
             {/* Card 1: Histórico */}
-            <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700 hover:border-emerald-500 transition-colors duration-300 relative overflow-hidden group">
+            <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800 hover:border-emerald-500 transition-colors duration-300 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <History className="w-32 h-32" />
               </div>
@@ -416,65 +585,123 @@ export default function LandingPage({ onEnter }) {
                 <RefreshCw className="w-7 h-7 text-emerald-400" />
               </div>
               <h3 className="text-2xl font-bold mb-4 relative z-10">Auditoria de Contagens</h3>
-              <p className="text-gray-400 mb-6 leading-relaxed relative z-10">
+              <p className="text-zinc-400 mb-6 leading-relaxed relative z-10">
                 Quem contou? Quando contou? O QtdApp guarda o log de cada registro. Compare o estoque físico atual com balanços anteriores.
               </p>
               <ul className="space-y-3 relative z-10">
-                <li className="flex items-center gap-3 text-gray-300 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-green-400" /> Rastreabilidade total por usuário
+                <li className="flex items-center gap-3 text-zinc-300 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Rastreabilidade total por usuário
                 </li>
-                <li className="flex items-center gap-3 text-gray-300 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-green-400" /> Histórico de divergências
+                <li className="flex items-center gap-3 text-zinc-300 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Histórico de divergências
                 </li>
-                <li className="flex items-center gap-3 text-gray-300 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-green-400" /> Re-emissão de relatórios fiscais
+                <li className="flex items-center gap-3 text-zinc-300 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Re-emissão de relatórios fiscais
                 </li>
               </ul>
             </div>
 
             {/* Card 2: Base de Produtos */}
-            <div className="bg-gray-800 rounded-2xl p-8 border border-gray-700 hover:border-emerald-500 transition-colors duration-300 relative overflow-hidden group">
+            <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800 hover:border-emerald-500 transition-colors duration-300 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Database className="w-32 h-32" />
               </div>
               <div className="bg-emerald-900/50 w-14 h-14 rounded-xl flex items-center justify-center mb-6 relative z-10">
                 <ShieldCheck className="w-7 h-7 text-emerald-400" />
               </div>
-              <h3 className="text-2xl font-bold mb-4 relative z-10">Cadastro Ênico</h3>
-              <p className="text-gray-400 mb-6 leading-relaxed relative z-10">
+              <h3 className="text-2xl font-bold mb-4 relative z-10">Cadastro Único</h3>
+              <p className="text-zinc-400 mb-6 leading-relaxed relative z-10">
                 Pare de digitar o mesmo produto toda vez que for contar. Cadastre uma vez e reutilize os dados para inventários mensais, rotativos ou gerais.
               </p>
                <ul className="space-y-3 relative z-10">
-                <li className="flex items-center gap-3 text-gray-300 text-sm">
+                <li className="flex items-center gap-3 text-zinc-300 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Importação fácil via Excel
                 </li>
-                <li className="flex items-center gap-3 text-gray-300 text-sm">
+                <li className="flex items-center gap-3 text-zinc-300 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Padronização de códigos
                 </li>
-                <li className="flex items-center gap-3 text-gray-300 text-sm">
+                <li className="flex items-center gap-3 text-zinc-300 text-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Base pronta para qualquer balanço
                 </li>
               </ul>
             </div>
           </div>
         </div>
+        </div>
       </section>
 
-      {/* --- Social Proof / Stats --- */}
-      <section className="py-24 bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-12 text-center">
-          <StatItemDark value="+1M" label="Itens Contados" />
-          <StatItemDark value="Excel" label="Exportação Nativa" />
-          <StatItemDark value="100%" label="Precisão no Estoque" />
-          <StatItemDark value="24/7" label="Suporte Técnico" />
+      {/* --- Diferenciais --- */}
+      <section className="py-24 bg-zinc-950 border-t border-zinc-800">
+        <div ref={fadeDiferenciais.ref} className={fadeDiferenciais.className}>
+        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-8 text-center">
+          <div className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 group hover:border-emerald-500/30 transition-colors">
+            <Wifi className="w-8 h-8 text-emerald-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+            <div className="text-xl font-bold text-zinc-100 mb-1">Tempo Real</div>
+            <div className="text-zinc-500 text-sm">Contagem simultânea com sync instantâneo</div>
+          </div>
+          <div className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 group hover:border-emerald-500/30 transition-colors">
+            <TabletSmartphone className="w-8 h-8 text-emerald-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+            <div className="text-xl font-bold text-zinc-100 mb-1">Multiplataforma</div>
+            <div className="text-zinc-500 text-sm">Celular, tablet ou desktop</div>
+          </div>
+          <div className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 group hover:border-emerald-500/30 transition-colors">
+            <Clock className="w-8 h-8 text-emerald-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+            <div className="text-xl font-bold text-zinc-100 mb-1">Setup em 5 min</div>
+            <div className="text-zinc-500 text-sm">Importe do Excel e comece a contar</div>
+          </div>
+          <div className="p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800 group hover:border-emerald-500/30 transition-colors">
+            <Shield className="w-8 h-8 text-emerald-400 mx-auto mb-4 group-hover:scale-110 transition-transform" />
+            <div className="text-xl font-bold text-zinc-100 mb-1">Dados Seguros</div>
+            <div className="text-zinc-500 text-sm">Firebase com backup automático</div>
+          </div>
+        </div>
         </div>
       </section>
 
       {/* --- Planos --- */}
       <PlanosSection onEnter={onEnter} />
 
+      {/* --- FAQ --- */}
+      <section className="py-24 bg-zinc-950">
+        <div ref={fadeFaq.ref} className={fadeFaq.className}>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-6">
+              <HelpCircle className="w-3 h-3" /> Perguntas Frequentes
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-zinc-100">Tire suas dúvidas</h2>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              { q: 'Funciona no celular?', a: 'Sim! O QtdApp é um PWA (Progressive Web App). Funciona direto no navegador do celular, tablet ou desktop — sem precisar instalar nada da loja.' },
+              { q: 'Posso importar dados do meu ERP ou Excel?', a: 'Sim. Você pode importar uma planilha Excel (.xlsx) com seus produtos. O sistema mapeia as colunas automaticamente para o seu esquema de dados.' },
+              { q: 'Várias pessoas podem contar ao mesmo tempo?', a: 'Sim! Com o plano Pro ou superior, múltiplos usuários podem registrar contagens simultaneamente no mesmo ponto de estocagem. Tudo sincroniza em tempo real via Firebase.' },
+              { q: 'Preciso de leitor de código de barras?', a: 'Não. O próprio app usa a câmera do celular para ler códigos de barras e QR Codes. Mas se você tiver um leitor USB ou Bluetooth, também funciona.' },
+              { q: 'Meus dados ficam seguros?', a: 'Seus dados são armazenados no Google Firebase (Firestore) com autenticação por e-mail/Google, regras de segurança por organização e backup automático.' },
+              { q: 'Posso cancelar a qualquer momento?', a: 'Sim. Não há fidelidade. Você pode cancelar seu plano quando quiser e continuar usando o plano Free.' },
+            ].map((item, i) => (
+              <div key={i} className="border border-zinc-800 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  className="w-full flex items-center justify-between px-6 py-4 text-left text-zinc-100 font-semibold hover:bg-zinc-900/50 transition-colors"
+                >
+                  {item.q}
+                  <ChevronDown className={`w-5 h-5 text-zinc-500 transition-transform duration-200 ${openFaq === i ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ${openFaq === i ? 'max-h-40 pb-4' : 'max-h-0'}`}>
+                  <p className="px-6 text-sm text-zinc-400 leading-relaxed">{item.a}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        </div>
+      </section>
+
       {/* --- CTA Section --- */}
-      <section className="py-24 bg-gray-50">
+      <section className="py-24 bg-zinc-900/50">
+        <div ref={fadeCTA.ref} className={fadeCTA.className}>
         <div className="max-w-5xl mx-auto px-4">
           <div className="bg-gradient-to-r from-emerald-900 to-indigo-900 rounded-3xl p-8 sm:p-16 text-center text-white shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
@@ -492,78 +719,85 @@ export default function LandingPage({ onEnter }) {
               >
                 Criar Conta Grátis
               </button>
-              <button className="bg-transparent hover:bg-white/10 text-white border border-white/30 px-10 py-4 rounded-xl text-lg font-semibold transition">
+              <button
+                className="bg-transparent hover:bg-white/10 text-white border border-white/30 px-10 py-4 rounded-xl text-lg font-semibold transition"
+                onClick={onEnter}
+              >
                 Ver Demonstração
               </button>
             </div>
             <p className="mt-6 text-sm text-emerald-300/80 relative z-10">Ideal para Varejo, Indústria e Logística.</p>
           </div>
         </div>
+        </div>
       </section>
 
-      {/* --- Footer --- */}\n{/* --- Footer --- */}
-      <footer className="bg-white border-t border-gray-200 pt-16 pb-8">
+      {/* --- Back to Top --- */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className={`fixed bottom-6 right-6 z-50 w-11 h-11 rounded-full bg-emerald-500 text-black flex items-center justify-center shadow-lg shadow-emerald-900/40 transition-all duration-300 hover:bg-emerald-400 hover:-translate-y-1 ${showTop ? 'opacity-100 scale-100' : 'opacity-0 scale-75 pointer-events-none'}`}
+        aria-label="Voltar ao topo"
+      >
+        <ChevronUp className="w-5 h-5" />
+      </button>
+
+      {/* --- Footer --- */}
+      <footer className="bg-zinc-950 border-t border-zinc-800 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             <div className="col-span-1 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <Box className="w-6 h-6 text-emerald-600" />
-                <span className="font-bold text-xl text-gray-900">QtdApp</span>
+                <Box className="w-6 h-6 text-emerald-400" />
+                <span className="font-bold text-xl text-zinc-100">QtdApp</span>
               </div>
-              <p className="text-gray-500 text-sm leading-relaxed">
+              <p className="text-zinc-500 text-sm leading-relaxed">
                 A solução definitiva para contagem de inventário e organização de estoque. Seus dados seguros e auditáveis.
               </p>
             </div>
             
             <div>
-              <h4 className="font-bold text-gray-900 mb-4">Produto</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#" className="hover:text-emerald-600">App de Inventário</a></li>
-                <li><a href="#" className="hover:text-emerald-600">Gerador de Etiquetas</a></li>
-                <li><a href="#" className="hover:text-emerald-600">Banco de Dados</a></li>
+              <h4 className="font-bold text-zinc-100 mb-4">Produto</h4>
+              <ul className="space-y-2 text-sm text-zinc-500">
+                <li><a href="#" className="hover:text-emerald-400">App de Inventário</a></li>
+                <li><a href="#" className="hover:text-emerald-400">Gerador de Etiquetas</a></li>
+                <li><a href="#" className="hover:text-emerald-400">Banco de Dados</a></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold text-gray-900 mb-4">Suporte</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="#" className="hover:text-emerald-600">Central de Ajuda</a></li>
-                <li><a href="#" className="hover:text-emerald-600">Vídeos Tutoriais</a></li>
-                <li><a href="#" className="hover:text-emerald-600">Fale Conosco</a></li>
+              <h4 className="font-bold text-zinc-100 mb-4">Suporte</h4>
+              <ul className="space-y-2 text-sm text-zinc-500">
+                <li><a href="#" className="hover:text-emerald-400">Central de Ajuda</a></li>
+                <li><a href="#" className="hover:text-emerald-400">Vídeos Tutoriais</a></li>
+                <li><a href="#" className="hover:text-emerald-400">Fale Conosco</a></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold text-gray-900 mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li><a href="/privacidade" className="hover:text-emerald-600">Privacidade</a></li>
-                <li><a href="/termos" className="hover:text-emerald-600">Termos de Uso</a></li>
+              <h4 className="font-bold text-zinc-100 mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm text-zinc-500">
+                <li><a href="/privacidade" className="hover:text-emerald-400">Privacidade</a></li>
+                <li><a href="/termos" className="hover:text-emerald-400">Termos de Uso</a></li>
               </ul>
             </div>
           </div>
           
-          <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-gray-400 text-sm">
+          <div className="border-t border-zinc-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-zinc-500 text-sm">
               &copy; {new Date().getFullYear()} QtdApp. Todos os direitos reservados.
             </div>
             <div className="flex gap-4">
-               <div className="w-8 h-8 bg-gray-100 rounded-full hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors cursor-pointer text-xs font-bold">IN</div>
-               <div className="w-8 h-8 bg-gray-100 rounded-full hover:bg-pink-100 text-pink-600 flex items-center justify-center transition-colors cursor-pointer text-xs font-bold">IG</div>
+               <a href="#" className="w-8 h-8 bg-zinc-900 rounded-full hover:bg-emerald-500/20 text-zinc-400 hover:text-emerald-400 flex items-center justify-center transition-colors">
+                 <Linkedin className="w-4 h-4" />
+               </a>
+               <a href="#" className="w-8 h-8 bg-zinc-900 rounded-full hover:bg-pink-500/20 text-zinc-400 hover:text-pink-400 flex items-center justify-center transition-colors">
+                 <Instagram className="w-4 h-4" />
+               </a>
             </div>
           </div>
         </div>
       </footer>
 
-    </div>
-  );
-}
-
-// Components auxiliares
-function StatItemDark({ value, label }) {
-  return (
-    <div className="p-4 group">
-      <div className="text-4xl md:text-5xl font-bold mb-2 text-gray-900 group-hover:scale-110 transition-transform duration-300 inline-block">{value}</div>
-      <div className="text-gray-500 font-medium tracking-wide uppercase text-sm">{label}</div>
     </div>
   );
 }

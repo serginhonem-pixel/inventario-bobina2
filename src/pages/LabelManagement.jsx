@@ -508,7 +508,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-white truncate">{user?.email || 'Usuário'}</p>
-              <p className="text-[10px] text-zinc-500 uppercase font-bold">
+              <p className="text-xs text-zinc-500 uppercase font-bold">
                 Plano {effectivePlanId.charAt(0).toUpperCase() + effectivePlanId.slice(1)}
                 {trialInfo.isTrial && <span className="text-emerald-400"> (Trial)</span>}
               </p>
