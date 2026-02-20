@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, lazy, Suspense } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import "./App.css";
 import LandingPage from "./landing";
 const LabelManagement = lazy(() => import("./pages/LabelManagement"));
@@ -24,7 +25,7 @@ import TermsOfUse from "./pages/TermsOfUse";
 
 const App = () => {
   const [user, setUser] = useState(null);
-  const [showLanding, setShowLanding] = useState(true);
+  const [, setShowLanding] = useState(true);
   const [loading, setLoading] = useState(true);
   const [authMode, setAuthMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -91,8 +92,11 @@ const App = () => {
       .finally(() => setOrgLoading(false));
   }, [user]);
 
+  const navigate = useNavigate();
+
   const handleStart = async () => {
     setShowLanding(false);
+    navigate("/login");
   };
 
   const handleEmailAuth = async (e) => {
@@ -135,177 +139,180 @@ const App = () => {
     }
   };
 
-  const legalPath = typeof window !== "undefined" ? window.location.pathname : "";
-  const isPrivacy = legalPath === "/privacidade";
-  const isTerms = legalPath === "/termos";
+const Spinner = () => (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500"></div>
+    </div>
+  );
 
-  if (isPrivacy) {
-    return <PrivacyPolicy />;
-  }
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Erro ao sair:", error);
+    } finally {
+      setUser(null);
+      setShowLanding(true);
+      setOrg(null);
+      navigate("/");
+    }
+  };
 
-  if (isTerms) {
-    return <TermsOfUse />;
-  }
-
-  if (loading || orgLoading) {
-    return (
-      <>
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500"></div>
-        </div>
-        <ToastHost />
-      </>
-    );
-  }
-
-  // Se showLanding for true, mostra sua landing page original
-  // Passamos a prop onEnter que é o que a sua landing.jsx espera
-  if (showLanding) {
-    return (
-      <>
-        <LandingPage onEnter={handleStart} />
-        <ToastHost />
-      </>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-2xl font-black text-white mb-1">
-                  {authMode === "login" ? "Entrar" : "Criar conta"}
-                </h1>
-                <p className="text-zinc-400 text-sm">
-                  Acesse sua conta para continuar.
-                </p>
-              </div>
-              <img src="/logo.png" alt="QtdApp" className="h-10 w-auto opacity-80" />
-            </div>
-
-            <button
-              onClick={() => setShowLanding(true)}
-              className="mb-4 text-xs text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
-            >
-              ← Voltar à página inicial
-            </button>
-
-            {authError && (
-              <div className="mb-4 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
-                {authError}
-              </div>
-            )}
-
-            <button
-              onClick={handleGoogleAuth}
-              className="w-full bg-zinc-950 border border-zinc-800 hover:border-emerald-500 text-white py-3 rounded-xl font-bold transition-all"
-            >
-              Entrar com Google
-            </button>
-
-            <div className="my-5 text-center text-xs text-zinc-500">ou</div>
-
-            <form onSubmit={handleEmailAuth} className="space-y-4">
-              <input
-                type="email"
-                placeholder="Seu email"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 px-4 text-sm text-white focus:border-emerald-500 outline-none"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="Sua senha"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 px-4 text-sm text-white focus:border-emerald-500 outline-none"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="submit"
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-xl font-bold transition-all"
-              >
-                {authMode === "login" ? "Entrar" : "Criar conta"}
-              </button>
-            </form>
-
-            {authMode === "login" && (
-              <button
-                type="button"
-                onClick={handlePasswordReset}
-                className="mt-3 w-full text-xs text-emerald-400 hover:text-emerald-300"
-              >
-                Esqueci minha senha
-              </button>
-            )}
-
-            <button
-              onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-              className="mt-4 w-full text-xs text-zinc-400 hover:text-white"
-            >
-              {authMode === "login" ? "Ainda não tenho conta" : "Já tenho conta"}
-            </button>
+  // ---------- Tela de Auth (login/register) ----------
+  const AuthScreen = () => (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-black text-white mb-1">
+              {authMode === "login" ? "Entrar" : "Criar conta"}
+            </h1>
+            <p className="text-zinc-400 text-sm">
+              Acesse sua conta para continuar.
+            </p>
           </div>
+          <img src="/logo.png" alt="QtdApp" className="h-10 w-auto opacity-80" />
         </div>
-        <ToastHost />
-      </>
-    );
-  }
 
-  if (orgError) {
-    return (
-      <>
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
-          <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
-            <h1 className="text-xl font-black text-white mb-2">Erro</h1>
-            <p className="text-zinc-400 text-sm">{orgError}</p>
-            <button
-              onClick={() => signOut(auth)}
-              className="mt-6 w-full bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-xl font-bold transition-all"
-            >
-              Sair
-            </button>
+        <button
+          onClick={() => { setShowLanding(true); navigate("/"); }}
+          className="mb-4 text-xs text-zinc-500 hover:text-emerald-400 transition-colors flex items-center gap-1"
+        >
+          ← Voltar à página inicial
+        </button>
+
+        {authError && (
+          <div className="mb-4 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-xl p-3">
+            {authError}
           </div>
-        </div>
-        <ToastHost />
-      </>
-    );
-  }
+        )}
 
-  // Após o "Começar", mostra o novo sistema de etiquetas refatorado
+        <button
+          onClick={handleGoogleAuth}
+          className="w-full bg-zinc-950 border border-zinc-800 hover:border-emerald-500 text-white py-3 rounded-xl font-bold transition-all"
+        >
+          Entrar com Google
+        </button>
+
+        <div className="my-5 text-center text-xs text-zinc-500">ou</div>
+
+        <form onSubmit={handleEmailAuth} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Seu email"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 px-4 text-sm text-white focus:border-emerald-500 outline-none"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Sua senha"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl py-3 px-4 text-sm text-white focus:border-emerald-500 outline-none"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          <button
+            type="submit"
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-xl font-bold transition-all"
+          >
+            {authMode === "login" ? "Entrar" : "Criar conta"}
+          </button>
+        </form>
+
+        {authMode === "login" && (
+          <button
+            type="button"
+            onClick={handlePasswordReset}
+            className="mt-3 w-full text-xs text-emerald-400 hover:text-emerald-300"
+          >
+            Esqueci minha senha
+          </button>
+        )}
+
+        <button
+          onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
+          className="mt-4 w-full text-xs text-zinc-400 hover:text-white"
+        >
+          {authMode === "login" ? "Ainda não tenho conta" : "Já tenho conta"}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ---------- Erro de org ----------
+  const OrgErrorScreen = () => (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-2xl">
+        <h1 className="text-xl font-black text-white mb-2">Erro</h1>
+        <p className="text-zinc-400 text-sm">{orgError}</p>
+        <button
+          onClick={() => signOut(auth)}
+          className="mt-6 w-full bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-xl font-bold transition-all"
+        >
+          Sair
+        </button>
+      </div>
+    </div>
+  );
+
+  // ---------- Guard: redireciona para /login se não autenticado ----------
+  const RequireAuth = ({ children }) => {
+    if (loading || orgLoading) return <Spinner />;
+    if (orgError) return <OrgErrorScreen />;
+    if (!user) return <Navigate to="/login" replace />;
+    return children;
+  };
+
+  // Redireciona user autenticado para /app quando acessa /login
+  const redirectIfLogged = user && !loading && !orgLoading && !orgError;
+
   return (
     <>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100">
-        <Suspense fallback={
-          <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-emerald-500"></div>
-          </div>
-        }>
-          <LabelManagement 
-            user={user}
-            tenantId={org?.id || user?.uid}
-            org={org}
-            onLogout={async () => {
-              try {
-                await signOut(auth);
-              } catch (error) {
-                console.error("Erro ao sair:", error);
-              } finally {
-                setUser(null);
-                setShowLanding(true);
-                setOrg(null);
-              }
-            }}
-            isOnline={isOnline}
-            pendingMovementsCount={pendingMovementsCount}
-            updatePendingCount={updatePendingCount}
-          />
-        </Suspense>
-      </div>
+      <Routes>
+        {/* Páginas legais */}
+        <Route path="/privacidade" element={<PrivacyPolicy />} />
+        <Route path="/termos" element={<TermsOfUse />} />
+
+        {/* Landing */}
+        <Route path="/" element={<LandingPage onEnter={handleStart} />} />
+
+        {/* Auth */}
+        <Route
+          path="/login"
+          element={
+            loading || orgLoading ? <Spinner /> :
+            redirectIfLogged ? <Navigate to="/app" replace /> :
+            <AuthScreen />
+          }
+        />
+
+        {/* App protegido — aceita /app e qualquer sub-rota /app/* */}
+        <Route
+          path="/app/*"
+          element={
+            <RequireAuth>
+              <div className="min-h-screen bg-zinc-950 text-zinc-100">
+                <Suspense fallback={<Spinner />}>
+                  <LabelManagement
+                    user={user}
+                    tenantId={org?.id || user?.uid}
+                    org={org}
+                    onLogout={handleLogout}
+                    isOnline={isOnline}
+                    pendingMovementsCount={pendingMovementsCount}
+                    updatePendingCount={updatePendingCount}
+                  />
+                </Suspense>
+              </div>
+            </RequireAuth>
+          }
+        />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
       <ToastHost />
     </>
   );

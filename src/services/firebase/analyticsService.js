@@ -3,6 +3,9 @@ import * as itemService from './itemService';
 import * as stockPointService from './stockPointService';
 import { resolveItemQty as getItemQty, toNumber } from '../../core/utils';
 
+// Analytics precisa de TODOS os documentos para calcular métricas
+const FETCH_ALL = { fetchAll: true };
+
 const getItemMinQty = (item, fallback = 5) => {
   const data = item?.data || {};
   const min =
@@ -50,13 +53,13 @@ const buildTurnoverABC = (items) => {
 
 // Função mock para simular o cálculo de giro de estoque (Curva ABC)
 export const getStockTurnoverData = async (tenantId, schemaId) => {
-  const items = await itemService.getItemsBySchema(tenantId, schemaId);
+  const items = await itemService.getItemsBySchema(tenantId, schemaId, FETCH_ALL);
   return buildTurnoverABC(items);
 };
 
 // Função mock para simular itens com estoque crítico
 export const getCriticalStockItems = async (tenantId, schemaId) => {
-  const items = await itemService.getItemsBySchema(tenantId, schemaId);
+  const items = await itemService.getItemsBySchema(tenantId, schemaId, FETCH_ALL);
   return items
     .map((item) => {
       const currentQty = getItemQty(item);
@@ -75,8 +78,8 @@ export const getCriticalStockItems = async (tenantId, schemaId) => {
 // Função mock para simular a distribuição de estoque por ponto
 export const getStockDistributionByPoint = async (tenantId, schemaId) => {
   const [items, stockPoints] = await Promise.all([
-    itemService.getItemsBySchema(tenantId, schemaId),
-    stockPointService.getStockPointsByTenant(tenantId)
+    itemService.getItemsBySchema(tenantId, schemaId, FETCH_ALL),
+    stockPointService.getStockPointsByTenant(tenantId, FETCH_ALL)
   ]);
 
   const nameById = new Map(stockPoints.map((p) => [p.id, p.name]));
@@ -108,10 +111,10 @@ const getItemCode = (item) => {
 };
 
 export const getDashboardInsights = async (tenantId, schemaId) => {
-  const [items, stockPoints, stockLogs] = await Promise.all([
-    itemService.getItemsBySchema(tenantId, schemaId),
-    stockPointService.getStockPointsByTenant(tenantId),
-    stockService.getStockLogsByTenant ? stockService.getStockLogsByTenant(tenantId) : Promise.resolve([])
+  const [items, , stockLogs] = await Promise.all([
+    itemService.getItemsBySchema(tenantId, schemaId, FETCH_ALL),
+    stockPointService.getStockPointsByTenant(tenantId, FETCH_ALL),
+    stockService.getStockLogsByTenant ? stockService.getStockLogsByTenant(tenantId, FETCH_ALL) : Promise.resolve([])
   ]);
 
   const totalItems = items.length;

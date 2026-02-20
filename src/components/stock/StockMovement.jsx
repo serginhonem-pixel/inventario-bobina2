@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowUpCircle, ArrowDownCircle, ScanLine, Search, 
   Package, Trash2, FileText, CheckCircle2, Loader2, X
 } from 'lucide-react';
 import { saveAdjustment } from '../../services/firebase/stockService';
 import { isLocalhost } from '../../services/firebase/mockPersistence';
+import { findItemByTerm } from '../../core/utils';
 import BarcodeScanner from './BarcodeScanner';
 import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 import { toast } from '../ui/toast';
@@ -20,14 +21,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
   const [success, setSuccess] = useState(false);
   const [showProcessConfirm, setShowProcessConfirm] = useState(false);
 
-  const findItem = (term) => {
-    return items.find(item => 
-      item.id === term || 
-      Object.values(item.data).some(val => 
-        String(val).toLowerCase().includes(term.toLowerCase())
-      )
-    );
-  };
+  const findItem = (term) => findItemByTerm(items, term);
 
   const addToCart = (item) => {
     const existing = cart.find(c => c.id === item.id);
@@ -134,7 +128,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
       setSuccess(true);
       setCart([]);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (error) {
+    } catch (_error) {
       toast("Erro ao processar movimentação.", { type: 'error' });
     } finally {
       setLoading(false);

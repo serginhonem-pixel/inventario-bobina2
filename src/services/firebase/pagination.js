@@ -10,9 +10,9 @@ const resolvePageSize = (value) => {
 
 export const getDocsWithPagination = async (baseQuery, options = {}) => {
   const pageSize = resolvePageSize(options.pageSize);
-  // ATENÇÃO: fetchAll=true é o padrão por compatibilidade. Passe { fetchAll: false }
-  // explicitamente para habilitar paginação real e evitar carregar todos os docs.
-  const fetchAll = options.fetchAll !== false;
+  // fetchAll=false é o padrão seguro. Passe { fetchAll: true } explicitamente
+  // apenas quando precisar de TODOS os documentos (ex.: inventário, relatórios).
+  const fetchAll = options.fetchAll === true;
   const initialCursor = options.cursor || null;
 
   if (!fetchAll) {

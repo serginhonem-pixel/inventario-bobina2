@@ -3,7 +3,7 @@
  * Focado em impressoras térmicas que aceitam comandos ESC/POS ou texto simples.
  */
 
-export const printViaBluetooth = async (labelData, template) => {
+export const printViaBluetooth = async (labelData, _template) => {
   try {
     // 1. Solicitar dispositivo Bluetooth
     const device = await navigator.bluetooth.requestDevice({

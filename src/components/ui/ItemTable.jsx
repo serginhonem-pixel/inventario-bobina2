@@ -2,45 +2,7 @@
 import { Printer, FileSpreadsheet, FileText, ChevronDown, ChevronRight, Layers } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../../services/export/exportService';
 import { toast } from './toast';
-
-// Helper para agrupar itens iguais e somar quantidades
-const groupItems = (items, schema) => {
-  if (!items || !schema) return [];
-  
-  const qtyFields = ['quantidade', 'qtd', 'estoque', 'quantidade_atual', 'saldo'];
-  const codeField = schema.fields?.find(f => ['codigo', 'sku', 'cod', 'code'].includes(f.key || f.name));
-  const codeKey = codeField?.key || codeField?.name || 'codigo';
-  
-  const grouped = new Map();
-  
-  items.forEach(item => {
-    const code = item.data?.[codeKey] || item.data?.codigo || item.data?.sku || `_item_${item.id}`;
-    
-    if (grouped.has(code)) {
-      const existing = grouped.get(code);
-      // Soma as quantidades
-      schema.fields?.forEach(field => {
-        const fk = field.key || field.name;
-        if (qtyFields.includes(fk)) {
-          const existingVal = Number(existing.data[fk]) || 0;
-          const newVal = Number(item.data?.[fk]) || 0;
-          existing.data[fk] = existingVal + newVal;
-        }
-      });
-      // Guarda IDs originais para seleção
-      existing._originalIds = existing._originalIds || [existing.id];
-      existing._originalIds.push(item.id);
-    } else {
-      grouped.set(code, {
-        ...item,
-        data: { ...item.data },
-        _originalIds: [item.id]
-      });
-    }
-  });
-  
-  return Array.from(grouped.values());
-};
+import { groupItems } from '../../core/utils';
 
 const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBluetooth, searchTerm = '' }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());

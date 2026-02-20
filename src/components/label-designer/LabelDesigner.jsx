@@ -9,12 +9,7 @@ import {
 } from 'lucide-react';
 import { printLabels } from '../../services/pdf/pdfService';
 import { toast } from '../ui/toast';
-
-const normalizeText = (value = '') =>
-  String(value)
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+import { normalizeText } from '../../core/utils';
 
 const isCodeField = (field = {}) => {
   const key = normalizeText(field.key);
@@ -62,7 +57,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
   const [isResizing, setIsResizing] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
-  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [snapToGrid] = useState(true);
   const [layoutGrid, setLayoutGrid] = useState({ cols: 3, rows: 10 });
   const [zoom, setZoom] = useState(1);
   const [logistics, setLogistics] = useState(initialTemplate?.logistics || { street: '', shelf: '', level: '' });

@@ -2,7 +2,7 @@ import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc, mockDeleteDoc } from './mockPersistence';
 import { getDocsWithPagination } from './pagination';
 import { 
-  collection, query, where, serverTimestamp, doc, deleteDoc, updateDoc, runTransaction, increment, orderBy
+  collection, query, where, serverTimestamp, doc, updateDoc, runTransaction, increment, orderBy
 } from 'firebase/firestore';
 
 const TEMPLATE_COLLECTION = 'templates';

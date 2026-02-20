@@ -63,7 +63,7 @@ const TeamManagement = ({ orgId, currentUserId }) => {
       await updateMemberRole(orgId, uid, nextRole);
       setMembers((prev) => prev.map((m) => (m.id === uid ? { ...m, role: nextRole } : m)));
       toast('Permissão atualizada.', { type: 'success' });
-    } catch (error) {
+    } catch (_error) {
       toast('Não foi possível atualizar a permissão.', { type: 'error' });
     }
   };
@@ -73,7 +73,7 @@ const TeamManagement = ({ orgId, currentUserId }) => {
       await removeMember(orgId, uid);
       setMembers((prev) => prev.filter((m) => m.id !== uid));
       toast('Membro removido.', { type: 'success' });
-    } catch (error) {
+    } catch (_error) {
       toast('Não foi possível remover o membro.', { type: 'error' });
     }
   };

@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Camera, Package, Plus, Minus, Save, CheckCircle2, Loader2, History, ArrowRight, ShieldCheck, ScanLine } from 'lucide-react';
 import { saveAdjustment, getStockLogs } from '../../services/firebase/stockService';
+import { findItemByTerm } from '../../core/utils';
 import { ClipboardList, Play, Check } from 'lucide-react';
 import { 
   applyInventoryAdjustments,
@@ -115,14 +116,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
     }
   };
 
-  const findItem = (term) => {
-    return items.find(item => 
-      item.id === term || 
-      Object.values(item.data).some(val => 
-        String(val).toLowerCase().includes(term.toLowerCase())
-      )
-    );
-  };
+  const findItem = (term) => findItemByTerm(items, term);
 
   const handleSearch = (e) => {
     if (e.preventDefault) e.preventDefault();
@@ -181,7 +175,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
       setTimeout(() => {
         setSuccess(false);
       }, 2000);
-    } catch (error) {
+    } catch (_error) {
       toast("Erro ao salvar ajuste.", { type: 'error' });
     } finally {
       setLoading(false);

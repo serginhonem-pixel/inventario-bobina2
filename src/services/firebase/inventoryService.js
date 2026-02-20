@@ -15,8 +15,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { getDocsWithPagination } from './pagination';
-import { saveAdjustment } from './stockService';
-import { resolveItemQty } from '../../core/utils';
+import { resolveItemQty, setItemQty } from '../../core/utils';
 
 const ORG_COLLECTION = 'organizations';
 const INVENTORY_COLLECTION = 'inventorySessions';
@@ -128,6 +127,9 @@ export const closeInventorySession = async (tenantId, sessionId, payload = {}) =
   });
 };
 
+const STOCK_ADJ_COLLECTION = 'stock_adjustments';
+const ITEM_COLLECTION = 'items';
+
 export const applyInventoryAdjustments = async (
   tenantId,
   sessionId,
@@ -145,7 +147,7 @@ export const applyInventoryAdjustments = async (
   const { docs } = await getDocsWithPagination(q, { pageSize: options.pageSize || 200, fetchAll: true });
 
   const updates = new Map();
-  let applied = 0;
+  const pending = []; // { itemId, baselineQty, nextQty }
 
   for (const docSnap of docs) {
     const data = docSnap.data();
@@ -155,19 +157,45 @@ export const applyInventoryAdjustments = async (
     const nextQty = Number(countedQty);
     if (!Number.isFinite(nextQty)) continue;
     if (baselineQty === nextQty) continue;
-
-    await saveAdjustment(tenantId, schemaId, data.itemId, stockPointId, {
-      previousQty: baselineQty,
-      newQty: nextQty,
-      type: 'inventory_count',
-      notes: 'Ajuste por inventário',
-      timestamp: new Date().toISOString()
-    });
-    updates.set(data.itemId, nextQty);
-    applied += 1;
+    pending.push({ itemId: data.itemId, baselineQty, nextQty });
   }
 
-  return { updates, applied };
+  // Escreve adjustments + atualiza itens em batches de CHUNK_SIZE / 2
+  // (cada item gera 2 operações: 1 set adjustment + 1 update item)
+  const batchSize = Math.floor(CHUNK_SIZE / 2);
+  for (let i = 0; i < pending.length; i += batchSize) {
+    const slice = pending.slice(i, i + batchSize);
+    const batch = writeBatch(db);
+
+    for (const entry of slice) {
+      // Documento de ajuste
+      const adjRef = doc(collection(db, STOCK_ADJ_COLLECTION));
+      batch.set(adjRef, {
+        tenantId,
+        schemaId,
+        itemId: entry.itemId,
+        stockPointId,
+        previousQty: entry.baselineQty,
+        newQty: entry.nextQty,
+        difference: entry.nextQty - entry.baselineQty,
+        type: 'inventory_count',
+        notes: 'Ajuste por inventário',
+        timestamp: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      });
+
+      // Atualiza saldo do item
+      const itemRef = doc(db, ITEM_COLLECTION, entry.itemId);
+      const newData = setItemQty({}, entry.nextQty);
+      batch.update(itemRef, { data: newData, updatedAt: serverTimestamp() });
+
+      updates.set(entry.itemId, entry.nextQty);
+    }
+
+    await batch.commit();
+  }
+
+  return { updates, applied: updates.size };
 };
 
 export const getInventorySummary = async (tenantId, sessionId, options = {}) => {
