@@ -50,3 +50,73 @@ export const toNumber = (value) => {
   const num = Number(value);
   return Number.isNaN(num) ? 0 : num;
 };
+
+// ── Normalizar texto (remover acentos, lowercase, trim) ────────────
+export const normalizeText = (value) => {
+  if (!value) return '';
+  return value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/,/g, '.')
+    .toLowerCase()
+    .trim();
+};
+
+// ── Campos de código de item (para agrupar) ─────────────────────────
+const CODE_FIELD_KEYS = ['codigo', 'sku', 'cod', 'code'];
+
+export const getItemCode = (item) => {
+  const data = item?.data || {};
+  return data.codigo || data.sku || data.cod || data.code || data.id || '';
+};
+
+// ── Agrupar itens iguais por código e somar quantidades ─────────────
+export const groupItems = (items, schema) => {
+  if (!items || !schema) return [];
+
+  const codeField = schema.fields?.find(
+    (f) => CODE_FIELD_KEYS.includes(f.key || f.name)
+  );
+  const codeKey = codeField?.key || codeField?.name || 'codigo';
+
+  const grouped = new Map();
+
+  items.forEach((item) => {
+    const code = item.data?.[codeKey] || getItemCode(item) || `_item_${item.id}`;
+
+    if (grouped.has(code)) {
+      const existing = grouped.get(code);
+      schema.fields?.forEach((field) => {
+        const fk = field.key || field.name;
+        if (QTY_FIELDS.includes(fk)) {
+          const existingVal = Number(existing.data[fk]) || 0;
+          const newVal = Number(item.data?.[fk]) || 0;
+          existing.data[fk] = existingVal + newVal;
+        }
+      });
+      existing._originalIds = existing._originalIds || [existing.id];
+      existing._originalIds.push(item.id);
+    } else {
+      grouped.set(code, {
+        ...item,
+        data: { ...item.data },
+        _originalIds: [item.id]
+      });
+    }
+  });
+
+  return Array.from(grouped.values());
+};
+
+// ── Buscar item por ID ou texto em qualquer campo ───────────────────
+export const findItemByTerm = (items, term) => {
+  if (!items || !term) return undefined;
+  return items.find(
+    (item) =>
+      item.id === term ||
+      Object.values(item.data || {}).some((val) =>
+        String(val).toLowerCase().includes(term.toLowerCase())
+      )
+  );
+};

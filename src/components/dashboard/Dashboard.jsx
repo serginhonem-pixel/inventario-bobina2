@@ -98,7 +98,7 @@ const DistributionChart = ({ data }) => {
   );
 };
 
-const SummaryCards = ({ summary, isReportsView = false }) => (
+const SummaryCards = ({ summary, isReportsView: _isReportsView = false }) => (
   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
       <p className="text-xs text-zinc-500 uppercase font-bold tracking-widest">Total de Itens</p>

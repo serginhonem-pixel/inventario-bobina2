@@ -1,5 +1,5 @@
 ﻿import { toast } from '../../components/ui/toast';
-import { resolveItemQty, QTY_FIELDS } from '../../core/utils';
+import { resolveItemQty, groupItems } from '../../core/utils';
 
 // Função auxiliar para criar um link de download
 const downloadFile = (data, filename, mimeType) => {
@@ -17,48 +17,6 @@ const downloadFile = (data, filename, mimeType) => {
 // Helper para obter valor de quantidade (usa utilitário compartilhado)
 const getQtyValue = resolveItemQty;
 
-// Helper para obter código do item (para agrupar)
-const getItemCode = (item) => {
-  const data = item?.data || {};
-  return data.codigo || data.sku || data.cod || data.code || data.id || '';
-};
-
-// Helper para agrupar itens iguais e somar quantidades
-const groupItems = (data, schema) => {
-  const qtyFields = QTY_FIELDS;
-  const codeField = schema.fields.find(f => ['codigo', 'sku', 'cod', 'code'].includes(f.key || f.name));
-  const codeKey = codeField?.key || codeField?.name || 'codigo';
-  
-  const grouped = new Map();
-  
-  data.forEach(item => {
-    const code = item.data[codeKey] || getItemCode(item) || `_item_${item.id}`;
-    
-    if (grouped.has(code)) {
-      // Soma as quantidades
-      const existing = grouped.get(code);
-      qtyFields.forEach(qf => {
-        schema.fields.forEach(field => {
-          const fk = field.key || field.name;
-          if (fk === qf || qf === fk) {
-            const existingVal = Number(existing.data[fk]) || 0;
-            const newVal = Number(item.data[fk]) || 0;
-            existing.data[fk] = existingVal + newVal;
-          }
-        });
-      });
-    } else {
-      // Cria uma cópia do item
-      grouped.set(code, {
-        ...item,
-        data: { ...item.data }
-      });
-    }
-  });
-  
-  return Array.from(grouped.values());
-};
-
 // Função para exportar dados para Excel (CSV com formatação para Excel)
 export const exportToExcel = (data, schema, filename = 'inventario_qtdapp.csv') => {
   // Agrupa itens iguais
@@ -72,7 +30,7 @@ export const exportToExcel = (data, schema, filename = 'inventario_qtdapp.csv') 
 
   let totalQty = 0;
 
-  groupedData.forEach((item, idx) => {
+  groupedData.forEach((item) => {
     const values = schema.fields.map(field => {
       // Usa field.key para acessar dados (padrão do sistema)
       const fieldKey = field.key || field.name;
@@ -117,7 +75,7 @@ export const exportToExcel = (data, schema, filename = 'inventario_qtdapp.csv') 
 };
 
 // Função para exportar para PDF (usando jsPDF se disponível, senão HTML para impressão)
-export const exportToPDF = (data, schema, filename = 'inventario_qtdapp.pdf') => {
+export const exportToPDF = (data, schema, _filename = 'inventario_qtdapp.pdf') => {
   // Agrupa itens iguais
   const groupedData = groupItems(data, schema);
   
@@ -136,7 +94,7 @@ export const exportToPDF = (data, schema, filename = 'inventario_qtdapp.pdf') =>
   const headers = [...schema.fields.slice(0, 4).map(f => f.label), 'CONTAGEM', 'DIF.'];
   
   let tableRows = '';
-  groupedData.forEach((item, idx) => {
+  groupedData.forEach((item) => {
     const cells = schema.fields.slice(0, 4).map(field => {
       const fieldKey = field.key || field.name;
       const value = item.data[fieldKey] ?? '-';

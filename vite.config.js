@@ -15,5 +15,15 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ["react", "react-dom"]
+  },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/__tests__/setup.js"],
+    include: ["src/**/*.test.{js,jsx}"],
+    coverage: {
+      provider: "v8",
+      include: ["src/core/**", "src/catalogUtils.js", "src/services/**", "src/components/ui/toast.js"]
+    }
   }
 });

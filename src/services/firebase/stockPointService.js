@@ -2,10 +2,14 @@ import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc, mockDeleteDoc } from './mockPersistence';
 import { getDocsWithPagination } from './pagination';
 import { 
-  collection, query, where, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, runTransaction, increment
+  collection, query, where, orderBy, serverTimestamp, doc, updateDoc, runTransaction, increment, getDocs, writeBatch
 } from 'firebase/firestore';
 
 const STOCK_POINT_COLLECTION = 'stockPoints';
+const ITEM_COLLECTION = 'items';
+const SCHEMA_COLLECTION = 'schemas';
+const TEMPLATE_COLLECTION = 'templates';
+const STOCK_ADJ_COLLECTION = 'stock_adjustments';
 const ORG_COLLECTION = 'organizations';
 
 export const createStockPoint = async (tenantId, name) => {
@@ -109,9 +113,44 @@ export const deleteStockPoint = async (stockPointId) => {
         }
       }
     });
+
+    // Limpar dados dependentes (schemas, items, templates, ajustes)
+    await cleanupStockPointDependents(stockPointId);
+
     return true;
   } catch (error) {
     console.error("Erro ao excluir ponto de estocagem:", error);
     throw error;
+  }
+};
+
+// ── Limpar documentos órfãos ao deletar um ponto de estocagem ───────
+const cleanupStockPointDependents = async (stockPointId) => {
+  const collectionsToClean = [
+    ITEM_COLLECTION,
+    SCHEMA_COLLECTION,
+    TEMPLATE_COLLECTION,
+    STOCK_ADJ_COLLECTION
+  ];
+
+  for (const col of collectionsToClean) {
+    try {
+      const q = query(
+        collection(db, col),
+        where('stockPointId', '==', stockPointId)
+      );
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) continue;
+
+      // Deletar em batches de 450
+      const docs = snapshot.docs;
+      for (let i = 0; i < docs.length; i += 450) {
+        const batch = writeBatch(db);
+        docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (error) {
+      console.error(`Erro ao limpar ${col} do ponto ${stockPointId}:`, error);
+    }
   }
 };
