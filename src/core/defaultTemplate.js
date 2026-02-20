@@ -3,14 +3,13 @@
  *
  * Layout 100 × 50 mm:
  *  ┌──────────────────────────────────────────────┐
- *  │  [LOGO]   Código: 000123                     │
- *  │           Descrição: Produto Padrão           │
- *  │           Qtd: 10                             │
+ *  │  [LOGO]   SKU: 000123         ┌─────┐       │
+ *  │           Desc: Produto        │ QR  │       │
+ *  │           Qtd: 10             └─────┘       │
  *  └──────────────────────────────────────────────┘
  *
- * Usa fieldKeys genéricos (`__code__`, `__desc__`, `__qty__`) que são
- * resolvidos em `resolveTemplateFields(schema)` para os fieldKeys reais
- * do schema do usuário.
+ * Usa fieldKeys genéricos que são resolvidos via `detectSchemaFields(schema)`
+ * para os fieldKeys reais do schema do usuário.
  */
 
 import { normalizeText } from './utils';
@@ -53,15 +52,20 @@ export const buildDefaultTemplate = (schema) => {
   const { codeField, descField, qtyField } = detectSchemaFields(schema);
   const sample = schema?.sampleData || {};
 
+  // Campo usado pelo QR Code (usa o campo de código, ou o primeiro campo do schema)
+  const qrField = codeField || (schema?.fields?.[0] || null);
+  const qrFieldKey = qrField?.key || null;
+  const qrMode = qrFieldKey ? 'field' : 'item';
+
   const elements = [
-    // ── Logo do app (canto superior esquerdo) ──
+    // ── Logo escura (canto superior esquerdo) ──
     {
       id: 'el_logo',
       type: 'image',
       fieldKey: null,
       label: 'Logo',
       previewValue: 'Logo',
-      url: '/logo.png',
+      url: '/logoescura.png',
       showLabel: false,
       x: 2,
       y: 2,
@@ -80,22 +84,50 @@ export const buildDefaultTemplate = (schema) => {
       vAlign: 'middle',
       backgroundColor: 'transparent',
     },
-    // ── Código ──
+    // ── Código (ao lado da logo) ──
     {
       id: 'el_code',
       type: 'text',
       fieldKey: codeField?.key || 'codigo',
-      label: codeField?.label || 'Código',
+      label: codeField?.label || 'SKU',
       previewValue: codeField ? (sample[codeField.key] || '000123') : '000123',
       showLabel: true,
       x: 24,
       y: 2,
-      width: 74,
+      width: 48,
       height: 14,
       fontSize: 14,
       titleFontSize: 9,
       bold: true,
       align: 'left',
+      rotation: 0,
+      border: false,
+      lineHeight: 1.2,
+      wrap: false,
+      fontFamily: 'Arial',
+      titlePosition: 'inline',
+      vAlign: 'middle',
+      backgroundColor: 'transparent',
+    },
+    // ── QR Code (canto superior direito) ──
+    {
+      id: 'el_qr',
+      type: 'qr',
+      fieldKey: qrMode === 'item' ? '__item__' : qrFieldKey,
+      qrMode,
+      qrFieldKey,
+      label: 'QR Code',
+      previewValue: qrField ? (sample[qrField.key] || '000123') : '000123',
+      qrDataUrl: null,
+      showLabel: false,
+      x: 76,
+      y: 1,
+      width: 22,
+      height: 22,
+      fontSize: 8,
+      titleFontSize: 8,
+      bold: false,
+      align: 'center',
       rotation: 0,
       border: false,
       lineHeight: 1.2,
@@ -115,7 +147,7 @@ export const buildDefaultTemplate = (schema) => {
       showLabel: true,
       x: 2,
       y: 18,
-      width: 96,
+      width: 72,
       height: 16,
       fontSize: 11,
       titleFontSize: 8,
