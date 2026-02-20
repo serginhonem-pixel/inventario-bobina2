@@ -91,8 +91,12 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-white truncate">{user?.email || 'Usuário'}</p>
             <p className="text-xs text-zinc-500 uppercase font-bold">
-              Plano {effectivePlanId.charAt(0).toUpperCase() + effectivePlanId.slice(1)}
-              {trialInfo.isTrial && <span className="text-emerald-400"> (Trial)</span>}
+              {trialInfo.isTrial
+                ? <span className="text-emerald-400">Trial Pro — {trialInfo.daysLeft}d</span>
+                : trialInfo.expired
+                  ? <span className="text-rose-400">Trial Expirado</span>
+                  : <>Plano {effectivePlanId.charAt(0).toUpperCase() + effectivePlanId.slice(1)}</>
+              }
             </p>
           </div>
         </div>

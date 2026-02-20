@@ -27,7 +27,7 @@ export const getUserProfile = async (uid) => {
   return userSnap.exists() ? { id: userSnap.id, ...userSnap.data() } : null;
 };
 
-export const ensureUserOrganization = async (user, defaultPlanId = 'free') => {
+export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
   if (!user?.uid) return null;
   const isSuperAdmin = user?.superAdmin === true;
   const effectivePlanId = isSuperAdmin ? 'enterprise' : defaultPlanId;

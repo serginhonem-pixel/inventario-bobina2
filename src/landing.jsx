@@ -249,7 +249,7 @@ export default function LandingPage({ onEnter }) {
                 className="w-full bg-emerald-500/90 text-black px-5 py-4 rounded-xl font-bold text-lg active:scale-95 transition-transform"
                 onClick={onEnter}
               >
-                Começar Grátis
+                Testar Grátis
               </button>
             </div>
           </div>
@@ -279,7 +279,7 @@ export default function LandingPage({ onEnter }) {
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-500/90 hover:bg-emerald-400 text-black px-8 py-4 rounded-xl text-lg font-bold transition-all shadow-xl shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:-translate-y-1"
               onClick={onEnter}
             >
-              Começar Contagem Grátis <ArrowRight className="w-5 h-5" />
+              Começar Trial Grátis <ArrowRight className="w-5 h-5" />
             </button>
             <button
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-zinc-900/70 hover:bg-zinc-900 text-zinc-200 border border-zinc-700 px-8 py-4 rounded-xl text-lg font-semibold transition-all hover:border-zinc-600"
@@ -677,7 +677,7 @@ export default function LandingPage({ onEnter }) {
               { q: 'Várias pessoas podem contar ao mesmo tempo?', a: 'Sim! Com o plano Pro ou superior, múltiplos usuários podem registrar contagens simultaneamente no mesmo ponto de estocagem. Tudo sincroniza em tempo real via Firebase.' },
               { q: 'Preciso de leitor de código de barras?', a: 'Não. O próprio app usa a câmera do celular para ler códigos de barras e QR Codes. Mas se você tiver um leitor USB ou Bluetooth, também funciona.' },
               { q: 'Meus dados ficam seguros?', a: 'Seus dados são armazenados no Google Firebase (Firestore) com autenticação por e-mail/Google, regras de segurança por organização e backup automático.' },
-              { q: 'Posso cancelar a qualquer momento?', a: 'Sim. Não há fidelidade. Você pode cancelar seu plano quando quiser e continuar usando o plano Free.' },
+              { q: 'Posso cancelar a qualquer momento?', a: 'Sim. Não há fidelidade. Você pode cancelar seu plano quando quiser. Novos usuários começam com um trial gratuito de 7 dias com acesso Pro.' },
             ].map((item, i) => (
               <div key={i} className="border border-zinc-800 rounded-xl overflow-hidden">
                 <button
@@ -707,7 +707,7 @@ export default function LandingPage({ onEnter }) {
             
             <h2 className="text-3xl sm:text-5xl font-bold mb-6 relative z-10">Pronto para o balanço?</h2>
             <p className="text-xl text-emerald-200 mb-10 max-w-2xl mx-auto relative z-10">
-              Comece agora mesmo. Crie sua conta gratuita, importe seus produtos e inicie sua contagem de inventário hoje.
+              Comece agora mesmo. Crie sua conta, teste grátis por 7 dias e inicie sua contagem de inventário hoje.
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center gap-4 relative z-10">
@@ -715,7 +715,7 @@ export default function LandingPage({ onEnter }) {
                 className="bg-emerald-500 hover:bg-emerald-600 text-white px-10 py-4 rounded-xl text-lg font-bold transition shadow-lg shadow-emerald-900/50"
                 onClick={onEnter}
               >
-                Criar Conta Grátis
+                Iniciar Trial Grátis
               </button>
               <button
                 className="bg-transparent hover:bg-white/10 text-white border border-white/30 px-10 py-4 rounded-xl text-lg font-semibold transition"

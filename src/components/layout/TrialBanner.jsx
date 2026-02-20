@@ -15,7 +15,7 @@ const TrialBanner = ({ trialInfo, org }) => (
               Trial Pro — {trialInfo.daysLeft} dia{trialInfo.daysLeft !== 1 ? 's' : ''} restante{trialInfo.daysLeft !== 1 ? 's' : ''}
             </p>
             <p className="text-xs text-zinc-400">
-              Aproveite todos os recursos Pro. Após o trial, seu plano volta para Free.
+              Aproveite todos os recursos Pro por 7 dias. Após o trial, assine para continuar.
             </p>
           </div>
         </div>
@@ -40,7 +40,7 @@ const TrialBanner = ({ trialInfo, org }) => (
           <div>
             <p className="text-sm font-bold text-white">Seu trial Pro expirou</p>
             <p className="text-xs text-zinc-400">
-              Você está no plano Free. Assine para recuperar seus recursos Pro.
+              Seu período de teste acabou. Assine para continuar usando o QtdApp.
             </p>
           </div>
         </div>

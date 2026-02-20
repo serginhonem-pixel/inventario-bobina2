@@ -9,12 +9,12 @@ import plansConfig, {
 // ── getPlanConfig ───────────────────────────────────────────────────
 
 describe('getPlanConfig', () => {
-  it('retorna plano free como padrão', () => {
+  it('retorna plano trial como padrão', () => {
     const plan = getPlanConfig();
-    expect(plan.id).toBe('free');
+    expect(plan.id).toBe('trial');
     expect(plan.seatsMax).toBe(3);
     expect(plan.stockPointsMax).toBe(1);
-    expect(plan.templatesMax).toBe(1);
+    expect(plan.templatesMax).toBe(3);
   });
 
   it('retorna plano correto por ID', () => {
@@ -29,10 +29,10 @@ describe('getPlanConfig', () => {
     expect(getPlanConfig('enterprise').seatsMax).toBeNull();
   });
 
-  it('retorna free para ID inválido', () => {
-    expect(getPlanConfig('invalid').id).toBe('free');
-    expect(getPlanConfig('').id).toBe('free');
-    expect(getPlanConfig(null).id).toBe('free');
+  it('retorna trial para ID inválido', () => {
+    expect(getPlanConfig('invalid').id).toBe('trial');
+    expect(getPlanConfig('').id).toBe('trial');
+    expect(getPlanConfig(null).id).toBe('trial');
   });
 
   it('enterprise tem todos os limites null (ilimitado)', () => {
@@ -40,6 +40,14 @@ describe('getPlanConfig', () => {
     expect(plan.seatsMax).toBeNull();
     expect(plan.stockPointsMax).toBeNull();
     expect(plan.templatesMax).toBeNull();
+  });
+
+  it('plano expired tem limites zero', () => {
+    const plan = getPlanConfig('expired');
+    expect(plan.id).toBe('expired');
+    expect(plan.seatsMax).toBe(1);
+    expect(plan.stockPointsMax).toBe(0);
+    expect(plan.templatesMax).toBe(0);
   });
 });
 
@@ -74,16 +82,17 @@ describe('TRIAL_DURATION_DAYS', () => {
 // ── plansConfig object ──────────────────────────────────────────────
 
 describe('plansConfig', () => {
-  it('contém os 4 planos', () => {
-    expect(Object.keys(plansConfig)).toHaveLength(4);
-    expect(plansConfig).toHaveProperty('free');
+  it('contém os 5 planos', () => {
+    expect(Object.keys(plansConfig)).toHaveLength(5);
+    expect(plansConfig).toHaveProperty('trial');
     expect(plansConfig).toHaveProperty('pro');
     expect(plansConfig).toHaveProperty('business');
     expect(plansConfig).toHaveProperty('enterprise');
+    expect(plansConfig).toHaveProperty('expired');
   });
 
   it('planos pagos têm limites >= planos anteriores', () => {
-    expect(plansConfig.pro.templatesMax).toBeGreaterThanOrEqual(plansConfig.free.templatesMax);
+    expect(plansConfig.pro.templatesMax).toBeGreaterThanOrEqual(plansConfig.trial.templatesMax);
     expect(plansConfig.business.seatsMax).toBeGreaterThan(plansConfig.pro.seatsMax);
   });
 });
@@ -97,13 +106,13 @@ describe('getTrialInfo', () => {
       isTrial: false,
       expired: false,
       daysLeft: 0,
-      effectivePlanId: 'free'
+      effectivePlanId: 'trial'
     });
   });
 
   it('retorna estado padrão para undefined', () => {
     const info = getTrialInfo(undefined);
-    expect(info.effectivePlanId).toBe('free');
+    expect(info.effectivePlanId).toBe('trial');
     expect(info.isTrial).toBe(false);
   });
 
@@ -117,8 +126,8 @@ describe('getTrialInfo', () => {
     });
   });
 
-  it('retorna free quando status=active sem planId e sem trial', () => {
-    expect(getTrialInfo({ status: 'active' }).effectivePlanId).toBe('free');
+  it('retorna pro quando status=active sem planId e sem trial', () => {
+    expect(getTrialInfo({ status: 'active' }).effectivePlanId).toBe('pro');
   });
 
   it('detecta trial ativo com trialEndsAt no futuro (número)', () => {
@@ -145,7 +154,7 @@ describe('getTrialInfo', () => {
     expect(info.isTrial).toBe(false);
     expect(info.expired).toBe(true);
     expect(info.daysLeft).toBe(0);
-    expect(info.effectivePlanId).toBe('free');
+    expect(info.effectivePlanId).toBe('expired');
   });
 
   it('lida com trialEndsAt como objeto Firestore (toMillis)', () => {
@@ -189,7 +198,7 @@ describe('getTrialInfo', () => {
     expect(info.effectivePlanId).toBe('pro');
   });
 
-  it('fallback retorna planId da org ou free', () => {
+  it('fallback retorna planId da org ou pro', () => {
     const info = getTrialInfo({ status: 'canceled', planId: 'business' });
     expect(info.effectivePlanId).toBe('business');
   });
