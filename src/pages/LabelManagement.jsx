@@ -24,6 +24,7 @@ import { getPlanConfig, isUnlimited, getTrialInfo } from '../core/plansConfig';
 import { toast } from '../components/ui/toast';
 import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
+import { buildDefaultTemplate } from '../core/defaultTemplate';
 
 // Hooks extraídos
 import useStockPoints from '../hooks/useStockPoints';
@@ -185,53 +186,45 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     try {
       const { point, schema } = await ensureDefaultStockPointAndSchema();
       const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
-      const shouldUseGlobalDefault = effectivePlanId === 'free';
-      const globalDefault = shouldUseGlobalDefault ? await getDefaultTemplate('free') : null;
 
+      // Se já tem template com elementos, usa o existente
       const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
-      if (!hasUsableTemplate && globalDefault) {
-        const defaultTemplate = {
-          name: globalDefault.name,
-          size: globalDefault.size,
-          elements: globalDefault.elements,
-          logistics: globalDefault.logistics
-        };
-        const saved = await templateService.saveTemplate(
-          tenantId,
-          schema.id,
-          schema.version || 1,
-          defaultTemplate
-        );
-        setTemplate(saved);
-        setTemplates([saved]);
-        if (existingTemplates.length === 0) {
-          setOrgUsage((prev) => ({
-            ...prev,
-            templatesUsed: (prev.templatesUsed || 0) + 1
-          }));
-        }
-      } else if (existingTemplates.length === 0) {
-        const defaultTemplate = {
-          name: 'Etiqueta Padrão',
-          size: { width: 100, height: 50 },
-          elements: [],
-          logistics: { street: '', shelf: '', level: '' }
-        };
-        const saved = await templateService.saveTemplate(
-          tenantId,
-          schema.id,
-          schema.version || 1,
-          defaultTemplate
-        );
-        setTemplate(saved);
-        setTemplates([saved]);
+      if (hasUsableTemplate) {
+        setTemplates(existingTemplates);
+        setTemplate(existingTemplates[0]);
+        setCurrentStockPoint(point);
+        setCurrentSchema(schema);
+        setActiveTab('designer');
+        return;
+      }
+
+      // Tenta buscar um global default do Firestore (admin pode ter salvo um)
+      const globalDefault = await getDefaultTemplate('free').catch(() => null);
+
+      // Monta o template: prioridade 1 = global do Firestore, prioridade 2 = built-in com logo
+      const builtIn = buildDefaultTemplate(schema);
+      const defaultTemplate = globalDefault && (globalDefault.elements || []).length > 0
+        ? {
+            name: globalDefault.name,
+            size: globalDefault.size,
+            elements: globalDefault.elements,
+            logistics: globalDefault.logistics,
+          }
+        : builtIn;
+
+      const saved = await templateService.saveTemplate(
+        tenantId,
+        schema.id,
+        schema.version || 1,
+        defaultTemplate
+      );
+      setTemplate(saved);
+      setTemplates([saved]);
+      if (existingTemplates.length === 0) {
         setOrgUsage((prev) => ({
           ...prev,
           templatesUsed: (prev.templatesUsed || 0) + 1
         }));
-      } else {
-        setTemplates(existingTemplates);
-        setTemplate(existingTemplates[0]);
       }
 
       setCurrentStockPoint(point);
