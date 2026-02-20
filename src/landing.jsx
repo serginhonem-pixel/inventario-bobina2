@@ -1,7 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import appLogo from "../logo.png";
 import landingImage from "../landingpage.png";
-import heroArmazem1 from "../hero-armazem-1.png";
 import heroArmazem2 from "../hero-armazem-2.png";
 import heroArmazem3 from "../hero-armazem-3.png";
 import heroBar from "../hero-bar.png";
@@ -109,7 +108,6 @@ export default function LandingPage({ onEnter }) {
   /* ── Hero Carousel ────────────────────────────────── */
   const heroSlides = [
     { src: landingImage, alt: "Empilhadeira em armazém com prateleiras" },
-    { src: heroArmazem1, alt: "Armazém com estoque organizado" },
     { src: heroArmazem2, alt: "Gestão de estoque em armazém" },
     { src: heroArmazem3, alt: "Operação logística de inventário" },
     { src: heroBar, alt: "Controle de estoque em bar e restaurante" },
