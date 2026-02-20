@@ -48,7 +48,19 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     if (path) navigate(path);
   }, [navigate]);
 
-  const [currentStockPoint, setCurrentStockPoint] = useState(null);
+  const [currentStockPoint, setCurrentStockPointRaw] = useState(null);
+
+  // Persiste a seleção do ponto de estocagem entre reloads
+  const setCurrentStockPoint = useCallback((point) => {
+    setCurrentStockPointRaw(point);
+    try {
+      if (point?.id) {
+        localStorage.setItem(`qtdapp_sp_${tenantIdProp || 'default'}`, point.id);
+      } else {
+        localStorage.removeItem(`qtdapp_sp_${tenantIdProp || 'default'}`);
+      }
+    } catch { /* localStorage indisponível */ }
+  }, [tenantIdProp]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [skuSubmitting, setSkuSubmitting] = useState(false);
   const [manualItem, setManualItem] = useState({});
@@ -68,6 +80,18 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const { stockPoints, setStockPoints, handleStockPointCreated: onPointCreated, handleStockPointDeleted: onPointDeleted } = useStockPoints(tenantId);
   const { currentSchema, setCurrentSchema, items, setItems, templates, setTemplates, template, setTemplate, loading, loadStockPointData, clearData } = useStockPointData(tenantId, currentStockPoint);
   const { globalSearch, setGlobalSearch, hasGlobalSearch, filteredItems } = useGlobalSearch(items, currentSchema);
+
+  // Restaura ponto de estocagem salvo ao carregar a lista
+  useEffect(() => {
+    if (!stockPoints.length || currentStockPoint) return;
+    try {
+      const savedId = localStorage.getItem(`qtdapp_sp_${tenantIdProp || 'default'}`);
+      if (savedId) {
+        const found = stockPoints.find((p) => p.id === savedId);
+        if (found) setCurrentStockPointRaw(found);
+      }
+    } catch { /* localStorage indisponível */ }
+  }, [stockPoints, tenantIdProp]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
