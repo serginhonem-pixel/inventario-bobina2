@@ -67,16 +67,26 @@ describe('buildDefaultTemplate', () => {
     const tpl = buildDefaultTemplate(sampleSchema);
     expect(tpl.name).toBe('Etiqueta Padrão QtdApp');
     expect(tpl.size).toEqual({ width: 100, height: 50 });
-    expect(tpl.elements).toHaveLength(4);
+    expect(tpl.elements).toHaveLength(5);
     expect(tpl.logistics).toBeDefined();
   });
 
-  it('contains logo element with /logo.png', () => {
+  it('contains logo element with /logoescura.png', () => {
     const tpl = buildDefaultTemplate(sampleSchema);
     const logo = tpl.elements.find((el) => el.type === 'image');
     expect(logo).toBeDefined();
-    expect(logo.url).toBe('/logo.png');
+    expect(logo.url).toBe('/logoescura.png');
     expect(logo.label).toBe('Logo');
+  });
+
+  it('contains QR code element linked to code field', () => {
+    const tpl = buildDefaultTemplate(sampleSchema);
+    const qr = tpl.elements.find((el) => el.type === 'qr');
+    expect(qr).toBeDefined();
+    expect(qr.id).toBe('el_qr');
+    expect(qr.qrFieldKey).toBe('codigo');
+    expect(qr.qrMode).toBe('field');
+    expect(qr.showLabel).toBe(false);
   });
 
   it('maps code field from schema', () => {
@@ -101,6 +111,17 @@ describe('buildDefaultTemplate', () => {
     const qty = tpl.elements.find((el) => el.id === 'el_qty');
     expect(qty.fieldKey).toBe('quantidade');
     expect(qty.bold).toBe(true);
+  });
+
+  it('QR code falls back to first field when no code field found', () => {
+    const schema = {
+      fields: [{ key: 'cor', label: 'Cor', type: 'text' }],
+      sampleData: { cor: 'Azul' },
+    };
+    const tpl = buildDefaultTemplate(schema);
+    const qr = tpl.elements.find((el) => el.type === 'qr');
+    expect(qr.qrFieldKey).toBe('cor');
+    expect(qr.qrMode).toBe('field');
   });
 
   it('uses fallback keys when schema has no matching fields', () => {
