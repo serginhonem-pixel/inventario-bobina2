@@ -15,21 +15,22 @@ const PricingPage = ({ onEnter }) => {
   // Dados dos planos atualizados com lógica de preço
   const plans = [
     {
-      id: 'free',
-      name: 'Free',
-      subtitle: 'Identifique Seu Estoque',
+      id: 'trial',
+      name: 'Trial',
+      subtitle: 'Teste Grátis por 7 Dias',
       priceMonthly: 'R$ 0',
       priceAnnual: 'R$ 0',
-      period: '/mês',
-      description: 'O primeiro passo para sair do papel.',
+      period: '/7 dias',
+      description: 'Experimente todos os recursos Pro sem compromisso.',
       features: [
         'Leitura de QR Code no app',
-        'Contagem básica de inventário',
-        'Criação automática de etiquetas simples',
+        'Contagem de inventário completa',
+        'Criação de etiquetas personalizadas',
         'Identificação visual imediata',
-        '1 local de estoque'
+        '1 local de estoque',
+        'Acesso por 7 dias'
       ],
-      cta: 'Começar Grátis',
+      cta: 'Iniciar Trial Grátis',
       ctaStyle: 'outline',
       highlight: false,
       icon: <Package className="w-6 h-6 text-emerald-400" />
@@ -197,6 +198,10 @@ const PricingPage = ({ onEnter }) => {
                   <p className="text-xs text-emerald-400/80 font-medium mt-1">
                     Faturado anualmente
                   </p>
+                ) : plan.id === 'trial' ? (
+                  <p className="text-xs text-emerald-400/80 font-medium mt-1">
+                    Sem cartão de crédito
+                  </p>
                 ) : (
                   // Espaçador para manter alinhamento
                   <div className="h-[15px] mt-1"></div>
@@ -249,7 +254,7 @@ const PricingPage = ({ onEnter }) => {
               ) : (
                 <button 
                   type="button"
-                  onClick={plan.id === 'free' && typeof onEnter === 'function' ? onEnter : undefined}
+                  onClick={plan.id === 'trial' && typeof onEnter === 'function' ? onEnter : undefined}
                   className={`
                     w-full py-3 px-4 rounded text-sm font-bold tracking-wide uppercase transition-all duration-200
                     ${plan.ctaStyle === 'outline'
@@ -288,7 +293,7 @@ const PricingPage = ({ onEnter }) => {
             </p>
             
             <button className="inline-flex items-center justify-center px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-black text-base font-bold rounded uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)]">
-              Criar Conta Gratuita
+              Criar Conta — Trial 7 dias
               <ChevronRight className="ml-2 w-5 h-5" />
             </button>
           </div>

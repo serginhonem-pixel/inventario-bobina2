@@ -73,7 +73,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const effectivePlanId = trialInfo.effectivePlanId;
   const planConfig = getPlanConfig(effectivePlanId);
   const canCreateDefaultTemplate = true;
-  const canSaveFreeDefault = user?.superAdmin === true;
+  const canSaveDefault = user?.superAdmin === true;
   const hasNotifications = pendingMovementsCount > 0;
 
   // Hooks extraídos
@@ -116,9 +116,31 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
   useEffect(() => {
     if (!tenantId || currentStockPoint) return;
-    if (effectivePlanId !== 'free') return;
     handleCreateDefaultTemplate().catch(() => {});
-  }, [tenantId, effectivePlanId, currentStockPoint]);
+  }, [tenantId, currentStockPoint]);
+
+  // Auto-cria etiqueta padrão quando o ponto já existe mas não tem template
+  useEffect(() => {
+    if (!tenantId || !currentStockPoint || !currentSchema || loading) return;
+    if (templates.length > 0) return;
+
+    const autoCreateDefault = async () => {
+      try {
+        const builtIn = buildDefaultTemplate(currentSchema);
+        const saved = await templateService.saveTemplate(
+          tenantId,
+          currentSchema.id,
+          currentSchema.version || 1,
+          builtIn
+        );
+        setTemplate(saved);
+        setTemplates([saved]);
+      } catch {
+        // silently ignore — user can create manually
+      }
+    };
+    autoCreateDefault();
+  }, [tenantId, currentStockPoint?.id, currentSchema?.id, templates.length, loading]);
 
   useEffect(() => {
     if (currentSchema?.fields?.length) {
@@ -223,7 +245,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       }
 
       // Tenta buscar um global default do Firestore (admin pode ter salvo um)
-      const globalDefault = await getDefaultTemplate('free').catch(() => null);
+      const globalDefault = await getDefaultTemplate('default').catch(() => null);
 
       // Monta o template: prioridade 1 = global do Firestore, prioridade 2 = built-in com logo
       const builtIn = buildDefaultTemplate(schema);
@@ -268,9 +290,9 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     }
   };
 
-  const handleSaveFreeDefaultTemplate = async (templateData) => {
+  const handleSaveDefaultTemplate = async (templateData) => {
     try {
-      await saveDefaultTemplate('free', templateData);
+      await saveDefaultTemplate('default', templateData);
       if (currentSchema) {
         const saved = await templateService.saveTemplate(
           tenantId,
@@ -289,7 +311,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
           return [saved, ...prev];
         });
       }
-      toast('Template padrão do Free atualizado.', { type: 'success' });
+      toast('Template padrão atualizado.', { type: 'success' });
     } catch (error) {
       console.error('Erro ao salvar template padrao:', error);
       toast('Erro ao salvar template padrão.', { type: 'error' });
@@ -526,7 +548,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         stockPointId={currentStockPoint?.id || null}
                         defaultName={currentStockPoint?.name ? `Itens - ${currentStockPoint.name}` : ''}
                         currentSchema={currentSchema}
-                        isFreePlan={effectivePlanId === 'free'}
+                        isFreePlan={false}
                         onImported={(schema, itemCount = 0) => {
                           if (schema) {
                             setCurrentSchema(schema);
@@ -676,8 +698,8 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                     <LabelDesigner 
                       schema={currentSchema}
                       initialTemplate={template}
-                      canSaveAsDefault={canSaveFreeDefault}
-                      onSaveAsDefault={handleSaveFreeDefaultTemplate}
+                      canSaveAsDefault={canSaveDefault}
+                      onSaveAsDefault={handleSaveDefaultTemplate}
                       onSaveTemplate={async (newTemplate) => {
                         const templatesLimit = planConfig.templatesMax;
                         const templatesUsed = templates.length;

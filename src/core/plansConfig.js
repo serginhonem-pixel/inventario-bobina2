@@ -1,9 +1,9 @@
 const plansConfig = {
-  free: {
-    id: 'free',
+  trial: {
+    id: 'trial',
     seatsMax: 3,
     stockPointsMax: 1,
-    templatesMax: 1
+    templatesMax: 3
   },
   pro: {
     id: 'pro',
@@ -22,11 +22,17 @@ const plansConfig = {
     seatsMax: null,
     stockPointsMax: null,
     templatesMax: null
+  },
+  expired: {
+    id: 'expired',
+    seatsMax: 1,
+    stockPointsMax: 0,
+    templatesMax: 0
   }
 };
 
-export const getPlanConfig = (planId = 'free') =>
-  plansConfig[planId] || plansConfig.free;
+export const getPlanConfig = (planId = 'trial') =>
+  plansConfig[planId] || plansConfig.trial;
 
 export const isUnlimited = (value) => value === null || value === undefined;
 
@@ -34,14 +40,14 @@ export const isUnlimited = (value) => value === null || value === undefined;
 const TRIAL_DAYS = 7;
 
 export const getTrialInfo = (org) => {
-  if (!org) return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: 'free' };
+  if (!org) return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: 'trial' };
 
   const status = org.status || 'active';
   const trialEndsAt = org.trialEndsAt;
 
   // Paid user or superAdmin — not on trial
   if (status === 'active' && !trialEndsAt) {
-    return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: org.planId || 'free' };
+    return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
   }
 
   // Has a trial date
@@ -60,14 +66,14 @@ export const getTrialInfo = (org) => {
     const expired = msLeft <= 0;
 
     if (expired) {
-      return { isTrial: false, expired: true, daysLeft: 0, effectivePlanId: 'free' };
+      return { isTrial: false, expired: true, daysLeft: 0, effectivePlanId: 'expired' };
     }
 
     return { isTrial: true, expired: false, daysLeft, effectivePlanId: org.planId || 'pro' };
   }
 
   // Fallback
-  return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: org.planId || 'free' };
+  return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
 };
 
 export const TRIAL_DURATION_DAYS = TRIAL_DAYS;

@@ -3,13 +3,13 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const COLLECTION = 'defaultTemplates';
 
-export const getDefaultTemplate = async (planId = 'free') => {
+export const getDefaultTemplate = async (planId = 'default') => {
   const ref = doc(db, COLLECTION, planId);
   const snap = await getDoc(ref);
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 };
 
-export const saveDefaultTemplate = async (planId = 'free', template = {}) => {
+export const saveDefaultTemplate = async (planId = 'default', template = {}) => {
   const payload = {
     name: template.name || 'Etiqueta Padrão',
     size: template.size || { width: 100, height: 50 },
