@@ -113,6 +113,7 @@ export const exportToPDF = (data, schema, _filename = 'inventario_qtdapp.pdf') =
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="UTF-8">
       <title>Inventário - ${schema.name || 'QtdApp'}</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
@@ -133,7 +134,7 @@ export const exportToPDF = (data, schema, _filename = 'inventario_qtdapp.pdf') =
       </style>
     </head>
     <body>
-      <h1>ðŸ“¦ Planilha de Inventário</h1>
+      <h1>&#128230; Planilha de Inventário</h1>
       <div class="info">
         <strong>${schema.name || 'Inventário'}</strong> | 
         Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
