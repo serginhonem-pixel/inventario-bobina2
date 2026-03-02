@@ -4,107 +4,212 @@ const crypto = require('crypto');
 
 admin.initializeApp();
 
-const resolveEventType = (event = {}) =>
-  event.type || event.event || event.event_type || event.name || '';
-
-const resolveOrgId = (data = {}) =>
-  data.orgId ||
-  data.organizationId ||
-  data.metadata?.orgId ||
-  data.customer?.metadata?.orgId ||
-  data.customer?.external_id ||
-  null;
-
-const resolvePlanId = (data = {}) =>
-  data.planId || data.plan?.id || data.plan?.name || data.subscription?.planId || null;
-
-const resolveSeats = (data = {}) =>
-  data.seatsPurchased || data.quantity || data.items?.[0]?.quantity || null;
-
-const resolvePeriodEnd = (data = {}) => {
-  const value = data.currentPeriodEnd || data.current_period_end || data.periodEnd || data.period_end;
-  if (!value) return null;
-  const millis = value > 1e12 ? value : value * 1000;
-  return admin.firestore.Timestamp.fromMillis(millis);
+// ── Mapeamento de subscription IDs do CartPanda → planos do app ────
+const SUBSCRIPTION_MAP = {
+  '3862': { planId: 'pro', billing: 'monthly' },    // Pro Mensal
+  '3864': { planId: 'pro', billing: 'annual' },     // Pro Anual
+  '4081': { planId: 'business', billing: 'monthly' }, // Business Mensal
+  '4082': { planId: 'business', billing: 'annual' },  // Business Anual
 };
 
-const statusFromEvent = (eventType = '') => {
-  const type = eventType.toLowerCase();
-  if (type.includes('paid') || type.includes('active')) return 'active';
-  if (type.includes('canceled') || type.includes('cancelled')) return 'canceled';
-  if (type.includes('failed') || type.includes('past_due') || type.includes('past-due')) return 'past_due';
+// Mapeamento por nome de produto (fallback quando não temos subscription ID)
+const PRODUCT_NAME_MAP = {
+  'pro mensal': { planId: 'pro', billing: 'monthly' },
+  'pro anual': { planId: 'pro', billing: 'annual' },
+  'business mensal': { planId: 'business', billing: 'monthly' },
+  'business anual': { planId: 'business', billing: 'annual' },
+  'qtdapp pro mensal': { planId: 'pro', billing: 'monthly' },
+  'qtdapp pro anual': { planId: 'pro', billing: 'annual' },
+  'qtdapp business mensal': { planId: 'business', billing: 'monthly' },
+  'qtdapp business anual': { planId: 'business', billing: 'annual' },
+};
+
+const PLAN_SEATS = {
+  pro: 3,
+  business: 10,
+  enterprise: null,
+};
+
+// ── Buscar orgId pelo email do comprador ──────────────────────────
+const findOrgByEmail = async (email) => {
+  if (!email) return null;
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // 1. Buscar na collection 'users' pelo email
+  const usersSnap = await admin.firestore()
+    .collection('users')
+    .where('email', '==', normalizedEmail)
+    .limit(1)
+    .get();
+
+  if (!usersSnap.empty) {
+    const userData = usersSnap.docs[0].data();
+    if (userData.orgId) return userData.orgId;
+  }
+
+  // 2. Fallback: buscar via Firebase Auth → doc do user
+  try {
+    const userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+    if (userRecord?.uid) {
+      const userDoc = await admin.firestore().collection('users').doc(userRecord.uid).get();
+      if (userDoc.exists && userDoc.data().orgId) {
+        return userDoc.data().orgId;
+      }
+    }
+  } catch { /* usuário não encontrado no Auth */ }
+
   return null;
 };
 
-const verifyCartpandaSignature = (req) => {
-  const secret = process.env.CARTPANDA_WEBHOOK_SECRET;
-  if (!secret) {
-    return { ok: false, code: 500, message: 'Webhook secret not configured' };
+// ── Resolver plano a partir dos dados disponíveis ─────────────────
+const resolvePlan = (subscriptionId, productName, productId) => {
+  // 1. Tentar pelo subscription ID
+  if (subscriptionId && SUBSCRIPTION_MAP[subscriptionId]) {
+    return SUBSCRIPTION_MAP[subscriptionId];
   }
 
-  const headerName = process.env.CARTPANDA_SIGNATURE_HEADER || 'x-cartpanda-signature';
-  const signatureHeader =
-    req.get(headerName) ||
-    req.get('x-cartpanda-signature') ||
-    req.get('cartpanda-signature');
-
-  if (!signatureHeader) {
-    return { ok: false, code: 401, message: 'Signature missing' };
+  // 2. Tentar pelo product ID (mesmo mapeamento)
+  if (productId && SUBSCRIPTION_MAP[productId]) {
+    return SUBSCRIPTION_MAP[productId];
   }
 
-  const provided = signatureHeader.replace(/^sha256=/i, '').trim();
-  const payload = req.rawBody || Buffer.from(JSON.stringify(req.body || {}));
-  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-
-  if (provided.length !== expected.length) {
-    return { ok: false, code: 401, message: 'Invalid signature' };
+  // 3. Tentar pelo nome do produto
+  if (productName) {
+    const normalized = productName.toLowerCase().trim();
+    for (const [key, plan] of Object.entries(PRODUCT_NAME_MAP)) {
+      if (normalized.includes(key)) return plan;
+    }
+    // Detecção genérica: contém "business" ou "pro"?
+    if (normalized.includes('business')) {
+      return { planId: 'business', billing: normalized.includes('anual') ? 'annual' : 'monthly' };
+    }
+    if (normalized.includes('pro')) {
+      return { planId: 'pro', billing: normalized.includes('anual') ? 'annual' : 'monthly' };
+    }
   }
 
-  const valid = crypto.timingSafeEqual(Buffer.from(provided, 'hex'), Buffer.from(expected, 'hex'));
-  if (!valid) {
-    return { ok: false, code: 401, message: 'Invalid signature' };
-  }
-
-  return { ok: true };
+  return null;
 };
 
+// ══════════════════════════════════════════════════════════════════
+// ENDPOINT PRINCIPAL — Suporta 2 formatos:
+//
+// 1. S2S Postback (GET) — CartPanda envia query params
+//    URL configurada no CartPanda:
+//    https://...cloudfunctions.net/cartpandaWebhook?email={email}&product={product_name}&product_id={product_id}&type={order_type}
+//
+// 2. Webhook POST (JSON body) — formato padrão de webhook
+// ══════════════════════════════════════════════════════════════════
 exports.cartpandaWebhook = functions.https.onRequest(async (req, res) => {
-  if (req.method !== 'POST') {
+  // Aceita GET (S2S postback) e POST (webhook)
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).send('Method not allowed');
   }
 
-  const signatureCheck = verifyCartpandaSignature(req);
-  if (!signatureCheck.ok) {
-    return res.status(signatureCheck.code).send(signatureCheck.message);
+  console.log(`[webhook] ${req.method} recebido`);
+  console.log('[webhook] Query:', JSON.stringify(req.query));
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log('[webhook] Body:', JSON.stringify(req.body));
   }
 
-  const event = req.body || {};
-  const eventType = resolveEventType(event);
-  const data = event.data || event.payload || event.resource || {};
-  const orgId = resolveOrgId(data);
+  // ── Extrair dados (funciona para GET e POST) ────────────────────
+  const q = req.query || {};
+  const b = req.body || {};
+  const data = b.data || b.payload || b.resource || b;
 
+  const email = (
+    q.email || q.client_email ||
+    data.customer?.email || data.buyer?.email || data.email || b.email ||
+    ''
+  ).toLowerCase().trim() || null;
+
+  const productName = q.product || q.product_name || data.product_name || b.product_name || '';
+  const productId = q.product_id || data.product_id || b.product_id || '';
+  const subscriptionId = q.subscription_id || q.subscription ||
+    String(data.subscription_id || data.subscription?.id || data.plan_id || b.subscription_id || '');
+  const orderType = q.type || q.order_type || data.type || b.type ||
+    data.event || b.event || b.event_type || '';
+
+  console.log(`[webhook] Email: ${email}, Produto: ${productName}, ProdID: ${productId}, SubID: ${subscriptionId}, Tipo: ${orderType}`);
+
+  // ── Precisa do email ────────────────────────────────────────────
+  if (!email) {
+    console.warn('[webhook] Email não encontrado.');
+    await admin.firestore().collection('webhook_logs').add({
+      source: 'cartpanda',
+      method: req.method,
+      query: q,
+      body: req.method === 'POST' ? b : null,
+      status: 'email_missing',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return res.status(200).send('ok — email missing, logged');
+  }
+
+  // ── Encontrar a organização ─────────────────────────────────────
+  const orgId = await findOrgByEmail(email);
   if (!orgId) {
-    return res.status(400).send('orgId missing');
+    console.warn(`[webhook] Org não encontrada para: ${email}`);
+    await admin.firestore().collection('webhook_logs').add({
+      source: 'cartpanda',
+      method: req.method,
+      email,
+      productName,
+      subscriptionId,
+      status: 'org_not_found',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return res.status(200).send('ok — org not found, logged');
   }
 
-  const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
-  const status = statusFromEvent(eventType);
-  if (status) updates.status = status;
+  // ── Resolver o plano ────────────────────────────────────────────
+  const planMapping = resolvePlan(subscriptionId, productName, productId);
 
-  const planId = resolvePlanId(data);
-  if (planId) updates.planId = planId;
+  // ── Montar atualizações ─────────────────────────────────────────
+  const updates = {
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    billingProvider: 'cartpanda',
+    billingEmail: email,
+  };
 
-  const seats = resolveSeats(data);
-  if (seats) updates.seatsPurchased = seats;
-
-  const periodEnd = resolvePeriodEnd(data);
-  if (periodEnd) updates.currentPeriodEnd = periodEnd;
-
-  if (data.customer?.id || data.customer_id) {
-    updates.billingCustomerId = data.customer?.id || data.customer_id;
+  if (planMapping) {
+    updates.planId = planMapping.planId;
+    updates.billingCycle = planMapping.billing;
+    updates.seatsPurchased = PLAN_SEATS[planMapping.planId] ?? null;
   }
 
+  // S2S Postback do CartPanda envia no evento "initial_sale" → ativar o plano
+  const type = orderType.toLowerCase();
+  if (type === 'initial_sale' || type.includes('paid') || type.includes('active') ||
+      type.includes('confirmed') || type.includes('approved') || type === '') {
+    // Se orderType está vazio (CartPanda pode não enviar), e temos um plano, assumimos ativação
+    updates.status = 'active';
+    updates.trialEndsAt = admin.firestore.FieldValue.delete();
+  } else if (type.includes('cancel') || type.includes('refund')) {
+    updates.status = 'canceled';
+  } else if (type.includes('failed') || type.includes('past_due') || type.includes('overdue')) {
+    updates.status = 'past_due';
+  }
+
+  // ── Aplicar no Firestore ────────────────────────────────────────
   await admin.firestore().collection('organizations').doc(orgId).set(updates, { merge: true });
+
+  // ── Log ─────────────────────────────────────────────────────────
+  await admin.firestore().collection('webhook_logs').add({
+    source: 'cartpanda',
+    method: req.method,
+    email,
+    orgId,
+    orderType,
+    productName,
+    productId,
+    subscriptionId,
+    planMapping: planMapping || null,
+    statusApplied: updates.status || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  console.log(`[webhook] Org ${orgId} atualizada → planId=${planMapping?.planId}, status=${updates.status}`);
   return res.status(200).send('ok');
 });
 

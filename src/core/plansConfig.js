@@ -70,14 +70,29 @@ export const meetsMinPlan = (currentPlanId, requiredPlanId) => {
 const TRIAL_DAYS = 7;
 
 export const getTrialInfo = (org) => {
-  if (!org) return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: 'trial' };
+  if (!org) return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: 'trial' };
 
   const status = org.status || 'active';
   const trialEndsAt = org.trialEndsAt;
 
+  // Assinatura cancelada — acesso revogado
+  if (status === 'canceled') {
+    return { isTrial: false, expired: false, canceled: true, daysLeft: 0, effectivePlanId: 'expired', previousPlanId: org.planId };
+  }
+
+  // Inadimplente — acesso revogado
+  if (status === 'past_due') {
+    return { isTrial: false, expired: false, canceled: false, pastDue: true, daysLeft: 0, effectivePlanId: 'expired', previousPlanId: org.planId };
+  }
+
+  // Trial expirado via Cloud Function (status setado por expireTrials)
+  if (status === 'expired_trial') {
+    return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
+  }
+
   // Paid user or superAdmin — not on trial
   if (status === 'active' && !trialEndsAt) {
-    return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
+    return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
   }
 
   // Has a trial date
@@ -96,14 +111,14 @@ export const getTrialInfo = (org) => {
     const expired = msLeft <= 0;
 
     if (expired) {
-      return { isTrial: false, expired: true, daysLeft: 0, effectivePlanId: 'expired' };
+      return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
     }
 
-    return { isTrial: true, expired: false, daysLeft, effectivePlanId: org.planId || 'pro' };
+    return { isTrial: true, expired: false, canceled: false, daysLeft, effectivePlanId: org.planId || 'pro' };
   }
 
   // Fallback
-  return { isTrial: false, expired: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
+  return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
 };
 
 export const TRIAL_DURATION_DAYS = TRIAL_DAYS;

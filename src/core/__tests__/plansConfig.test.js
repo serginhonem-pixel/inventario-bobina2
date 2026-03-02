@@ -102,12 +102,11 @@ describe('plansConfig', () => {
 describe('getTrialInfo', () => {
   it('retorna estado padrão para org nula', () => {
     const info = getTrialInfo(null);
-    expect(info).toEqual({
-      isTrial: false,
-      expired: false,
-      daysLeft: 0,
-      effectivePlanId: 'trial'
-    });
+    expect(info.isTrial).toBe(false);
+    expect(info.expired).toBe(false);
+    expect(info.canceled).toBe(false);
+    expect(info.daysLeft).toBe(0);
+    expect(info.effectivePlanId).toBe('trial');
   });
 
   it('retorna estado padrão para undefined', () => {
@@ -118,12 +117,11 @@ describe('getTrialInfo', () => {
 
   it('retorna plano ativo sem trial quando status=active e sem trialEndsAt', () => {
     const info = getTrialInfo({ status: 'active', planId: 'business' });
-    expect(info).toEqual({
-      isTrial: false,
-      expired: false,
-      daysLeft: 0,
-      effectivePlanId: 'business'
-    });
+    expect(info.isTrial).toBe(false);
+    expect(info.expired).toBe(false);
+    expect(info.canceled).toBe(false);
+    expect(info.daysLeft).toBe(0);
+    expect(info.effectivePlanId).toBe('business');
   });
 
   it('retorna pro quando status=active sem planId e sem trial', () => {
@@ -198,8 +196,28 @@ describe('getTrialInfo', () => {
     expect(info.effectivePlanId).toBe('pro');
   });
 
-  it('fallback retorna planId da org ou pro', () => {
+  it('status canceled revoga acesso e retorna effectivePlanId expired', () => {
     const info = getTrialInfo({ status: 'canceled', planId: 'business' });
+    expect(info.canceled).toBe(true);
+    expect(info.effectivePlanId).toBe('expired');
+    expect(info.previousPlanId).toBe('business');
+  });
+
+  it('status past_due revoga acesso e retorna effectivePlanId expired', () => {
+    const info = getTrialInfo({ status: 'past_due', planId: 'pro' });
+    expect(info.pastDue).toBe(true);
+    expect(info.effectivePlanId).toBe('expired');
+    expect(info.previousPlanId).toBe('pro');
+  });
+
+  it('status expired_trial retorna expired', () => {
+    const info = getTrialInfo({ status: 'expired_trial', planId: 'free' });
+    expect(info.expired).toBe(true);
+    expect(info.effectivePlanId).toBe('expired');
+  });
+
+  it('fallback retorna planId da org ou pro', () => {
+    const info = getTrialInfo({ planId: 'business' });
     expect(info.effectivePlanId).toBe('business');
   });
 });
