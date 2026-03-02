@@ -3,21 +3,23 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PenTool, BarChart3,
   Settings, LogOut, User, Users,
-  MapPin, ScanLine, X,
+  MapPin, ScanLine, X, Lock, ArrowLeftRight,
 } from 'lucide-react';
 import ROUTES from '../../core/routes';
+import { meetsMinPlan } from '../../core/plansConfig';
 
 const ICON_MAP = {
   dashboard: LayoutDashboard,
   stock_points: MapPin,
   designer: PenTool,
   operation: ScanLine,
+  movement_internal: ArrowLeftRight,
   reports: BarChart3,
   team: Users,
   settings: Settings,
 };
 
-// Só as rotas com ícone no menu lateral (exclui movement_internal)
+// Todas as rotas com ícone entram no menu lateral
 const NAV_ITEMS = ROUTES.filter((r) => ICON_MAP[r.id]).map((r) => ({
   ...r,
   icon: ICON_MAP[r.id],
@@ -57,29 +59,36 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
 
       {/* Nav */}
       <nav className="flex-1 space-y-2">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            end={item.path === '/app'}
-            onClick={() => setSidebarOpen(false)}
-            data-guide={`nav-${item.id}`}
-            className={({ isActive }) =>
-              `w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all group ${
-                isActive
-                  ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/10'
-                  : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon size={20} className={isActive ? 'text-black' : 'group-hover:text-emerald-500'} />
-                {item.label}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const locked = item.minPlan && !meetsMinPlan(effectivePlanId, item.minPlan);
+
+          return (
+            <NavLink
+              key={item.id}
+              to={item.path}
+              end={item.path === '/app'}
+              onClick={() => setSidebarOpen(false)}
+              data-guide={`nav-${item.id}`}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all group ${
+                  locked
+                    ? 'text-zinc-700 cursor-pointer'
+                    : isActive
+                      ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/10'
+                      : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon size={20} className={locked ? 'text-zinc-700' : isActive ? 'text-black' : 'group-hover:text-emerald-500'} />
+                  <span className="flex-1">{item.label}</span>
+                  {locked && <Lock size={14} className="text-zinc-600" />}
+                </>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Footer */}

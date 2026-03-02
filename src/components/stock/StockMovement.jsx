@@ -81,7 +81,7 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
         updatedMap.set(item.id, newQty);
         
         const movementData = {
-          id: `offline_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`, // ID único para rastreamento
+          id: `offline_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`, // ID único seguro para rastreamento
           tenantId,
           schemaId: schema.id,
           itemId: item.id,
@@ -96,7 +96,13 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
 
         if (isLocalhost() || !navigator.onLine) {
           // Lógica de armazenamento offline
-          const pendingMovements = JSON.parse(localStorage.getItem('pending_stock_movements') || '[]');
+          let pendingMovements;
+          try {
+            pendingMovements = JSON.parse(localStorage.getItem('pending_stock_movements') || '[]');
+            if (!Array.isArray(pendingMovements)) pendingMovements = [];
+          } catch {
+            pendingMovements = [];
+          }
           pendingMovements.push(movementData);
           localStorage.setItem('pending_stock_movements', JSON.stringify(pendingMovements));
           if (typeof updatePendingCount === 'function') {
