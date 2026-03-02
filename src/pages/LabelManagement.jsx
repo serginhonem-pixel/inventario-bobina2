@@ -20,11 +20,12 @@ import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoo
 import Dashboard from '../components/dashboard/Dashboard';
 import TourGuide from '../components/ui/TourGuideBubbles';
 import OnboardingPanel from '../components/ui/OnboardingPanel';
-import { getPlanConfig, isUnlimited, getTrialInfo } from '../core/plansConfig';
+import { getPlanConfig, isUnlimited, getTrialInfo, meetsMinPlan } from '../core/plansConfig';
 import { toast } from '../components/ui/toast';
 import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
 import { buildDefaultTemplate } from '../core/defaultTemplate';
+import UpgradeGate from '../components/ui/UpgradeGate';
 
 // Hooks extraídos
 import useStockPoints from '../hooks/useStockPoints';
@@ -72,6 +73,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const trialInfo = getTrialInfo(org);
   const effectivePlanId = trialInfo.effectivePlanId;
   const planConfig = getPlanConfig(effectivePlanId);
+  const canAccessStock = meetsMinPlan(effectivePlanId, 'business');
   const canCreateDefaultTemplate = true;
   const canSaveDefault = user?.superAdmin === true;
   const hasNotifications = pendingMovementsCount > 0;
@@ -467,12 +469,14 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         </div>
                       </div>
                       <div className="flex gap-3">
-                        <button 
-                          onClick={() => setActiveTab('movement_internal')}
-                          className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
-                        >
-                          <ArrowUpCircle size={14} /> Movimentar Lote
-                        </button>
+                        {canAccessStock && (
+                          <button 
+                            onClick={() => setActiveTab('movement_internal')}
+                            className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
+                          >
+                            <ArrowUpCircle size={14} /> Movimentar Lote
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -620,6 +624,11 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
               )}
 
               {activeTab === 'movement_internal' && (
+                <UpgradeGate
+                  allowed={canAccessStock}
+                  requiredPlanLabel="Business"
+                  featureLabel="Movimentação de Carga (Entrada/Saída em lote)"
+                >
                 <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-4 space-y-6">
@@ -661,6 +670,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                     </div>
                   </div>
                 </div>
+                </UpgradeGate>
               )}
 
               {activeTab === 'designer' && (
@@ -738,6 +748,11 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
               )}
 
               {activeTab === 'operation' && (
+                <UpgradeGate
+                  allowed={canAccessStock}
+                  requiredPlanLabel="Business"
+                  featureLabel="Ajuste Rápido de Estoque"
+                >
                 <div className="animate-in slide-in-from-bottom-4 duration-500">
                   {currentSchema && currentStockPoint ? (
                     <StockOperation 
@@ -761,6 +776,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                     </div>
                   )}
                 </div>
+                </UpgradeGate>
               )}
 
 

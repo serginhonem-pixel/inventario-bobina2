@@ -11,7 +11,15 @@ const ITEM_COLLECTION = 'items';
 
 const getPendingMovements = () => {
   const pending = localStorage.getItem('pending_stock_movements');
-  return pending ? JSON.parse(pending) : [];
+  if (!pending) return [];
+  try {
+    const parsed = JSON.parse(pending);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    console.warn('pending_stock_movements corrompido no localStorage, resetando.');
+    localStorage.removeItem('pending_stock_movements');
+    return [];
+  }
 };
 
 const setPendingMovements = (movements) => {
