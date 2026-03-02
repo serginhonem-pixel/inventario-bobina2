@@ -6,6 +6,7 @@ const LabelManagement = lazy(() => import("./pages/LabelManagement"));
 import useNetworkStatus from "./hooks/useNetworkStatus";
 import { auth } from "./services/firebase/config";
 import { ensureUserOrganization } from "./services/firebase/orgService";
+import { provisionDefaults } from "./services/firebase/provisionService";
 import {
   onAuthStateChanged,
   signOut,
@@ -193,7 +194,15 @@ const App = () => {
     setOrgLoading(true);
     setOrgError("");
     ensureUserOrganization(user)
-      .then((result) => {
+      .then(async (result) => {
+        // Provisiona recursos padrão ANTES de montar o app (ponto, schema, template)
+        if (result?.org?.id) {
+          try {
+            await provisionDefaults(result.org.id);
+          } catch (err) {
+            console.error('Erro ao provisionar defaults:', err);
+          }
+        }
         setOrg(result?.org || null);
       })
       .catch((error) => {
