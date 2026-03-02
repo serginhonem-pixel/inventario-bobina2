@@ -51,8 +51,8 @@ const PricingPage = ({ onEnter }) => {
         'Histórico de contagens'
       ],
       cta: 'Organizar Meu Estoque',
-      ctaLinkMonthly: 'https://betinistudio.mycartpanda.com/checkout?subscription=3862',
-      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout?subscription=3864',
+      ctaLinkMonthly: 'https://betinistudio.mycartpanda.com/checkout/206394600:1?subscription=3862',
+      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout/206394722:1?subscription=3864',
       ctaStyle: 'solid',
       highlight: true,
       borderColor: 'border-emerald-500/50',
@@ -74,8 +74,8 @@ const PricingPage = ({ onEnter }) => {
         'Múltiplos locais de estoque'
       ],
       cta: 'Ativar Controle',
-      ctaLinkMonthly: 'https://betinistudio.mycartpanda.com/checkout?subscription=4081',
-      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout?subscription=4082',
+      ctaLinkMonthly: 'https://betinistudio.mycartpanda.com/checkout/208184364:1?subscription=4081',
+      ctaLinkAnnual: 'https://betinistudio.mycartpanda.com/checkout/208184415:1?subscription=4082',
       ctaStyle: 'primary',
       highlight: false, 
       isPremium: true,
