@@ -5,7 +5,7 @@ import LandingPage from "./landing";
 const LabelManagement = lazy(() => import("./pages/LabelManagement"));
 import useNetworkStatus from "./hooks/useNetworkStatus";
 import { auth } from "./services/firebase/config";
-import { ensureUserOrganization } from "./services/firebase/orgService";
+import { ensureUserOrganization, subscribeOrganization } from "./services/firebase/orgService";
 import { provisionDefaults } from "./services/firebase/provisionService";
 import {
   onAuthStateChanged,
@@ -193,6 +193,9 @@ const App = () => {
 
     setOrgLoading(true);
     setOrgError("");
+
+    let unsubOrg = () => {};
+
     ensureUserOrganization(user)
       .then(async (result) => {
         // Provisiona recursos padrão ANTES de montar o app (ponto, schema, template)
@@ -202,6 +205,10 @@ const App = () => {
           } catch (err) {
             console.error('Erro ao provisionar defaults:', err);
           }
+          // Listener em tempo real — reflete mudanças do webhook (ativação/cancelamento) instantaneamente
+          unsubOrg = subscribeOrganization(result.org.id, (updatedOrg) => {
+            setOrg(updatedOrg);
+          });
         }
         setOrg(result?.org || null);
       })
@@ -210,6 +217,8 @@ const App = () => {
         setOrgError("Erro ao carregar organização.");
       })
       .finally(() => setOrgLoading(false));
+
+    return () => unsubOrg();
   }, [user]);
 
   const navigate = useNavigate();

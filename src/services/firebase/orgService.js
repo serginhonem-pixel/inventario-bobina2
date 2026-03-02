@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDoc,
+  onSnapshot,
   runTransaction,
   serverTimestamp,
   increment,
@@ -114,5 +115,21 @@ export const incrementOrgUsage = async (orgId, field, delta = 1) => {
   return runTransaction(db, async (tx) => {
     tx.update(orgRef, { [field]: increment(delta), updatedAt: serverTimestamp() });
     return true;
+  });
+};
+
+/**
+ * Escuta mudanças em tempo real no documento da organização.
+ * Retorna a função unsubscribe para limpar o listener.
+ */
+export const subscribeOrganization = (orgId, onUpdate) => {
+  if (!orgId) return () => {};
+  const orgRef = doc(db, ORG_COLLECTION, orgId);
+  return onSnapshot(orgRef, (snap) => {
+    if (snap.exists()) {
+      onUpdate({ id: snap.id, ...snap.data() });
+    }
+  }, (err) => {
+    console.error('[subscribeOrganization] Erro:', err);
   });
 };

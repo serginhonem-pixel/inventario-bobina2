@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PenTool, Plus, ArrowUpCircle, MapPin } from 'lucide-react';
+import { PenTool, Plus, ArrowUpCircle, MapPin, ShieldOff, CreditCard } from 'lucide-react';
 
 import SchemaImporter from '../components/schema-editor/SchemaImporter';
 import LabelDesigner from '../components/label-designer/LabelDesigner';
@@ -74,6 +74,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const effectivePlanId = trialInfo.effectivePlanId;
   const planConfig = getPlanConfig(effectivePlanId);
   const canAccessStock = meetsMinPlan(effectivePlanId, 'business');
+  const isBlocked = trialInfo.expired || trialInfo.canceled || trialInfo.pastDue;
   const canCreateDefaultTemplate = true;
   const canSaveDefault = user?.superAdmin === true;
   const hasNotifications = pendingMovementsCount > 0;
@@ -418,6 +419,55 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
       <main className="flex-1 ml-0 md:ml-72 p-4 md:p-10 pt-20 md:pt-10">
         <TrialBanner trialInfo={trialInfo} org={org} />
+
+        {/* Bloqueio total quando expirado / cancelado / inadimplente */}
+        {isBlocked && (
+          <div className="fixed inset-0 z-40 md:ml-72 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm">
+            <div className="max-w-md mx-4 bg-zinc-900 border border-zinc-700 rounded-3xl p-8 text-center space-y-5 shadow-2xl">
+              <div className="mx-auto w-16 h-16 bg-rose-500/20 rounded-2xl flex items-center justify-center">
+                {trialInfo.canceled ? (
+                  <CreditCard size={32} className="text-rose-400" />
+                ) : (
+                  <ShieldOff size={32} className="text-rose-400" />
+                )}
+              </div>
+              <h2 className="text-xl font-bold text-white">
+                {trialInfo.canceled
+                  ? 'Assinatura cancelada'
+                  : trialInfo.pastDue
+                    ? 'Pagamento pendente'
+                    : 'Período de teste encerrado'}
+              </h2>
+              <p className="text-sm text-zinc-400">
+                {trialInfo.canceled
+                  ? 'Sua assinatura foi cancelada. Para restaurar o acesso, escolha um plano abaixo.'
+                  : trialInfo.pastDue
+                    ? 'Detectamos um problema com seu pagamento. Regularize para continuar usando o QtdApp.'
+                    : 'Seu trial de 7 dias acabou. Escolha um plano para continuar gerenciando seu estoque.'}
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-left">
+                <div className="bg-zinc-800 border border-zinc-700 rounded-xl p-3">
+                  <p className="text-xs font-bold text-emerald-400">Pro</p>
+                  <p className="text-sm font-bold text-white">R$ 69,90<span className="text-xs font-normal text-zinc-500">/mês</span></p>
+                </div>
+                <div className="bg-zinc-800 border border-amber-500/30 rounded-xl p-3">
+                  <p className="text-xs font-bold text-amber-400">Business</p>
+                  <p className="text-sm font-bold text-white">R$ 149,90<span className="text-xs font-normal text-zinc-500">/mês</span></p>
+                </div>
+              </div>
+              <a
+                href="/#planos"
+                className="block w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold py-3 rounded-xl transition-all text-sm"
+              >
+                Ver planos e assinar
+              </a>
+              <p className="text-xs text-zinc-600">
+                Seus dados estão salvos e serão restaurados assim que assinar.
+              </p>
+            </div>
+          </div>
+        )}
+
         <PageHeader
           activeTab={activeTab}
           globalSearch={globalSearch}
