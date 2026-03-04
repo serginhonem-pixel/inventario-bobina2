@@ -52,10 +52,21 @@ export const buildDefaultTemplate = (schema) => {
   const { codeField, descField, qtyField } = detectSchemaFields(schema);
   const sample = schema?.sampleData || {};
 
-  // Campo usado pelo QR Code (usa o campo de código, ou o primeiro campo do schema)
-  const qrField = codeField || (schema?.fields?.[0] || null);
-  const qrFieldKey = qrField?.key || null;
-  const qrMode = qrFieldKey ? 'field' : 'item';
+  // QR padrão: código + quantidade, quando ambos existirem.
+  const fallbackQrField = codeField || (schema?.fields?.[0] || null);
+  const qrCodeKey = codeField?.key || null;
+  const qrQtyKey = qtyField?.key || null;
+  const hasCodeAndQty = !!(qrCodeKey && qrQtyKey);
+  const qrFieldKey = hasCodeAndQty ? null : (fallbackQrField?.key || null);
+  const qrMode = hasCodeAndQty
+    ? 'code_qty'
+    : (qrFieldKey ? 'field' : 'item');
+  const qrPreviewValue = hasCodeAndQty
+    ? JSON.stringify({
+      codigo: sample[qrCodeKey] ?? '000123',
+      quantidade: sample[qrQtyKey] ?? 10,
+    })
+    : (fallbackQrField ? (sample[fallbackQrField.key] || '000123') : '000123');
 
   const elements = [
     // ── Logo escura (canto superior esquerdo) ──
@@ -113,11 +124,13 @@ export const buildDefaultTemplate = (schema) => {
     {
       id: 'el_qr',
       type: 'qr',
-      fieldKey: qrMode === 'item' ? '__item__' : qrFieldKey,
+      fieldKey: qrMode === 'code_qty' ? '__code_qty__' : (qrMode === 'item' ? '__item__' : qrFieldKey),
       qrMode,
       qrFieldKey,
+      qrCodeKey,
+      qrQtyKey,
       label: 'QR Code',
-      previewValue: qrField ? (sample[qrField.key] || '000123') : '000123',
+      previewValue: qrPreviewValue,
       qrDataUrl: null,
       showLabel: false,
       x: 76,

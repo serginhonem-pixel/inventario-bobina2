@@ -42,15 +42,15 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
       const orgRef = doc(db, ORG_COLLECTION, profile.orgId);
       const orgSnap = await tx.get(orgRef);
       let nextOrg = orgSnap.exists() ? { id: orgSnap.id, ...orgSnap.data() } : null;
+      let orgNeedsUpdate = false;
+      const orgUpdatePayload = { updatedAt: serverTimestamp() };
       if (isSuperAdmin && orgSnap.exists()) {
         const orgData = orgSnap.data();
         if (orgData?.planId !== 'enterprise') {
-          tx.update(orgRef, {
-            planId: 'enterprise',
-            seatsPurchased: plan.seatsMax ?? null,
-            status: 'active',
-            updatedAt: serverTimestamp()
-          });
+          orgUpdatePayload.planId = 'enterprise';
+          orgUpdatePayload.seatsPurchased = plan.seatsMax ?? null;
+          orgUpdatePayload.status = 'active';
+          orgNeedsUpdate = true;
           nextOrg = {
             ...nextOrg,
             planId: 'enterprise',
@@ -59,6 +59,37 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
           };
         }
       }
+
+      // Auto-repara organizações legadas sem membership do usuário atual.
+      // Sem esse documento, regras do Firestore bloqueiam criação de template/ponto.
+      if (orgSnap.exists()) {
+        const memberRef = doc(db, ORG_COLLECTION, profile.orgId, 'members', user.uid);
+        const memberSnap = await tx.get(memberRef);
+        const shouldBeAdmin = nextOrg?.ownerId === user.uid || profile?.role === 'admin';
+        if (!memberSnap.exists()) {
+          const currentSeatsUsed = orgSnap.data()?.seatsUsed ?? 0;
+          tx.set(memberRef, {
+            email: user.email || profile?.email || '',
+            role: shouldBeAdmin ? 'admin' : 'member',
+            status: 'active',
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+          orgUpdatePayload.seatsUsed = currentSeatsUsed + 1;
+          orgNeedsUpdate = true;
+          nextOrg = {
+            ...nextOrg,
+            seatsUsed: currentSeatsUsed + 1
+          };
+        } else if (shouldBeAdmin && memberSnap.data()?.role !== 'admin') {
+          tx.update(memberRef, { role: 'admin', updatedAt: serverTimestamp() });
+        }
+      }
+
+      if (orgSnap.exists() && orgNeedsUpdate) {
+        tx.update(orgRef, orgUpdatePayload);
+      }
+
       return {
         userProfile: { id: user.uid, ...profile },
         org: nextOrg

@@ -5,7 +5,7 @@ import {
   Move, Type, QrCode, Trash2, AlignLeft, AlignCenter, AlignRight, 
   Bold, RotateCw, Square, Type as TypeIcon, Grid3X3, Eye, Maximize2, 
   Database, Edit3, Image as ImageIcon, ZoomIn, ZoomOut, LayoutGrid, EyeOff,
-  Type as FontIcon, Save, MapPin, Map, Barcode, Printer
+  Type as FontIcon, Save, MapPin, Map, Barcode, Printer, Plus
 } from 'lucide-react';
 import { printLabels } from '../../services/pdf/pdfService';
 import { toast } from '../ui/toast';
@@ -49,6 +49,7 @@ const formatDateValue = (value) => {
 
 const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefault = false, initialTemplate = null }) => {
   const [templateName, setTemplateName] = useState(initialTemplate?.name || 'Novo Modelo');
+  const [editingTemplateId, setEditingTemplateId] = useState(initialTemplate?.id || null);
   const [labelSize, setLabelSize] = useState(initialTemplate?.size || { width: 100, height: 50 });
   const [labelPadding, setLabelPadding] = useState(initialTemplate?.padding ?? 0);
   const [elements, setElements] = useState(initialTemplate?.elements || []);
@@ -81,6 +82,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
 
   useEffect(() => {
     if (!initialTemplate) return;
+    setEditingTemplateId(initialTemplate.id || null);
     setTemplateName(initialTemplate.name || 'Novo Modelo');
     setLabelSize(initialTemplate.size || { width: 100, height: 50 });
     setLabelPadding(initialTemplate.padding ?? 0);
@@ -143,15 +145,11 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     );
   };
 
-  const getQrPreviewValue = (qrMode, qrFieldKey) => {
-    if (qrMode === 'item') {
-      return schema?.sampleData && Object.keys(schema.sampleData).length > 0
-        ? JSON.stringify(schema.sampleData)
-        : "Sem dados";
-    }
-    if (!qrFieldKey) return "000123";
-    return schema?.sampleData?.[qrFieldKey] || "000123";
-  };
+  const getQrPreviewValue = () => (
+    schema?.sampleData && Object.keys(schema.sampleData).length > 0
+      ? JSON.stringify(schema.sampleData)
+      : '{}'
+  );
 
   const addElement = (type, field = null, extra = {}) => {
     const innerW = Math.max(labelSize.width - labelPadding * 2, 10);
@@ -164,10 +162,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
 
     let preview = "Texto";
     if (type === 'qr') {
-      const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
-      const qrFieldKey = skuField?.key || null;
-      const qrMode = qrFieldKey ? 'field' : 'item';
-      preview = getQrPreviewValue(qrMode, qrFieldKey);
+      preview = getQrPreviewValue();
     }
     if (type === 'barcode') {
       const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
@@ -181,16 +176,20 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
       preview = field.type === 'date' ? formatDateValue(raw) : raw;
     }
 
-    const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+    const fallbackQrField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
+    const fallbackBarcodeField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
     const codeField = getCodeField(schema?.fields || []);
     const qtyField = getQtyField(schema?.fields || []);
-    const qrFieldKey = type === 'qr' ? (skuField?.key || null) : null;
-    const qrMode = type === 'qr' ? (qrFieldKey ? 'field' : 'item') : null;
-    const barcodeFieldKey = type === 'barcode' ? (extra.fieldKey || codeField?.key || skuField?.key || null) : null;
+    const hasCodeAndQty = !!(codeField?.key && qtyField?.key);
+    const qrMode = type === 'qr'
+      ? (hasCodeAndQty ? 'code_qty' : (fallbackQrField?.key ? 'field' : 'item'))
+      : null;
+    const qrFieldKey = type === 'qr' && qrMode === 'field' ? (fallbackQrField?.key || null) : null;
+    const barcodeFieldKey = type === 'barcode' ? (extra.fieldKey || codeField?.key || fallbackBarcodeField?.key || null) : null;
     const barcodeMode = type === 'barcode' ? 'field' : null;
     const resolvedFieldKey =
       field?.key ||
-      (type === 'qr' ? (qrMode === 'item' ? '__item__' : qrFieldKey) : null) ||
+      (type === 'qr' ? (qrMode === 'code_qty' ? '__code_qty__' : (qrMode === 'item' ? '__item__' : qrFieldKey)) : null) ||
       (type === 'barcode' ? barcodeFieldKey : null) ||
       extra.logKey ||
       null;
@@ -201,6 +200,8 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
       fieldKey: resolvedFieldKey,
       qrMode,
       qrFieldKey,
+      qrCodeKey: type === 'qr' ? (codeField?.key || null) : null,
+      qrQtyKey: type === 'qr' ? (qtyField?.key || null) : null,
       barcodeMode,
       barcodeCodeKey: codeField?.key || null,
       barcodeQtyKey: qtyField?.key || null,
@@ -324,13 +325,28 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
   };
 
   const buildTemplatePayload = () => ({
-    id: initialTemplate?.id || null,
+    id: editingTemplateId,
     name: templateName,
     size: labelSize,
     padding: labelPadding,
     elements,
     logistics
   });
+
+  const handleNewTemplate = () => {
+    if (elements.length > 0) {
+      const canContinue = window.confirm('Criar novo template em branco? Alteracoes nao salvas serao perdidas.');
+      if (!canContinue) return;
+    }
+    setEditingTemplateId(null);
+    setTemplateName('Novo Modelo');
+    setLabelSize({ width: 100, height: 50 });
+    setLabelPadding(0);
+    setElements([]);
+    setSelectedId(null);
+    setLogistics({ street: '', shelf: '', level: '' });
+    toast('Novo template pronto para edicao. Clique em "Salvar Template" para criar.', { type: 'info' });
+  };
 
   const buildSampleItem = () => {
     const sample = { ...(schema?.sampleData || {}) };
@@ -501,6 +517,14 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
             >
               <Printer size={16} /> Imprimir teste
             </button>
+            <button
+              type="button"
+              onClick={handleNewTemplate}
+              className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+              title="Criar novo template"
+            >
+              <Plus size={16} /> Novo Template
+            </button>
             <button onClick={handleSave} data-guide="save-template" className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2 rounded-xl text-sm font-bold">Salvar Template</button>
           </div>
         </div>
@@ -668,54 +692,8 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
               {selectedElement.type === 'qr' && (
                 <div className="space-y-3 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
                   <label className="text-[10px] text-zinc-500 uppercase font-bold">Dados do QR</label>
-                  <div className="grid grid-cols-1 gap-2">
-                    <select
-                      value={selectedElement.qrMode || 'field'}
-                      onChange={(e) => {
-                        const mode = e.target.value;
-                        const skuField = schema?.fields?.find(f => f.key === 'sku') || schema?.fields?.[0];
-                        const fieldKey = mode === 'item' ? '__item__' : (selectedElement.qrFieldKey || skuField?.key || null);
-                      const preview = mode === 'item'
-                          ? (schema?.sampleData && Object.keys(schema.sampleData).length > 0 ? JSON.stringify(schema.sampleData) : 'Sem dados')
-                          : (fieldKey && fieldKey !== '__item__' ? (schema?.sampleData?.[fieldKey] || '000123') : '000123');
-                        updateElement(selectedId, {
-                          qrMode: mode,
-                          fieldKey,
-                          qrFieldKey: fieldKey === '__item__' ? null : fieldKey,
-                          previewValue: preview
-                        });
-                        generateQrDataUrl(preview).then((url) => {
-                          if (url) updateElement(selectedId, { qrDataUrl: url });
-                        });
-                      }}
-                      className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
-                    >
-                      <option value="field">Campo (recomendado)</option>
-                      <option value="item">Item completo (pode ficar pesado)</option>
-                    </select>
-                    {selectedElement.qrMode !== 'item' && (
-                      <select
-                        value={selectedElement.qrFieldKey || ''}
-                        onChange={(e) => {
-                          const fieldKey = e.target.value || null;
-                          const preview = fieldKey ? (schema?.sampleData?.[fieldKey] || '000123') : '000123';
-                          updateElement(selectedId, {
-                            qrFieldKey: fieldKey,
-                            fieldKey,
-                            previewValue: preview
-                          });
-                          generateQrDataUrl(preview).then((url) => {
-                            if (url) updateElement(selectedId, { qrDataUrl: url });
-                          });
-                        }}
-                        className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white"
-                      >
-                        <option value="">Selecione o campo</option>
-                        {schema?.fields?.map((field) => (
-                          <option key={field.key} value={field.key}>{field.label}</option>
-                        ))}
-                      </select>
-                    )}
+                  <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-2 text-xs text-white">
+                    Informações completas da etiqueta (sempre).
                   </div>
                 </div>
               )}
@@ -937,6 +915,3 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
 };
 
 export default LabelDesigner;
-
-
-

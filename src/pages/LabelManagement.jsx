@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PenTool, Plus, ArrowUpCircle, MapPin, ShieldOff, CreditCard } from 'lucide-react';
 
@@ -75,7 +75,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const planConfig = getPlanConfig(effectivePlanId);
   const canAccessStock = meetsMinPlan(effectivePlanId, 'business');
   const isBlocked = trialInfo.expired || trialInfo.canceled || trialInfo.pastDue;
-  const canCreateDefaultTemplate = true;
   const canSaveDefault = user?.superAdmin === true;
   const hasNotifications = pendingMovementsCount > 0;
 
@@ -83,6 +82,47 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const { stockPoints, setStockPoints, handleStockPointCreated: onPointCreated, handleStockPointDeleted: onPointDeleted } = useStockPoints(tenantId);
   const { currentSchema, setCurrentSchema, items, setItems, templates, setTemplates, template, setTemplate, loading, loadStockPointData, clearData } = useStockPointData(tenantId, currentStockPoint);
   const { globalSearch, setGlobalSearch, hasGlobalSearch, filteredItems } = useGlobalSearch(items, currentSchema);
+  const visibleTemplates = useMemo(() => {
+    const toMs = (value) => {
+      if (!value) return 0;
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (typeof value?.toDate === 'function') return value.toDate().getTime();
+      if (typeof value === 'number') return value;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const grouped = new Map();
+    templates.forEach((tpl) => {
+      if (!tpl) return;
+      const key = (tpl.name || '').trim().toLowerCase() || tpl.id;
+      const existing = grouped.get(key);
+      if (!existing) {
+        grouped.set(key, tpl);
+        return;
+      }
+      const existingTs = Math.max(toMs(existing.updatedAt), toMs(existing.createdAt));
+      const nextTs = Math.max(toMs(tpl.updatedAt), toMs(tpl.createdAt));
+      if (nextTs >= existingTs) grouped.set(key, tpl);
+    });
+
+    return Array.from(grouped.values());
+  }, [templates]);
+
+  useEffect(() => {
+    if (!visibleTemplates.length) return;
+    if (!template?.id) {
+      setTemplate(visibleTemplates[0]);
+      return;
+    }
+    const exists = visibleTemplates.some((t) => t.id === template.id);
+    if (!exists) {
+      const byName = visibleTemplates.find((t) =>
+        (t.name || '').trim().toLowerCase() === (template.name || '').trim().toLowerCase()
+      );
+      setTemplate(byName || visibleTemplates[0]);
+    }
+  }, [visibleTemplates, template?.id, template?.name, setTemplate]);
 
   // Restaura ponto de estocagem salvo ao carregar a lista
   useEffect(() => {
@@ -234,6 +274,10 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const handleCreateDefaultTemplate = async () => {
     try {
       const { point, schema } = await ensureDefaultStockPointAndSchema();
+      // Mantém contexto carregado mesmo se a criação do template falhar.
+      setCurrentStockPoint(point);
+      setCurrentSchema(schema);
+
       const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
 
       // Se já tem template com elementos, usa o existente
@@ -241,8 +285,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       if (hasUsableTemplate) {
         setTemplates(existingTemplates);
         setTemplate(existingTemplates[0]);
-        setCurrentStockPoint(point);
-        setCurrentSchema(schema);
         setActiveTab('designer');
         return;
       }
@@ -276,8 +318,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
         }));
       }
 
-      setCurrentStockPoint(point);
-      setCurrentSchema(schema);
       setActiveTab('designer');
     } catch (error) {
       if (error?.message === 'templates_limit') {
@@ -286,6 +326,13 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       }
       if (error?.message === 'stockpoints_limit') {
         toast('Limite de pontos de estocagem do seu plano.', { type: 'warning' });
+        return;
+      }
+      if (
+        error?.code === 'permission-denied'
+        || /missing or insufficient permissions/i.test(error?.message || '')
+      ) {
+        toast('Sem permissão para criar etiqueta. Entre com um usuário admin da organização.', { type: 'error' });
         return;
       }
       console.error("Erro ao criar etiqueta padrao:", error);
@@ -318,6 +365,32 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     } catch (error) {
       console.error('Erro ao salvar template padrao:', error);
       toast('Erro ao salvar template padrão.', { type: 'error' });
+    }
+  };
+
+  const handleDeleteCurrentTemplate = async () => {
+    if (!template?.id) {
+      toast('Selecione um template para excluir.', { type: 'warning' });
+      return;
+    }
+
+    const templateName = template.name || 'Template sem nome';
+    const canDelete = window.confirm(`Excluir "${templateName}"? Esta ação não pode ser desfeita.`);
+    if (!canDelete) return;
+
+    try {
+      await templateService.deleteTemplate(template.id, tenantId);
+      const remaining = templates.filter((t) => t.id !== template.id);
+      setTemplates(remaining);
+      setTemplate(remaining[0] || null);
+      setOrgUsage((prev) => ({
+        ...prev,
+        templatesUsed: Math.max(0, (prev.templatesUsed || 0) - 1)
+      }));
+      toast('Template excluído com sucesso.', { type: 'success' });
+    } catch (error) {
+      console.error('Erro ao excluir template:', error);
+      toast('Não foi possível excluir o template.', { type: 'error' });
     }
   };
 
@@ -615,7 +688,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                     </div>
 
                     <div className="lg:col-span-8 space-y-6">
-                      {currentSchema && templates.length > 0 && (
+                      {currentSchema && visibleTemplates.length > 0 && (
                         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <PenTool size={18} className="text-emerald-500" />
@@ -623,34 +696,35 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                             <select 
                               className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-emerald-500"
                               value={template?.id || ''}
-                              onChange={(e) => setTemplate(templates.find(t => t.id === e.target.value))}
+                              onChange={(e) => setTemplate(visibleTemplates.find(t => t.id === e.target.value))}
                             >
-                              {templates.map(t => (
+                              {visibleTemplates.map(t => (
                                 <option key={t.id} value={t.id}>{t.name || `Modelo ${t.id.slice(0,4)}`}</option>
                               ))}
                             </select>
                           </div>
-                          <button 
-                            onClick={() => setActiveTab('designer')}
-                            className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest hover:underline"
-                          >
-                            Editar Layout
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleDeleteCurrentTemplate}
+                              className="text-[10px] text-rose-400 font-bold uppercase tracking-widest hover:underline"
+                            >
+                              Excluir Template
+                            </button>
+                            <button 
+                              onClick={() => setActiveTab('designer')}
+                              className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest hover:underline"
+                            >
+                              Editar Layout
+                            </button>
+                          </div>
                         </div>
                       )}
 
-                      {currentSchema && templates.length === 0 && canCreateDefaultTemplate && (
-                        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <PenTool size={18} className="text-emerald-500" />
-                            <span className="text-sm font-bold text-white">Sem etiqueta padrão</span>
-                          </div>
-                          <button 
-                            onClick={handleCreateDefaultTemplate}
-                            className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest hover:underline"
-                          >
-                            Criar Etiqueta padrão
-                          </button>
+                      {currentSchema && visibleTemplates.length === 0 && (
+                        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-3xl flex items-center gap-3">
+                          <PenTool size={18} className="text-emerald-500" />
+                          <span className="text-sm font-bold text-white">Nenhum template salvo ainda. Use "Novo Template" no designer.</span>
                         </div>
                       )}
 
@@ -743,14 +817,30 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                           <option key={point.id} value={point.id}>{point.name}</option>
                         ))}
                       </select>
-                      {canCreateDefaultTemplate && (
-                        <button
-                          type="button"
-                          onClick={handleCreateDefaultTemplate}
-                          className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-emerald-500/20 transition-all"
-                        >
-                          Criar Etiqueta Padrão
-                        </button>
+                      {currentSchema && visibleTemplates.length > 0 && (
+                        <>
+                          <select
+                            className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500 w-full md:w-72"
+                            value={template?.id || ''}
+                            onChange={(e) => {
+                              const selectedTemplate = visibleTemplates.find((t) => t.id === e.target.value) || null;
+                              setTemplate(selectedTemplate);
+                            }}
+                          >
+                            {visibleTemplates.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name || `Template ${t.id.slice(0, 6)}`}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={handleDeleteCurrentTemplate}
+                            className="bg-rose-500/10 border border-rose-500/30 text-rose-400 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-rose-500/20 transition-all"
+                          >
+                            Excluir Template
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -851,6 +941,10 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 };
 
 export default LabelManagement;
+
+
+
+
 
 
 

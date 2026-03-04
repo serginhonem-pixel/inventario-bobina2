@@ -98,15 +98,8 @@ export const printLabels = async (template, items, options = {}) => {
       const val = formatDateValue(rawVal);
 
       if (el.type === 'qr') {
-        const qrValue = usePreview && el.previewValue !== undefined
-          ? String(el.previewValue)
-          : (el.qrMode === 'item' || el.fieldKey === '__item__'
-            ? JSON.stringify(item)
-            : (el.qrFieldKey
-              ? (item[el.qrFieldKey] || '')
-              : (el.fieldKey
-                ? (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || ''))
-                : '')));
+        // Regra de negócio: QR sempre codifica os dados completos do item da etiqueta.
+        const qrValue = JSON.stringify(item || {});
         await getQr(qrValue);
       }
 
@@ -243,15 +236,8 @@ export const printLabels = async (template, items, options = {}) => {
               const titlePosition = el.titlePosition || 'inline';
 
               if (el.type === 'qr') {
-                const qrValue = usePreview && el.previewValue !== undefined
-                  ? String(el.previewValue)
-                  : (el.qrMode === 'item' || el.fieldKey === '__item__'
-                    ? JSON.stringify(item)
-                    : (el.qrFieldKey
-                      ? (item[el.qrFieldKey] || '')
-                      : (el.fieldKey
-                        ? (shouldUseLabelKey ? (item[labelKey] || '') : (item[el.fieldKey] || ''))
-                        : '')));
+                // Regra de negócio: QR sempre codifica os dados completos do item da etiqueta.
+                const qrValue = JSON.stringify(item || {});
                 const qrDataUrl = qrCache.get(String(qrValue || '')) || '';
                 content = `<div class="qr-container">
                   ${qrDataUrl ? `<img class="qr-img" src="${qrDataUrl}" />` : ''}
