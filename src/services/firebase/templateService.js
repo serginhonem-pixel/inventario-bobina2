@@ -8,6 +8,10 @@ import {
 const TEMPLATE_COLLECTION = 'templates';
 const ORG_COLLECTION = 'organizations';
 
+const isMissingIndexError = (error) =>
+  error?.code === 'failed-precondition'
+  || /requires an index/i.test(error?.message || '');
+
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
   const { id, name, size, elements, logistics } = templateData;
   const dataToSave = {
@@ -77,15 +81,36 @@ export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => 
   }
 
   try {
-    const q = query(
-      collection(db, TEMPLATE_COLLECTION),
-      where('tenantId', '==', tenantId),
-      where('schemaId', '==', schemaId),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const { docs, cursor } = await getDocsWithPagination(q, options);
-    const templates = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let templates = [];
+    let cursor = null;
+
+    try {
+      const q = query(
+        collection(db, TEMPLATE_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('schemaId', '==', schemaId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const result = await getDocsWithPagination(q, options);
+      templates = result.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cursor = result.cursor;
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const fallbackQ = query(
+        collection(db, TEMPLATE_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('schemaId', '==', schemaId)
+      );
+      const snapshot = await getDocsWithPagination(fallbackQ, { ...options, fetchAll: true });
+      templates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      templates.sort((a, b) => {
+        const aMs = a?.createdAt?.toMillis?.() || 0;
+        const bMs = b?.createdAt?.toMillis?.() || 0;
+        return bMs - aMs;
+      });
+    }
+
     if (options.fetchAll === false) {
       return { templates, cursor };
     }

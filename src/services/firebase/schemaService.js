@@ -7,24 +7,44 @@ import {
 
 const SCHEMA_COLLECTION = 'schemas';
 
+const isMissingIndexError = (error) =>
+  error?.code === 'failed-precondition'
+  || /requires an index/i.test(error?.message || '');
+
 export const saveSchema = async (tenantId, schemaData, stockPointId = null) => {
   if (isLocalhost()) {
     return await mockAddDoc(SCHEMA_COLLECTION, { ...schemaData, tenantId, stockPointId, version: 1, active: true });
   }
 
   try {
-    const q = query(
-      collection(db, SCHEMA_COLLECTION),
-      where('tenantId', '==', tenantId),
-      where('name', '==', schemaData.name),
-      orderBy('version', 'desc'),
-      limit(1)
-    );
-    
-    const querySnapshot = await getDocs(q);
+    let querySnapshot;
+    try {
+      const q = query(
+        collection(db, SCHEMA_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('name', '==', schemaData.name),
+        orderBy('version', 'desc'),
+        limit(1)
+      );
+      querySnapshot = await getDocs(q);
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const fallbackQ = query(
+        collection(db, SCHEMA_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('name', '==', schemaData.name)
+      );
+      querySnapshot = await getDocs(fallbackQ);
+    }
+
+    const docs = [...querySnapshot.docs].sort((a, b) => {
+      const av = a.data()?.version || 0;
+      const bv = b.data()?.version || 0;
+      return bv - av;
+    });
     let nextVersion = 1;
-    if (!querySnapshot.empty) {
-      const latest = querySnapshot.docs[0].data();
+    if (docs.length > 0) {
+      const latest = docs[0].data();
       const currentVersion = latest?.version || 1;
       nextVersion = currentVersion + 1;
     }
@@ -52,15 +72,35 @@ export const getLatestSchemas = async (tenantId, options = {}) => {
   }
 
   try {
-    const q = query(
-      collection(db, SCHEMA_COLLECTION),
-      where('tenantId', '==', tenantId),
-      where('active', '==', true),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const { docs, cursor } = await getDocsWithPagination(q, options);
-    const schemas = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let schemas = [];
+    let cursor = null;
+
+    try {
+      const q = query(
+        collection(db, SCHEMA_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('active', '==', true),
+        orderBy('createdAt', 'desc')
+      );
+
+      const result = await getDocsWithPagination(q, options);
+      schemas = result.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cursor = result.cursor;
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const fallbackQ = query(
+        collection(db, SCHEMA_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('active', '==', true)
+      );
+      const snapshot = await getDocs(fallbackQ);
+      schemas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      schemas.sort((a, b) => {
+        const aMs = a?.createdAt?.toMillis?.() || 0;
+        const bMs = b?.createdAt?.toMillis?.() || 0;
+        return bMs - aMs;
+      });
+    }
     
     const latestOnly = [];
     const seenNames = new Set();
@@ -93,17 +133,34 @@ export const getSchemaByStockPoint = async (tenantId, stockPointId) => {
   }
 
   try {
-    const q = query(
-      collection(db, SCHEMA_COLLECTION),
-      where('tenantId', '==', tenantId),
-      where('stockPointId', '==', stockPointId),
-      orderBy('createdAt', 'desc'),
-      limit(1)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) return null;
-    const schema = querySnapshot.docs[0];
+    let docs = [];
+    try {
+      const q = query(
+        collection(db, SCHEMA_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('stockPointId', '==', stockPointId),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+      docs = querySnapshot.docs;
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const fallbackQ = query(
+        collection(db, SCHEMA_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('stockPointId', '==', stockPointId)
+      );
+      const snapshot = await getDocs(fallbackQ);
+      docs = snapshot.docs.sort((a, b) => {
+        const aMs = a.data()?.createdAt?.toMillis?.() || 0;
+        const bMs = b.data()?.createdAt?.toMillis?.() || 0;
+        return bMs - aMs;
+      }).slice(0, 1);
+    }
+
+    if (!docs.length) return null;
+    const schema = docs[0];
     return { id: schema.id, ...schema.data() };
   } catch (error) {
     console.error("Erro ao buscar schema por ponto de estocagem:", error);
