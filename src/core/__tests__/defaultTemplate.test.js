@@ -79,13 +79,17 @@ describe('buildDefaultTemplate', () => {
     expect(logo.label).toBe('Logo');
   });
 
-  it('contains QR code element linked to code field', () => {
+  it('contains QR code element linked to code + quantity', () => {
     const tpl = buildDefaultTemplate(sampleSchema);
     const qr = tpl.elements.find((el) => el.type === 'qr');
     expect(qr).toBeDefined();
     expect(qr.id).toBe('el_qr');
-    expect(qr.qrFieldKey).toBe('codigo');
-    expect(qr.qrMode).toBe('field');
+    expect(qr.qrMode).toBe('code_qty');
+    expect(qr.fieldKey).toBe('__code_qty__');
+    expect(qr.qrCodeKey).toBe('codigo');
+    expect(qr.qrQtyKey).toBe('quantidade');
+    expect(qr.previewValue).toContain('"codigo"');
+    expect(qr.previewValue).toContain('"quantidade"');
     expect(qr.showLabel).toBe(false);
   });
 
