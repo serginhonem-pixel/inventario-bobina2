@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PenTool, Plus, ArrowUpCircle, MapPin, ShieldOff, CreditCard } from 'lucide-react';
 
@@ -26,6 +26,7 @@ import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
 import { buildDefaultTemplate } from '../core/defaultTemplate';
 import UpgradeGate from '../components/ui/UpgradeGate';
+import { provisionForPoint } from '../services/firebase/provisionService';
 
 // Hooks extraídos
 import useStockPoints from '../hooks/useStockPoints';
@@ -68,6 +69,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const [tourToken, setTourToken] = useState(0);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [, setOrgUsage] = useState({ seatsUsed: 0, stockPointsUsed: 0, templatesUsed: 0 });
+  const autoProvisioningPointRef = useRef(null);
 
   const tenantId = tenantIdProp || user?.uid || 'default-user';
   const trialInfo = getTrialInfo(org);
@@ -184,6 +186,27 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     };
     autoCreateDefault();
   }, [tenantId, currentStockPoint?.id, currentSchema?.id, templates.length, loading]);
+
+  // Auto-provisiona schema/template quando o ponto selecionado ainda não tem configuração.
+  useEffect(() => {
+    if (!tenantId || !currentStockPoint?.id || loading || currentSchema) return;
+    if (autoProvisioningPointRef.current === currentStockPoint.id) return;
+
+    autoProvisioningPointRef.current = currentStockPoint.id;
+
+    const runAutoProvision = async () => {
+      try {
+        await provisionForPoint(tenantId, currentStockPoint);
+        await loadStockPointData(currentStockPoint.id);
+      } catch (error) {
+        console.error('Erro ao auto-provisionar ponto:', error);
+      } finally {
+        autoProvisioningPointRef.current = null;
+      }
+    };
+
+    runAutoProvision();
+  }, [tenantId, currentStockPoint?.id, currentSchema, loading, loadStockPointData]);
 
   useEffect(() => {
     if (currentSchema?.fields?.length) {
@@ -941,6 +964,10 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 };
 
 export default LabelManagement;
+
+
+
+
 
 
 
