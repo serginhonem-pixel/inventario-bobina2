@@ -8,7 +8,7 @@ import ItemTable from '../components/ui/ItemTable';
 import StockOperation from '../components/stock/StockOperation';
 import StockMovement from '../components/stock/StockMovement';
 import StockPointManager, { StockPointHistory } from '../components/stock/StockPointManager';
-import NotificationSettings from '../components/settings/NotificationSettings';
+
 import TeamManagement from '../components/settings/TeamManagement';
 import * as schemaService from '../services/firebase/schemaService';
 import * as itemService from '../services/firebase/itemService';
@@ -952,9 +952,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                 <TeamManagement orgId={tenantId} currentUserId={user?.uid} />
               )}
 
-              {activeTab === 'settings' && (
-                <NotificationSettings />
-              )}
+
             </>
           )}
         </div>

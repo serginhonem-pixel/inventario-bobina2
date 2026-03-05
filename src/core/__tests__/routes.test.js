@@ -4,7 +4,7 @@ import ROUTES, { pathToTabId, tabIdToPath } from '../routes';
 describe('routes config', () => {
   it('exporta array com pelo menos 7 rotas', () => {
     expect(Array.isArray(ROUTES)).toBe(true);
-    expect(ROUTES.length).toBeGreaterThanOrEqual(7);
+    expect(ROUTES.length).toBeGreaterThanOrEqual(6);
   });
 
   it('cada rota tem id, path e label', () => {
@@ -24,7 +24,6 @@ describe('routes config', () => {
     expect(pathToTabId['/app/movimentacao']).toBe('movement_internal');
     expect(pathToTabId['/app/relatorios']).toBe('reports');
     expect(pathToTabId['/app/equipe']).toBe('team');
-    expect(pathToTabId['/app/configuracoes']).toBe('settings');
   });
 
   it('tabIdToPath mapeia id → path corretamente', () => {
@@ -35,7 +34,6 @@ describe('routes config', () => {
     expect(tabIdToPath['movement_internal']).toBe('/app/movimentacao');
     expect(tabIdToPath['reports']).toBe('/app/relatorios');
     expect(tabIdToPath['team']).toBe('/app/equipe');
-    expect(tabIdToPath['settings']).toBe('/app/configuracoes');
   });
 
   it('pathToTabId e tabIdToPath são inversos', () => {

@@ -34,20 +34,20 @@ service cloud.firestore {
     }
 
     function planMaxStockPoints(planId) {
-      return planId == 'free' ? 1
+      return planId == 'expired' ? 0
         : planId == 'pro' ? 1
         : planId == 'business' ? 3
         : null; // enterprise
     }
 
     function planMaxTemplates(planId) {
-      return planId == 'free' ? 1
+      return planId == 'expired' ? 0
         : planId == 'pro' ? 3
         : null; // business/enterprise
     }
 
     function planMaxSeats(planId) {
-      return planId == 'free' ? 3
+      return planId == 'expired' ? 1
         : planId == 'pro' ? 3
         : planId == 'business' ? 10
         : null; // enterprise

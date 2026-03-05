@@ -211,7 +211,7 @@ describe('getTrialInfo', () => {
   });
 
   it('status expired_trial retorna expired', () => {
-    const info = getTrialInfo({ status: 'expired_trial', planId: 'free' });
+    const info = getTrialInfo({ status: 'expired_trial', planId: 'expired' });
     expect(info.expired).toBe(true);
     expect(info.effectivePlanId).toBe('expired');
   });

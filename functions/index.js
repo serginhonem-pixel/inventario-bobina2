@@ -106,11 +106,19 @@ exports.cartpandaWebhook = functions.https.onRequest(async (req, res) => {
     return res.status(405).send('Method not allowed');
   }
 
-  console.log(`[webhook] ${req.method} recebido`);
-  console.log('[webhook] Query:', JSON.stringify(req.query));
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log('[webhook] Body:', JSON.stringify(req.body));
+  // ── Autenticação — token secreto obrigatório ────────────────────
+  // Configure no CartPanda a URL com &secret=SEU_TOKEN
+  // ou envie o header X-Webhook-Secret no POST.
+  // Defina o segredo no arquivo functions/.env: CARTPANDA_WEBHOOK_SECRET=SEU_TOKEN
+  const expectedSecret = process.env.CARTPANDA_WEBHOOK_SECRET;
+  const receivedSecret = req.query.secret || req.headers['x-webhook-secret'] || '';
+
+  if (!expectedSecret || receivedSecret !== expectedSecret) {
+    console.warn('[webhook] Autenticação falhou — secret inválido ou ausente.');
+    return res.status(401).send('Unauthorized');
   }
+
+  console.log(`[webhook] ${req.method} recebido — email: ${(req.query.email || req.body?.email || 'N/A')}`);
 
   // ── Extrair dados (funciona para GET e POST) ────────────────────
   const q = req.query || {};
@@ -296,7 +304,7 @@ exports.expireTrials = functions.pubsub
       const slice = docs.slice(i, i + BATCH_LIMIT);
       slice.forEach((doc) => {
         batch.update(doc.ref, {
-          planId: 'free',
+          planId: 'expired',
           status: 'expired_trial',
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
@@ -304,6 +312,6 @@ exports.expireTrials = functions.pubsub
       await batch.commit();
       count += slice.length;
     }
-    console.log(`${count} trial(s) expirado(s) e rebaixado(s) para free.`);
+    console.log(`${count} trial(s) expirado(s).`);
     return null;
   });

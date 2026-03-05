@@ -7,7 +7,6 @@ import { saveAdjustment } from '../../services/firebase/stockService';
 import { isLocalhost } from '../../services/firebase/mockPersistence';
 import { findItemByTerm } from '../../core/utils';
 import BarcodeScanner from './BarcodeScanner';
-import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 import { toast } from '../ui/toast';
 import { resolveItemQty } from '../../core/utils';
 import ConfirmModal from '../ui/ConfirmModal';
@@ -120,13 +119,6 @@ const StockMovement = ({ items, schema, tenantId, currentStockPoint, updatePendi
           await saveAdjustment(tenantId, schema.id, item.id, currentStockPoint.id, movementData);
         }
 
-        // Verificar alerta de estoque mínimo (apenas em saídas)
-        if (type === 'out') {
-          const minQty = Number(item.data.estoque_minimo || 0);
-          if (minQty > 0 && newQty <= minQty) {
-            sendWhatsAppAlert(item.data.descricao || item.data.nome, newQty, minQty);
-          }
-        }
       }
       if (typeof onItemsUpdated === 'function' && updatedMap.size > 0) {
         onItemsUpdated(updatedMap);

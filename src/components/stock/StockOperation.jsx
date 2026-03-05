@@ -13,7 +13,6 @@ import {
   startInventorySession
 } from '../../services/firebase/inventoryService';
 import BarcodeScanner from './BarcodeScanner';
-import { sendWhatsAppAlert } from '../../services/notifications/whatsappService';
 import { toast } from '../ui/toast';
 import { resolveItemQty } from '../../core/utils';
 
@@ -164,12 +163,6 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
         onItemsUpdated(updates);
       }
 
-      // Verificar alerta de estoque mínimo
-      const minQty = Number(selectedItem.data.estoque_minimo || 0);
-      if (minQty > 0 && newQty <= minQty) {
-        sendWhatsAppAlert(selectedItem.data.descricao || selectedItem.data.nome, newQty, minQty);
-      }
-      
       setSuccess(true);
       loadHistory(selectedItem.id);
       setTimeout(() => {

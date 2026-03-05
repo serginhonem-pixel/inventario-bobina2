@@ -10,7 +10,6 @@ const ROUTES = [
   { id: 'movement_internal',  path: '/app/movimentacao',      label: 'Movimentação de Carga',    minPlan: 'business' },
   { id: 'reports',            path: '/app/relatorios',        label: 'Relatórios' },
   { id: 'team',               path: '/app/equipe',            label: 'Equipe' },
-  { id: 'settings',           path: '/app/configuracoes',     label: 'Configurações' },
 ];
 
 /** path → id */
