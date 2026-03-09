@@ -512,6 +512,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
         effectivePlanId={effectivePlanId}
         trialInfo={trialInfo}
         onLogout={onLogout}
+        onStartTour={handleStartTour}
       />
 
       <main className="flex-1 ml-0 md:ml-72 p-4 md:p-10 pt-20 md:pt-10">

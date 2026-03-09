@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, PenTool, BarChart3,
   Settings, LogOut, User, Users,
-  MapPin, ScanLine, X, Lock, ArrowLeftRight,
+  MapPin, ScanLine, X, Lock, ArrowLeftRight, HelpCircle,
 } from 'lucide-react';
 import ROUTES from '../../core/routes';
 import { meetsMinPlan } from '../../core/plansConfig';
@@ -25,7 +25,7 @@ const NAV_ITEMS = ROUTES.filter((r) => ICON_MAP[r.id]).map((r) => ({
   icon: ICON_MAP[r.id],
 }));
 
-const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo, onLogout }) => (
+const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo, onLogout, onStartTour }) => (
   <>
     {/* Overlay mobile */}
     {sidebarOpen && (
@@ -115,6 +115,14 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
         >
           <LogOut size={20} /> Sair do Sistema
         </button>
+        {onStartTour && (
+          <button
+            onClick={onStartTour}
+            className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-bold text-zinc-600 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all"
+          >
+            <HelpCircle size={20} /> Reabrir Tour Guiado
+          </button>
+        )}
       </div>
     </aside>
   </>

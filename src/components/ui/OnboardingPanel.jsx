@@ -41,8 +41,8 @@ const OnboardingPanel = ({
     },
     {
       id: 'template',
-      title: 'Crie um template de etiqueta',
-      description: 'Monte o layout para imprimir as etiquetas.',
+      title: 'Personalize sua etiqueta',
+      description: 'Ajuste o layout da etiqueta no designer visual.',
       done: hasTemplate,
       actionTab: 'designer',
       actionLabel: 'Abrir designer',
@@ -95,7 +95,7 @@ const OnboardingPanel = ({
 
       {needsStockPointSelection && (
         <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs rounded-2xl p-4">
-          Voce ja tem pontos criados. Selecione um ponto ativo para continuar o onboarding.
+          Você já tem pontos criados. Selecione um ponto ativo para continuar o onboarding.
         </div>
       )}
 

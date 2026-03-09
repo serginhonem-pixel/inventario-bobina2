@@ -14,7 +14,7 @@ const TOUR_STEPS = [
   {
     id: 2,
     title: "1. Ponto de Estocagem",
-    content: "Crie o ponto que representa o local fisico (ex: Almoxarifado A).",
+    content: "Crie o ponto que representa o local físico (ex: Almoxarifado A).",
     targetTab: 'stock_points',
     target: 'create-stock-point',
     action: 'next',
@@ -59,7 +59,7 @@ const TOUR_STEPS = [
   {
     id: 7,
     title: "Pronto para começar!",
-    content: "Voce concluiu o tour. Agora pode operar o inventario normalmente.",
+    content: "Você concluiu o tour. Agora pode operar o inventário normalmente.",
     targetTab: 'dashboard',
     action: 'finish',
     icon: CheckCircle
@@ -257,7 +257,7 @@ class TourGuideBubbles extends React.Component {
               onClick={this.handleNext}
               className="bg-emerald-500 hover:bg-emerald-400 text-black px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all active:scale-95"
             >
-              {currentTourStep.action === 'finish' ? 'Finalizar' : 'Proximo passo'}
+              {currentTourStep.action === 'finish' ? 'Finalizar' : 'Próximo passo'}
               <ArrowRight size={14} />
             </button>
           </div>
