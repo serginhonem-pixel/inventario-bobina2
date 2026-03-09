@@ -29,16 +29,19 @@ export default function useStockPointData(tenantId, _currentStockPoint) {
         const templateWithElements =
           loadedTemplates.find((tpl) => (tpl.elements || []).length > 0) || null;
         setTemplate(templateWithElements || (loadedTemplates.length > 0 ? loadedTemplates[0] : null));
+        return { schema, templates: loadedTemplates };
       } else {
         setItems([]);
         setTemplates([]);
         setTemplate(null);
+        return { schema: null, templates: [] };
       }
     } catch (error) {
       console.error('Erro ao carregar dados do ponto:', error);
       setItems([]);
       setTemplates([]);
       setTemplate(null);
+      return { schema: null, templates: [] };
     } finally {
       setLoading(false);
     }
