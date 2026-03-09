@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Plus, MapPin, Loader2, CheckCircle2, X } from 'lucide-react';
+import { Plus, MapPin, Loader2, CheckCircle2, X, ArrowDownCircle, ArrowUpCircle, Clock, Package } from 'lucide-react';
 import * as stockPointService from '../../services/firebase/stockPointService';
 import * as stockService from '../../services/firebase/stockService';
 import { isUnlimited } from '../../core/plansConfig';
@@ -156,7 +156,7 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
       <ConfirmModal
         open={!!confirmDelete}
         title="Excluir ponto"
-        message={`Tem certeza que deseja excluir o ponto "${confirmDelete?.name}"? Essa aÃ§Ã£o nÃ£o pode ser desfeita.`}
+        message={`Tem certeza que deseja excluir o ponto "${confirmDelete?.name}"? Essa ação não pode ser desfeita.`}
         confirmText="Excluir"
         variant="danger"
         onConfirm={executeDeleteStockPoint}
@@ -194,33 +194,88 @@ const StockPointHistory = ({ stockPointId, tenantId }) => {
   if (!stockPointId) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 text-center">
-        <p className="text-zinc-500 text-sm">Selecione um ponto de estocagem para ver o histÃ³rico.</p>
+        <p className="text-zinc-500 text-sm">Selecione um ponto de estocagem para ver o histórico.</p>
       </div>
     );
   }
 
+  const formatRelativeTime = (timestamp) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMs = now - date;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'agora mesmo';
+    if (diffMin < 60) return `há ${diffMin}min`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `há ${diffH}h`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7) return `há ${diffD}d`;
+    return date.toLocaleDateString('pt-BR');
+  };
+
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
-      <h3 className="text-lg font-bold text-white">HistÃ³rico de MovimentaÃ§Ã£o</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock size={18} className="text-zinc-400" />
+          <h3 className="text-lg font-bold text-white">Histórico</h3>
+        </div>
+        {logs.length > 0 && (
+          <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-1 rounded-full">{logs.length} registro{logs.length !== 1 ? 's' : ''}</span>
+        )}
+      </div>
       {loading ? (
         <div className="flex justify-center items-center h-20">
           <Loader2 className="animate-spin text-emerald-500" size={24} />
         </div>
       ) : logs.length === 0 ? (
-        <p className="text-zinc-500 text-sm">Nenhuma movimentaÃ§Ã£o registrada neste ponto.</p>
+        <div className="text-center py-8">
+          <Package size={32} className="text-zinc-700 mx-auto mb-2" />
+          <p className="text-zinc-500 text-sm">Nenhuma movimentação registrada neste ponto.</p>
+        </div>
       ) : (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {logs.map((log, index) => (
-            <div key={index} className="p-3 bg-zinc-950 rounded-xl border border-zinc-800 flex justify-between items-center">
-              <div>
-                <p className="text-sm font-bold text-white">{log.notes || `MovimentaÃ§Ã£o de ${log.difference > 0 ? 'Entrada' : 'SaÃ­da'}`}</p>
-                <p className="text-xs text-zinc-500">{new Date(log.timestamp).toLocaleString()}</p>
+        <div className="relative max-h-[420px] overflow-y-auto pr-1 space-y-0">
+          {/* Timeline line */}
+          <div className="absolute left-[19px] top-4 bottom-4 w-px bg-zinc-800" />
+
+          {logs.map((log, index) => {
+            const diff = log.difference ?? (log.newQty - log.previousQty);
+            const isEntry = diff > 0 || log.type === 'entry';
+            const Icon = isEntry ? ArrowDownCircle : ArrowUpCircle;
+            const label = isEntry ? 'ENTRADA' : 'SAÍDA';
+
+            return (
+              <div key={index} className="relative flex items-start gap-3 py-3 group">
+                {/* Timeline dot */}
+                <div className={`relative z-10 flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isEntry ? 'bg-emerald-500/10 border border-emerald-500/30 group-hover:bg-emerald-500/20' : 'bg-rose-500/10 border border-rose-500/30 group-hover:bg-rose-500/20'}`}>
+                  <Icon size={18} className={isEntry ? 'text-emerald-500' : 'text-rose-500'} />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0 bg-zinc-950 rounded-xl border border-zinc-800 p-3 group-hover:border-zinc-700 transition-colors">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className={`text-[10px] font-black tracking-wider px-2 py-0.5 rounded-full ${isEntry ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
+                      {label}
+                    </span>
+                    <span className="text-[11px] text-zinc-600 flex-shrink-0">
+                      {formatRelativeTime(log.timestamp)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-zinc-300 truncate">
+                      {log.itemId ? (log.notes?.split('Ponto:')[0]?.trim() || label) : (log.notes || label)}
+                    </p>
+                    <span className={`text-sm font-black tabular-nums ml-2 ${isEntry ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {isEntry ? '+' : ''}{diff} un
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-600 mt-0.5">
+                    {new Date(log.timestamp).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
               </div>
-              <span className={`text-xs font-black ${log.difference > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {log.difference > 0 ? `+${log.difference}` : log.difference} un
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

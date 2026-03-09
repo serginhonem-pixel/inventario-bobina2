@@ -51,6 +51,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   }, [navigate]);
 
   const [currentStockPoint, setCurrentStockPointRaw] = useState(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   // Persiste a seleção do ponto de estocagem entre reloads
   const setCurrentStockPoint = useCallback((point) => {
@@ -798,6 +799,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                             tenantId={tenantId}
                             currentStockPoint={currentStockPoint}
                             updatePendingCount={updatePendingCount}
+                            template={template}
                             onItemsUpdated={(updates) => {
                               setItems((prev) => prev.map((item) => {
                                 if (!updates.has(item.id)) return item;
@@ -806,8 +808,9 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                                 return { ...item, data };
                               }));
                             }}
+                            onMovementProcessed={() => setHistoryRefreshKey(k => k + 1)}
                           />
-                          <StockPointHistory stockPointId={currentStockPoint.id} tenantId={tenantId} />
+                          <StockPointHistory key={historyRefreshKey} stockPointId={currentStockPoint.id} tenantId={tenantId} />
                         </>
                       ) : (
                         <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">

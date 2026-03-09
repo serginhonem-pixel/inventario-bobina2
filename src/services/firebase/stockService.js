@@ -42,6 +42,7 @@ export const saveAdjustment = async (tenantId, schemaId, itemId, stockPointIdOrD
       itemId, 
       stockPointId: stockPointId ?? null,
       ...adjustmentData,
+      difference: adjustmentData.newQty - adjustmentData.previousQty,
       timestamp: new Date().toISOString()
     });
     const items = await mockGetDocs(ITEM_COLLECTION);
