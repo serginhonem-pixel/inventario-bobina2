@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import * as schemaService from '../services/firebase/schemaService';
 import * as itemService from '../services/firebase/itemService';
 import * as templateService from '../services/firebase/templateService';
@@ -12,11 +12,14 @@ export default function useStockPointData(tenantId, _currentStockPoint) {
   const [templates, setTemplates] = useState([]);
   const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(false);
+  const loadIdRef = useRef(0);
 
   const loadStockPointData = useCallback(async (stockPointId) => {
+    const thisLoadId = ++loadIdRef.current;
     setLoading(true);
     try {
       const schema = await schemaService.getSchemaByStockPoint(tenantId, stockPointId);
+      if (loadIdRef.current !== thisLoadId) return;
       setCurrentSchema(schema || null);
 
       if (schema) {
@@ -24,6 +27,7 @@ export default function useStockPointData(tenantId, _currentStockPoint) {
           itemService.getItemsByStockPoint(tenantId, stockPointId),
           templateService.getTemplatesBySchema(tenantId, schema.id),
         ]);
+        if (loadIdRef.current !== thisLoadId) return;
         setItems(loadedItems);
         setTemplates(loadedTemplates);
         const templateWithElements =
@@ -35,12 +39,13 @@ export default function useStockPointData(tenantId, _currentStockPoint) {
         setTemplate(null);
       }
     } catch (error) {
+      if (loadIdRef.current !== thisLoadId) return;
       console.error('Erro ao carregar dados do ponto:', error);
       setItems([]);
       setTemplates([]);
       setTemplate(null);
     } finally {
-      setLoading(false);
+      if (loadIdRef.current === thisLoadId) setLoading(false);
     }
   }, [tenantId]);
 

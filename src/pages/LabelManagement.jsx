@@ -128,17 +128,28 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     }
   }, [visibleTemplates, template?.id, template?.name, setTemplate]);
 
-  // Restaura ponto de estocagem salvo ao carregar a lista
+  // Restaura ponto salvo OU cria defaults — um único efeito para evitar race condition
   useEffect(() => {
-    if (!stockPoints.length || currentStockPoint) return;
+    if (!tenantId || !stockPointsReady || currentStockPoint) return;
+
+    // Tenta restaurar do localStorage primeiro
     try {
       const savedId = localStorage.getItem(`qtdapp_sp_${tenantIdProp || 'default'}`);
       if (savedId) {
         const found = stockPoints.find((p) => p.id === savedId);
-        if (found) setCurrentStockPointRaw(found);
+        if (found) {
+          setCurrentStockPointRaw(found);
+          return;
+        }
       }
     } catch { /* localStorage indisponível */ }
-  }, [stockPoints, tenantIdProp]);
+
+    // Nenhum ponto salvo — cria defaults (primeiro acesso)
+    defaultCreatingRef.current = true;
+    handleCreateDefaultTemplate()
+      .catch(() => {})
+      .finally(() => { defaultCreatingRef.current = false; });
+  }, [tenantId, stockPointsReady, currentStockPoint, stockPoints, tenantIdProp]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -160,15 +171,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       clearData();
     }
   }, [tenantId, currentStockPoint]);
-
-  useEffect(() => {
-    if (!tenantId || currentStockPoint) return;
-    if (!stockPointsReady) return;
-    defaultCreatingRef.current = true;
-    handleCreateDefaultTemplate()
-      .catch(() => {})
-      .finally(() => { defaultCreatingRef.current = false; });
-  }, [tenantId, currentStockPoint, stockPointsReady]);
 
   // Auto-cria etiqueta padrão quando o ponto já existe mas não tem template
   useEffect(() => {
@@ -307,50 +309,39 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
       const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
 
-      // Se já tem template com elementos, usa o existente
+      // Se já tem template com elementos, apenas navega
       const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
-      if (hasUsableTemplate) {
-        // Setar templates ANTES do stockPoint para evitar auto-create race condition
-        setTemplates(existingTemplates);
-        setTemplate(existingTemplates[0]);
-        setCurrentStockPoint(point);
-        setCurrentSchema(schema);
-        setActiveTab('designer');
-        return;
+      if (!hasUsableTemplate) {
+        // Tenta buscar um global default do Firestore (admin pode ter salvo um)
+        const globalDefault = await getDefaultTemplate('default').catch(() => null);
+
+        // Monta o template: prioridade 1 = global do Firestore, prioridade 2 = built-in com logo
+        const builtIn = buildDefaultTemplate(schema);
+        const defaultTemplate = globalDefault && (globalDefault.elements || []).length > 0
+          ? {
+              name: globalDefault.name,
+              size: globalDefault.size,
+              elements: globalDefault.elements,
+              logistics: globalDefault.logistics,
+            }
+          : builtIn;
+
+        await templateService.saveTemplate(
+          tenantId,
+          schema.id,
+          schema.version || 1,
+          defaultTemplate
+        );
+        if (existingTemplates.length === 0) {
+          setOrgUsage((prev) => ({
+            ...prev,
+            templatesUsed: (prev.templatesUsed || 0) + 1
+          }));
+        }
       }
 
-      // Tenta buscar um global default do Firestore (admin pode ter salvo um)
-      const globalDefault = await getDefaultTemplate('default').catch(() => null);
-
-      // Monta o template: prioridade 1 = global do Firestore, prioridade 2 = built-in com logo
-      const builtIn = buildDefaultTemplate(schema);
-      const defaultTemplate = globalDefault && (globalDefault.elements || []).length > 0
-        ? {
-            name: globalDefault.name,
-            size: globalDefault.size,
-            elements: globalDefault.elements,
-            logistics: globalDefault.logistics,
-          }
-        : builtIn;
-
-      const saved = await templateService.saveTemplate(
-        tenantId,
-        schema.id,
-        schema.version || 1,
-        defaultTemplate
-      );
-      // Setar templates ANTES do stockPoint para evitar auto-create race condition
-      setTemplate(saved);
-      setTemplates([saved]);
+      // Setar stock point dispara loadStockPointData, que carrega tudo do Firestore
       setCurrentStockPoint(point);
-      setCurrentSchema(schema);
-      if (existingTemplates.length === 0) {
-        setOrgUsage((prev) => ({
-          ...prev,
-          templatesUsed: (prev.templatesUsed || 0) + 1
-        }));
-      }
-
       setActiveTab('designer');
     } catch (error) {
       if (error?.message === 'templates_limit') {
