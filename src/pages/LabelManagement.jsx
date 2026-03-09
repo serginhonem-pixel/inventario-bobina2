@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PenTool, Plus, ArrowUpCircle, MapPin, ShieldOff, CreditCard } from 'lucide-react';
 
@@ -14,7 +14,7 @@ import * as schemaService from '../services/firebase/schemaService';
 import * as itemService from '../services/firebase/itemService';
 import * as templateService from '../services/firebase/templateService';
 import * as stockPointService from '../services/firebase/stockPointService';
-import { saveDefaultTemplate } from '../services/firebase/defaultTemplateService';
+import { getDefaultTemplate, saveDefaultTemplate } from '../services/firebase/defaultTemplateService';
 import { printLabels } from '../services/pdf/pdfService';
 import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoothPrintService';
 import Dashboard from '../components/dashboard/Dashboard';
@@ -24,8 +24,9 @@ import { getPlanConfig, isUnlimited, getTrialInfo, meetsMinPlan } from '../core/
 import { toast } from '../components/ui/toast';
 import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
-
+import { buildDefaultTemplate } from '../core/defaultTemplate';
 import UpgradeGate from '../components/ui/UpgradeGate';
+import { provisionForPoint } from '../services/firebase/provisionService';
 
 // Hooks extraídos
 import useStockPoints from '../hooks/useStockPoints';
@@ -69,6 +70,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const [tourToken, setTourToken] = useState(0);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [, setOrgUsage] = useState({ seatsUsed: 0, stockPointsUsed: 0, templatesUsed: 0 });
+  const autoProvisioningPointRef = useRef(null);
 
   const tenantId = tenantIdProp || user?.uid || 'default-user';
   const trialInfo = getTrialInfo(org);
@@ -166,6 +168,50 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     }
   }, [tenantId, currentStockPoint]);
 
+  // Auto-cria etiqueta padrão quando o ponto já existe mas não tem template
+  useEffect(() => {
+    if (!tenantId || !currentStockPoint || !currentSchema || loading) return;
+    if (templates.length > 0) return;
+
+    const autoCreateDefault = async () => {
+      try {
+        const builtIn = buildDefaultTemplate(currentSchema);
+        const saved = await templateService.saveTemplate(
+          tenantId,
+          currentSchema.id,
+          currentSchema.version || 1,
+          builtIn
+        );
+        setTemplate(saved);
+        setTemplates([saved]);
+      } catch {
+        // silently ignore — user can create manually
+      }
+    };
+    autoCreateDefault();
+  }, [tenantId, currentStockPoint?.id, currentSchema?.id, templates.length, loading]);
+
+  // Auto-provisiona schema/template quando o ponto selecionado ainda não tem configuração.
+  useEffect(() => {
+    if (!tenantId || !currentStockPoint?.id || loading || currentSchema) return;
+    if (autoProvisioningPointRef.current === currentStockPoint.id) return;
+
+    autoProvisioningPointRef.current = currentStockPoint.id;
+
+    const runAutoProvision = async () => {
+      try {
+        await provisionForPoint(tenantId, currentStockPoint);
+        await loadStockPointData(currentStockPoint.id);
+      } catch (error) {
+        console.error('Erro ao auto-provisionar ponto:', error);
+      } finally {
+        autoProvisioningPointRef.current = null;
+      }
+    };
+
+    runAutoProvision();
+  }, [tenantId, currentStockPoint?.id, currentSchema, loading, loadStockPointData]);
+
   useEffect(() => {
     if (currentSchema?.fields?.length) {
       setManualItem((prev) => {
@@ -254,10 +300,51 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
   const handleCreateDefaultTemplate = async () => {
     try {
-      const { point } = await ensureDefaultStockPointAndSchema();
-
-      // Setar stock point dispara loadStockPointData via efeito
+      const { point, schema } = await ensureDefaultStockPointAndSchema();
+      // Mantém contexto carregado mesmo se a criação do template falhar.
       setCurrentStockPoint(point);
+      setCurrentSchema(schema);
+
+      const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
+
+      // Se já tem template com elementos, usa o existente
+      const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
+      if (hasUsableTemplate) {
+        setTemplates(existingTemplates);
+        setTemplate(existingTemplates[0]);
+        setActiveTab('designer');
+        return;
+      }
+
+      // Tenta buscar um global default do Firestore (admin pode ter salvo um)
+      const globalDefault = await getDefaultTemplate('default').catch(() => null);
+
+      // Monta o template: prioridade 1 = global do Firestore, prioridade 2 = built-in com logo
+      const builtIn = buildDefaultTemplate(schema);
+      const defaultTemplate = globalDefault && (globalDefault.elements || []).length > 0
+        ? {
+            name: globalDefault.name,
+            size: globalDefault.size,
+            elements: globalDefault.elements,
+            logistics: globalDefault.logistics,
+          }
+        : builtIn;
+
+      const saved = await templateService.saveTemplate(
+        tenantId,
+        schema.id,
+        schema.version || 1,
+        defaultTemplate
+      );
+      setTemplate(saved);
+      setTemplates([saved]);
+      if (existingTemplates.length === 0) {
+        setOrgUsage((prev) => ({
+          ...prev,
+          templatesUsed: (prev.templatesUsed || 0) + 1
+        }));
+      }
+
       setActiveTab('designer');
     } catch (error) {
       if (error?.message === 'templates_limit') {
