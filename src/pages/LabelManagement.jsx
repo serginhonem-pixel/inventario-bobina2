@@ -26,7 +26,6 @@ import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
 
 import UpgradeGate from '../components/ui/UpgradeGate';
-import { provisionForPoint } from '../services/firebase/provisionService';
 
 // Hooks extraídos
 import useStockPoints from '../hooks/useStockPoints';
@@ -160,29 +159,11 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   }, [org?.id]);
 
   useEffect(() => {
-    if (!currentStockPoint) {
+    if (currentStockPoint) {
+      loadStockPointData(currentStockPoint.id);
+    } else {
       clearData();
-      return;
     }
-    let cancelled = false;
-
-    const load = async () => {
-      // 1. Tenta carregar dados diretamente do Firestore
-      const result = await loadStockPointData(currentStockPoint.id);
-      if (cancelled) return;
-
-      // 2. Se não encontrou schema ou templates, provisiona e recarrega
-      const needsProvision = !result.schema || result.templates.length === 0;
-      if (needsProvision) {
-        await provisionForPoint(tenantId, currentStockPoint).catch((err) =>
-          console.error('Erro ao auto-provisionar ponto:', err)
-        );
-        if (cancelled) return;
-        await loadStockPointData(currentStockPoint.id);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
   }, [tenantId, currentStockPoint]);
 
   useEffect(() => {
@@ -275,7 +256,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     try {
       const { point } = await ensureDefaultStockPointAndSchema();
 
-      // Setar stock point dispara provisionForPoint + loadStockPointData via efeito
+      // Setar stock point dispara loadStockPointData via efeito
       setCurrentStockPoint(point);
       setActiveTab('designer');
     } catch (error) {
