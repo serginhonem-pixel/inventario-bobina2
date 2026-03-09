@@ -88,7 +88,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     setLabelPadding(initialTemplate.padding ?? 0);
     setElements(initialTemplate.elements || []);
     setLogistics(initialTemplate.logistics || { street: '', shelf: '', level: '' });
-  }, [initialTemplate?.id]);
+  }, [initialTemplate?.id, initialTemplate?.updatedAt]);
 
   useEffect(() => {
     const updateZoom = () => {

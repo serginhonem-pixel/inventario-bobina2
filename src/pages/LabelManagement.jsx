@@ -82,7 +82,8 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const hasNotifications = pendingMovementsCount > 0;
 
   // Hooks extraídos
-  const { stockPoints, setStockPoints, handleStockPointCreated: onPointCreated, handleStockPointDeleted: onPointDeleted } = useStockPoints(tenantId);
+  const { stockPoints, setStockPoints, stockPointsReady, handleStockPointCreated: onPointCreated, handleStockPointDeleted: onPointDeleted } = useStockPoints(tenantId);
+  const defaultCreatingRef = useRef(false);
   const { currentSchema, setCurrentSchema, items, setItems, templates, setTemplates, template, setTemplate, loading, loadStockPointData, clearData } = useStockPointData(tenantId, currentStockPoint);
   const { globalSearch, setGlobalSearch, hasGlobalSearch, filteredItems } = useGlobalSearch(items, currentSchema);
   const visibleTemplates = useMemo(() => {
@@ -162,13 +163,18 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
   useEffect(() => {
     if (!tenantId || currentStockPoint) return;
-    handleCreateDefaultTemplate().catch(() => {});
-  }, [tenantId, currentStockPoint]);
+    if (!stockPointsReady) return;
+    defaultCreatingRef.current = true;
+    handleCreateDefaultTemplate()
+      .catch(() => {})
+      .finally(() => { defaultCreatingRef.current = false; });
+  }, [tenantId, currentStockPoint, stockPointsReady]);
 
   // Auto-cria etiqueta padrão quando o ponto já existe mas não tem template
   useEffect(() => {
     if (!tenantId || !currentStockPoint || !currentSchema || loading) return;
     if (templates.length > 0) return;
+    if (defaultCreatingRef.current) return;
 
     const autoCreateDefault = async () => {
       try {
@@ -298,17 +304,17 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const handleCreateDefaultTemplate = async () => {
     try {
       const { point, schema } = await ensureDefaultStockPointAndSchema();
-      // Mantém contexto carregado mesmo se a criação do template falhar.
-      setCurrentStockPoint(point);
-      setCurrentSchema(schema);
 
       const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
 
       // Se já tem template com elementos, usa o existente
       const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
       if (hasUsableTemplate) {
+        // Setar templates ANTES do stockPoint para evitar auto-create race condition
         setTemplates(existingTemplates);
         setTemplate(existingTemplates[0]);
+        setCurrentStockPoint(point);
+        setCurrentSchema(schema);
         setActiveTab('designer');
         return;
       }
@@ -333,8 +339,11 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
         schema.version || 1,
         defaultTemplate
       );
+      // Setar templates ANTES do stockPoint para evitar auto-create race condition
       setTemplate(saved);
       setTemplates([saved]);
+      setCurrentStockPoint(point);
+      setCurrentSchema(schema);
       if (existingTemplates.length === 0) {
         setOrgUsage((prev) => ({
           ...prev,

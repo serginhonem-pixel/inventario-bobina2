@@ -7,6 +7,7 @@ import * as stockPointService from '../services/firebase/stockPointService';
  */
 export default function useStockPoints(tenantId) {
   const [stockPoints, setStockPoints] = useState([]);
+  const [stockPointsReady, setStockPointsReady] = useState(false);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -15,9 +16,15 @@ export default function useStockPoints(tenantId) {
     stockPointService
       .getStockPointsByTenant(tenantId)
       .then((points) => {
-        if (!cancelled) setStockPoints(points);
+        if (!cancelled) {
+          setStockPoints(points);
+          setStockPointsReady(true);
+        }
       })
-      .catch((err) => console.error('Erro ao carregar pontos de estocagem:', err));
+      .catch((err) => {
+        console.error('Erro ao carregar pontos de estocagem:', err);
+        if (!cancelled) setStockPointsReady(true);
+      });
 
     return () => { cancelled = true; };
   }, [tenantId]);
@@ -35,5 +42,5 @@ export default function useStockPoints(tenantId) {
     setStockPoints((prev) => prev.filter((p) => p.id !== deletedPoint.id));
   }, []);
 
-  return { stockPoints, setStockPoints, handleStockPointCreated, handleStockPointDeleted };
+  return { stockPoints, setStockPoints, stockPointsReady, handleStockPointCreated, handleStockPointDeleted };
 }
