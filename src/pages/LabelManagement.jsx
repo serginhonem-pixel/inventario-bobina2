@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PenTool, Plus, ArrowUpCircle, MapPin, ShieldOff, CreditCard } from 'lucide-react';
 
@@ -70,6 +70,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const [tourToken, setTourToken] = useState(0);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [, setOrgUsage] = useState({ seatsUsed: 0, stockPointsUsed: 0, templatesUsed: 0 });
+  const autoProvisioningPointRef = useRef(null);
 
   const tenantId = tenantIdProp || user?.uid || 'default-user';
   const trialInfo = getTrialInfo(org);
@@ -159,57 +160,57 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     });
   }, [org?.id]);
 
-  // Efeito único: carrega dados → provisiona se necessário → cria template default se vazio.
-  // Tudo sequencial dentro de um só efeito para eliminar race conditions.
   useEffect(() => {
-    if (!currentStockPoint?.id) {
+    if (currentStockPoint) {
+      loadStockPointData(currentStockPoint.id);
+    } else {
       clearData();
-      return;
     }
+  }, [tenantId, currentStockPoint]);
 
-    let cancelled = false;
+  // Auto-cria etiqueta padrão quando o ponto já existe mas não tem template
+  useEffect(() => {
+    if (!tenantId || !currentStockPoint || !currentSchema || loading) return;
+    if (templates.length > 0) return;
 
-    const run = async () => {
-      // 1. Carrega dados do ponto
-      let result = await loadStockPointData(currentStockPoint.id);
-      if (cancelled) return;
-
-      // 2. Se não tem schema, provisiona (ponto novo sem configuração)
-      if (!result.schema) {
-        try {
-          await provisionForPoint(tenantId, currentStockPoint);
-          if (cancelled) return;
-          result = await loadStockPointData(currentStockPoint.id);
-          if (cancelled) return;
-        } catch (err) {
-          console.error('Erro ao auto-provisionar ponto:', err);
-          return;
-        }
+    const autoCreateDefault = async () => {
+      try {
+        const builtIn = buildDefaultTemplate(currentSchema);
+        const saved = await templateService.saveTemplate(
+          tenantId,
+          currentSchema.id,
+          currentSchema.version || 1,
+          builtIn
+        );
+        setTemplate(saved);
+        setTemplates([saved]);
+      } catch (err) {
+        console.error('Erro ao criar template padrão automático:', err);
       }
+    };
+    autoCreateDefault();
+  }, [tenantId, currentStockPoint?.id, currentSchema?.id, templates.length, loading]);
 
-      // 3. Se tem schema mas nenhum template, cria o default
-      if (result.schema && result.templates.length === 0) {
-        try {
-          const builtIn = buildDefaultTemplate(result.schema);
-          const saved = await templateService.saveTemplate(
-            tenantId,
-            result.schema.id,
-            result.schema.version || 1,
-            builtIn
-          );
-          if (!cancelled) {
-            setTemplate(saved);
-            setTemplates([saved]);
-          }
-        } catch {
-          // ignora — usuário pode criar manualmente
-        }
+  // Auto-provisiona schema/template quando o ponto selecionado ainda não tem configuração.
+  useEffect(() => {
+    if (!tenantId || !currentStockPoint?.id || loading || currentSchema) return;
+    if (autoProvisioningPointRef.current === currentStockPoint.id) return;
+
+    autoProvisioningPointRef.current = currentStockPoint.id;
+
+    const runAutoProvision = async () => {
+      try {
+        await provisionForPoint(tenantId, currentStockPoint);
+        await loadStockPointData(currentStockPoint.id);
+      } catch (error) {
+        console.error('Erro ao auto-provisionar ponto:', error);
+      } finally {
+        autoProvisioningPointRef.current = null;
       }
     };
 
-    run();
-    return () => { cancelled = true; };
-  }, [tenantId, currentStockPoint?.id]);
+    runAutoProvision();
+  }, [tenantId, currentStockPoint?.id, currentSchema, loading, loadStockPointData]);
 
   useEffect(() => {
     if (currentSchema?.fields?.length) {
@@ -890,6 +891,16 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
                         try {
                           const saved = await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
+
+                          // Verificação: re-lê do banco para garantir persistência
+                          if (isNewTemplate && saved?.id) {
+                            const persisted = await templateService.getTemplatesBySchema(tenantId, currentSchema.id);
+                            const found = persisted.some(t => t.id === saved.id);
+                            if (!found) {
+                              console.warn('[onSaveTemplate] Template salvo mas não encontrado na releitura. schemaId:', currentSchema.id, 'templateId:', saved.id);
+                            }
+                          }
+
                           setTemplate(saved);
                           setTemplates((prev) => {
                             const existingIndex = prev.findIndex(t => t.id === saved.id);
