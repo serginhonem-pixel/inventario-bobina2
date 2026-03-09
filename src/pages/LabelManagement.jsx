@@ -14,7 +14,7 @@ import * as schemaService from '../services/firebase/schemaService';
 import * as itemService from '../services/firebase/itemService';
 import * as templateService from '../services/firebase/templateService';
 import * as stockPointService from '../services/firebase/stockPointService';
-import { getDefaultTemplate, saveDefaultTemplate } from '../services/firebase/defaultTemplateService';
+import { saveDefaultTemplate } from '../services/firebase/defaultTemplateService';
 import { printLabels } from '../services/pdf/pdfService';
 import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoothPrintService';
 import Dashboard from '../components/dashboard/Dashboard';
@@ -24,7 +24,7 @@ import { getPlanConfig, isUnlimited, getTrialInfo, meetsMinPlan } from '../core/
 import { toast } from '../components/ui/toast';
 import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
-import { buildDefaultTemplate } from '../core/defaultTemplate';
+
 import UpgradeGate from '../components/ui/UpgradeGate';
 import { provisionForPoint } from '../services/firebase/provisionService';
 
@@ -70,7 +70,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const [tourToken, setTourToken] = useState(0);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
   const [, setOrgUsage] = useState({ seatsUsed: 0, stockPointsUsed: 0, templatesUsed: 0 });
-  const autoProvisioningPointRef = useRef(null);
 
   const tenantId = tenantIdProp || user?.uid || 'default-user';
   const trialInfo = getTrialInfo(org);
@@ -83,7 +82,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
   // Hooks extraídos
   const { stockPoints, setStockPoints, stockPointsReady, handleStockPointCreated: onPointCreated, handleStockPointDeleted: onPointDeleted } = useStockPoints(tenantId);
-  const defaultCreatingRef = useRef(false);
   const { currentSchema, setCurrentSchema, items, setItems, templates, setTemplates, template, setTemplate, loading, loadStockPointData, clearData } = useStockPointData(tenantId, currentStockPoint);
   const { globalSearch, setGlobalSearch, hasGlobalSearch, filteredItems } = useGlobalSearch(items, currentSchema);
   const visibleTemplates = useMemo(() => {
@@ -145,10 +143,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     } catch { /* localStorage indisponível */ }
 
     // Nenhum ponto salvo — cria defaults (primeiro acesso)
-    defaultCreatingRef.current = true;
-    handleCreateDefaultTemplate()
-      .catch(() => {})
-      .finally(() => { defaultCreatingRef.current = false; });
+    handleCreateDefaultTemplate().catch(() => {});
   }, [tenantId, stockPointsReady, currentStockPoint, stockPoints, tenantIdProp]);
 
   useEffect(() => {
@@ -165,57 +160,23 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   }, [org?.id]);
 
   useEffect(() => {
-    if (currentStockPoint) {
-      loadStockPointData(currentStockPoint.id);
-    } else {
+    if (!currentStockPoint) {
       clearData();
+      return;
     }
+    let cancelled = false;
+
+    const load = async () => {
+      // Provisiona schema/template caso ainda não existam (só cria o que falta)
+      await provisionForPoint(tenantId, currentStockPoint).catch((err) =>
+        console.error('Erro ao auto-provisionar ponto:', err)
+      );
+      if (cancelled) return;
+      await loadStockPointData(currentStockPoint.id);
+    };
+    load();
+    return () => { cancelled = true; };
   }, [tenantId, currentStockPoint]);
-
-  // Auto-cria etiqueta padrão quando o ponto já existe mas não tem template
-  useEffect(() => {
-    if (!tenantId || !currentStockPoint || !currentSchema || loading) return;
-    if (templates.length > 0) return;
-    if (defaultCreatingRef.current) return;
-
-    const autoCreateDefault = async () => {
-      try {
-        const builtIn = buildDefaultTemplate(currentSchema);
-        const saved = await templateService.saveTemplate(
-          tenantId,
-          currentSchema.id,
-          currentSchema.version || 1,
-          builtIn
-        );
-        setTemplate(saved);
-        setTemplates([saved]);
-      } catch {
-        // silently ignore — user can create manually
-      }
-    };
-    autoCreateDefault();
-  }, [tenantId, currentStockPoint?.id, currentSchema?.id, templates.length, loading]);
-
-  // Auto-provisiona schema/template quando o ponto selecionado ainda não tem configuração.
-  useEffect(() => {
-    if (!tenantId || !currentStockPoint?.id || loading || currentSchema) return;
-    if (autoProvisioningPointRef.current === currentStockPoint.id) return;
-
-    autoProvisioningPointRef.current = currentStockPoint.id;
-
-    const runAutoProvision = async () => {
-      try {
-        await provisionForPoint(tenantId, currentStockPoint);
-        await loadStockPointData(currentStockPoint.id);
-      } catch (error) {
-        console.error('Erro ao auto-provisionar ponto:', error);
-      } finally {
-        autoProvisioningPointRef.current = null;
-      }
-    };
-
-    runAutoProvision();
-  }, [tenantId, currentStockPoint?.id, currentSchema, loading, loadStockPointData]);
 
   useEffect(() => {
     if (currentSchema?.fields?.length) {
@@ -305,42 +266,9 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
   const handleCreateDefaultTemplate = async () => {
     try {
-      const { point, schema } = await ensureDefaultStockPointAndSchema();
+      const { point } = await ensureDefaultStockPointAndSchema();
 
-      const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
-
-      // Se já tem template com elementos, apenas navega
-      const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
-      if (!hasUsableTemplate) {
-        // Tenta buscar um global default do Firestore (admin pode ter salvo um)
-        const globalDefault = await getDefaultTemplate('default').catch(() => null);
-
-        // Monta o template: prioridade 1 = global do Firestore, prioridade 2 = built-in com logo
-        const builtIn = buildDefaultTemplate(schema);
-        const defaultTemplate = globalDefault && (globalDefault.elements || []).length > 0
-          ? {
-              name: globalDefault.name,
-              size: globalDefault.size,
-              elements: globalDefault.elements,
-              logistics: globalDefault.logistics,
-            }
-          : builtIn;
-
-        await templateService.saveTemplate(
-          tenantId,
-          schema.id,
-          schema.version || 1,
-          defaultTemplate
-        );
-        if (existingTemplates.length === 0) {
-          setOrgUsage((prev) => ({
-            ...prev,
-            templatesUsed: (prev.templatesUsed || 0) + 1
-          }));
-        }
-      }
-
-      // Setar stock point dispara loadStockPointData, que carrega tudo do Firestore
+      // Setar stock point dispara provisionForPoint + loadStockPointData via efeito
       setCurrentStockPoint(point);
       setActiveTab('designer');
     } catch (error) {
