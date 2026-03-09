@@ -171,7 +171,7 @@ export const printLabels = async (template, items, options = {}) => {
       text-overflow: ellipsis;
     }
     .label-text {
-      display: block;
+      display: inline;
     }
     .value-text {
       display: block;
@@ -264,7 +264,7 @@ export const printLabels = async (template, items, options = {}) => {
                 if (hasLabel && titlePosition === 'top') {
                   const titleSize = el.titleFontSize || el.fontSize;
                   content = `<div class="text-content" style="line-height: ${lineHeight};">
-                    <span class="label-text" style="font-size: ${titleSize}pt;">${el.label}</span>
+                    <span class="label-text" style="display: block; font-size: ${titleSize}pt;">${el.label}</span>
                     <span class="value-text ${wrapClass}">${val}</span>
                   </div>`;
                 } else if (hasLabel && titlePosition === 'inline') {
