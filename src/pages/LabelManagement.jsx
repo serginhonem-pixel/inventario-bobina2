@@ -597,7 +597,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                       onDismiss={handleDismissOnboarding}
                     />
                   )}
-                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} view="dashboard" />
+                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} view="dashboard" onNavigate={(tab) => setActiveTab(tab)} />
                 </div>
               )}
               
@@ -945,7 +945,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
 
                 {activeTab === 'reports' && (
-                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} view="reports" />
+                  <Dashboard tenantId={tenantId} currentSchema={currentSchema} view="reports" onNavigate={(tab) => setActiveTab(tab)} />
                 )}
 
               {activeTab === 'team' && (

@@ -1,8 +1,164 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { BarChart3, AlertCircle, MapPin, Loader2, TrendingUp, TrendingDown, Package, Clock, AlertTriangle } from 'lucide-react';
+import {
+  BarChart3, AlertCircle, MapPin, Loader2, TrendingUp, TrendingDown,
+  Package, Clock, AlertTriangle, Activity, ArrowRight, ScanLine,
+  Printer, Shield, ShieldCheck, ShieldAlert, Plus
+} from 'lucide-react';
 import * as analyticsService from '../../services/firebase/analyticsService';
 
-// Componente de Gráfico de Curva ABC
+// ── Saúde do Inventário (gauge visual) ──────────────────────────────
+const HealthScore = ({ summary, criticalCount }) => {
+  const { totalItems, totalQty } = summary;
+  if (totalItems === 0) return null;
+
+  // Score: penaliza itens críticos, estoque zerado, falta de movimentação
+  const criticalRatio = totalItems > 0 ? criticalCount / totalItems : 0;
+  const score = Math.max(0, Math.min(100, Math.round(100 - criticalRatio * 300)));
+
+  const color = score >= 75 ? 'emerald' : score >= 45 ? 'amber' : 'rose';
+  const label = score >= 75 ? 'Saudável' : score >= 45 ? 'Atenção' : 'Crítico';
+  const Icon = score >= 75 ? ShieldCheck : score >= 45 ? Shield : ShieldAlert;
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 flex items-center gap-6">
+      <div className="relative w-24 h-24 flex-shrink-0">
+        <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="40" fill="none" stroke="#27272a" strokeWidth="8" />
+          <circle cx="48" cy="48" r="40" fill="none"
+            stroke={score >= 75 ? '#10b981' : score >= 45 ? '#f59e0b' : '#ef4444'}
+            strokeWidth="8" strokeLinecap="round"
+            strokeDasharray={circumference} strokeDashoffset={offset}
+            className="transition-all duration-1000"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className={`text-xl font-black text-${color}-400`}>{score}</span>
+        </div>
+      </div>
+      <div>
+        <div className={`flex items-center gap-2 text-${color}-400 mb-1`}>
+          <Icon size={18} />
+          <span className="text-sm font-bold uppercase tracking-wider">{label}</span>
+        </div>
+        <p className="text-zinc-400 text-sm">
+          {totalItems.toLocaleString('pt-BR')} itens cadastrados, {totalQty.toLocaleString('pt-BR')} un em estoque.
+          {criticalCount > 0 && <span className="text-rose-400"> {criticalCount} item(ns) em nível crítico.</span>}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ── Ações Rápidas ───────────────────────────────────────────────────
+const QuickActions = ({ onNavigate }) => {
+  const actions = [
+    { id: 'stock_points', icon: MapPin, label: 'Ponto de Estoque', desc: 'Gerenciar locais', color: 'emerald' },
+    { id: 'designer', icon: Printer, label: 'Criar Etiqueta', desc: 'Design e impressão', color: 'blue' },
+    { id: 'operation', icon: ScanLine, label: 'Ajuste Rápido', desc: 'Entrada e saída', color: 'amber' },
+    { id: 'reports', icon: BarChart3, label: 'Relatórios', desc: 'Análise completa', color: 'violet' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {actions.map((a) => (
+        <button
+          key={a.id}
+          onClick={() => onNavigate?.(a.id)}
+          className="group bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-2xl p-4 text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <a.icon size={22} className={`text-${a.color}-500 mb-3`} />
+          <p className="text-sm font-bold text-white">{a.label}</p>
+          <p className="text-xs text-zinc-500 mt-0.5">{a.desc}</p>
+          <ArrowRight size={14} className="text-zinc-600 group-hover:text-zinc-400 mt-2 transition-colors" />
+        </button>
+      ))}
+    </div>
+  );
+};
+
+// ── Timeline de Atividade Recente ───────────────────────────────────
+const ActivityTimeline = ({ movements }) => {
+  if (!movements || movements.length === 0) {
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+        <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+          <Activity className="text-blue-500" size={20} /> Atividade Recente
+        </h3>
+        <div className="text-center py-8">
+          <Clock className="text-zinc-700 mx-auto mb-3" size={32} />
+          <p className="text-zinc-500 text-sm">Nenhuma movimentação registrada ainda.</p>
+          <p className="text-zinc-600 text-xs mt-1">As ações de entrada e saída aparecerão aqui.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+      <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+        <Activity className="text-blue-500" size={20} /> Atividade Recente
+      </h3>
+      <div className="space-y-1">
+        {movements.slice(0, 5).map((mov, idx) => {
+          const isEntry = mov.difference > 0;
+          return (
+            <div key={idx} className="flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-800/50 transition-colors">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${isEntry ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
+                {isEntry ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate">{mov.itemName}</p>
+                <p className="text-xs text-zinc-500">
+                  {mov.timestamp ? new Date(mov.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                </p>
+              </div>
+              <span className={`text-sm font-bold ${isEntry ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isEntry ? '+' : ''}{mov.difference}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── Welcome Hero (primeiro acesso / sem dados) ──────────────────────
+const WelcomeHero = ({ onNavigate }) => (
+  <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950/30 border border-zinc-800 rounded-3xl p-8 md:p-10">
+    <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+      <div className="w-14 h-14 bg-emerald-500/15 rounded-2xl flex items-center justify-center flex-shrink-0">
+        <Package className="text-emerald-500" size={28} />
+      </div>
+      <div className="flex-1">
+        <h2 className="text-xl font-black text-white mb-1">Bem-vindo ao QtdApp!</h2>
+        <p className="text-zinc-400 text-sm leading-relaxed max-w-xl">
+          Comece criando seu primeiro <strong className="text-zinc-300">ponto de estocagem</strong>, 
+          depois cadastre ou importe seus itens. Em minutos você terá seu inventário organizado 
+          com etiquetas profissionais e controle total.
+        </p>
+        <div className="flex flex-wrap gap-3 mt-5">
+          <button
+            onClick={() => onNavigate?.('stock_points')}
+            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-black px-5 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+          >
+            <Plus size={16} /> Criar Ponto de Estoque
+          </button>
+          <button
+            onClick={() => onNavigate?.('designer')}
+            className="inline-flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95"
+          >
+            <Printer size={16} /> Criar Etiqueta
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// ── Gráfico de Curva ABC ────────────────────────────────────────────
 const TurnoverChart = ({ data }) => {
   const total = data.reduce((acc, item) => acc + (item.value || 0), 0);
   const hasData = total > 0;
@@ -46,7 +202,7 @@ const TurnoverChart = ({ data }) => {
   );
 };
 
-// Componente de Itens Críticos
+// ── Itens Críticos ──────────────────────────────────────────────────
 const CriticalItemsList = ({ data }) => (
   <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4">
     <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -70,7 +226,7 @@ const CriticalItemsList = ({ data }) => (
   </div>
 );
 
-// Componente de Distribuição de Estoque
+// ── Distribuição de Estoque ─────────────────────────────────────────
 const DistributionChart = ({ data }) => {
   const maxValue = Math.max(1, ...data.map(item => item.value || 0));
   return (
@@ -134,17 +290,19 @@ const SummaryCards = ({ summary, isReportsView: _isReportsView = false }) => (
 );
 
 
-const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
+const EMPTY_SUMMARY = { totalItems: 0, totalQty: 0, criticalCount: 0, pointCount: 0, totalEntradas: 0, countEntradas: 0, totalSaidas: 0, countSaidas: 0 };
+
+const Dashboard = ({ tenantId, currentSchema, view = 'dashboard', onNavigate }) => {
   const [turnoverData, setTurnoverData] = useState([]);
   const [criticalItems, setCriticalItems] = useState([]);
   const [distributionData, setDistributionData] = useState([]);
-  const [summary, setSummary] = useState({ totalItems: 0, totalQty: 0, criticalCount: 0, pointCount: 0, totalEntradas: 0, countEntradas: 0, totalSaidas: 0, countSaidas: 0 });
+  const [summary, setSummary] = useState(EMPTY_SUMMARY);
   const [topSkus, setTopSkus] = useState([]);
   const [stagnantItems, setStagnantItems] = useState([]);
   const [recentMovements, setRecentMovements] = useState([]);
   const [zeroStockItems, setZeroStockItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   useEffect(() => {
     if (currentSchema) {
@@ -156,30 +314,32 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
 
   const loadAnalytics = async () => {
     setLoading(true);
-    setError(false);
     try {
       const insights = await analyticsService.getDashboardInsights(tenantId, currentSchema.id);
-      setTurnoverData(insights.turnover);
-      setCriticalItems(insights.critical);
-      setDistributionData(insights.distribution);
-      setSummary(insights.summary);
+      setTurnoverData(insights.turnover || []);
+      setCriticalItems(insights.critical || []);
+      setDistributionData(insights.distribution || []);
+      setSummary(insights.summary || EMPTY_SUMMARY);
       setTopSkus(insights.topSkus || []);
       setStagnantItems(insights.stagnantItems || []);
       setRecentMovements(insights.recentMovements || []);
       setZeroStockItems(insights.zeroStockItems || []);
+      setDataLoaded(true);
     } catch (err) {
       console.error("Erro ao carregar dados de BI:", err);
-      setError(true);
+      // Não bloqueia — renderiza o dashboard com dados vazios + ações rápidas
+      setDataLoaded(false);
     } finally {
       setLoading(false);
     }
   };
 
+  // Sem schema: Welcome Hero
   if (!currentSchema) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
-        <p className="text-zinc-300 font-semibold">Seu dashboard está pronto para receber dados.</p>
-        <p className="text-zinc-500 text-sm mt-2">Selecione um ponto de estocagem e importe itens para começar.</p>
+      <div className="space-y-6 animate-in fade-in duration-500">
+        <WelcomeHero onNavigate={onNavigate} />
+        <QuickActions onNavigate={onNavigate} />
       </div>
     );
   }
@@ -192,19 +352,7 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center space-y-4">
-        <AlertCircle className="text-rose-500 mx-auto" size={40} />
-        <p className="text-zinc-300 font-semibold">Não foi possível carregar o dashboard.</p>
-        <p className="text-zinc-500 text-sm">Verifique sua conexão e tente novamente.</p>
-        <button onClick={loadAnalytics} className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95">
-          Tentar novamente
-        </button>
-      </div>
-    );
-  }
-
+  const hasData = dataLoaded && summary.totalItems > 0;
   const isReportsView = view === 'reports';
 
   // Relatórios: somente tabelas e insights, sem cards e gráficos
@@ -409,16 +557,56 @@ const Dashboard = ({ tenantId, currentSchema, view = 'dashboard' }) => {
     );
   }
 
-  // Dashboard: com cards e gráficos
+  // Dashboard: com cards, saúde, ações rápidas, gráficos e timeline
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <SummaryCards summary={summary} isReportsView={isReportsView} />
+      {!hasData && (
+        <WelcomeHero onNavigate={onNavigate} />
+      )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <TurnoverChart data={turnoverData} />
-        <CriticalItemsList data={criticalItems} />
-        <DistributionChart data={distributionData} />
-      </div>
+      <QuickActions onNavigate={onNavigate} />
+
+      {hasData && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <SummaryCards summary={summary} isReportsView={isReportsView} />
+            </div>
+            <HealthScore summary={summary} criticalCount={summary.criticalCount} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <TurnoverChart data={turnoverData} />
+            <CriticalItemsList data={criticalItems} />
+            <ActivityTimeline movements={recentMovements} />
+          </div>
+
+          {distributionData.length > 0 && (
+            <DistributionChart data={distributionData} />
+          )}
+        </>
+      )}
+
+      {!hasData && dataLoaded && (
+        <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-12 text-center">
+          <Package className="text-zinc-700 mx-auto mb-3" size={40} />
+          <p className="text-zinc-300 font-semibold">Seu inventário está vazio.</p>
+          <p className="text-zinc-500 text-sm mt-2">Cadastre itens no ponto de estoque para ver seus indicadores aqui.</p>
+        </div>
+      )}
+
+      {!dataLoaded && !loading && (
+        <div className="bg-zinc-900 border border-amber-800/30 rounded-3xl p-6 flex items-center gap-4">
+          <AlertCircle className="text-amber-500 flex-shrink-0" size={22} />
+          <div className="flex-1">
+            <p className="text-zinc-300 text-sm font-semibold">Não foi possível carregar os indicadores.</p>
+            <p className="text-zinc-500 text-xs">A conexão pode estar instável. Use as ações acima normalmente.</p>
+          </div>
+          <button onClick={loadAnalytics} className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 flex-shrink-0">
+            Tentar novamente
+          </button>
+        </div>
+      )}
     </div>
   );
 };
