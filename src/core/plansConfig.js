@@ -90,6 +90,11 @@ export const getTrialInfo = (org) => {
     return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
   }
 
+  // Plano "free" no Firestore → tratar como trial expirado (dados preservados)
+  if (org.planId === 'free') {
+    return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
+  }
+
   // Paid user or superAdmin — not on trial
   if (status === 'active' && !trialEndsAt) {
     return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };

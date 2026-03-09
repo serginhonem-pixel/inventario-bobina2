@@ -13,13 +13,14 @@ const isMissingIndexError = (error) =>
   || /requires an index/i.test(error?.message || '');
 
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
-  const { id, name, size, elements, logistics } = templateData;
+  const { id, name, size, padding, elements, logistics } = templateData;
   const baseParts = {
     tenantId,
     schemaId,
     schemaVersion,
     name,
     size,
+    padding: padding ?? 0,
     elements,
     logistics,
   };
