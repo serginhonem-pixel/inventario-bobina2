@@ -2,7 +2,7 @@ import { db } from './config';
 import { isLocalhost, mockAddDoc, mockGetDocs, mockUpdateDoc, mockDeleteDoc } from './mockPersistence';
 import { getDocsWithPagination } from './pagination';
 import { 
-  collection, query, where, serverTimestamp, doc, updateDoc, runTransaction, increment, orderBy
+  collection, query, where, serverTimestamp, doc, updateDoc, runTransaction, increment, orderBy, addDoc
 } from 'firebase/firestore';
 
 const TEMPLATE_COLLECTION = 'templates';
@@ -14,7 +14,7 @@ const isMissingIndexError = (error) =>
 
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
   const { id, name, size, elements, logistics } = templateData;
-  const dataToSave = {
+  const baseParts = {
     tenantId,
     schemaId,
     schemaVersion,
@@ -22,8 +22,12 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
     size,
     elements,
     logistics,
-    updatedAt: new Date()
   };
+
+  // Para mock local usa Date; para Firestore usa serverTimestamp
+  const dataToSave = isLocalhost()
+    ? { ...baseParts, updatedAt: new Date() }
+    : { ...baseParts, updatedAt: serverTimestamp() };
 
   if (isLocalhost()) {
     if (id) {

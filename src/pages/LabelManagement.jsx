@@ -882,24 +882,32 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                           return;
                         }
 
-                        const saved = await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
-                        setTemplate(saved);
-                        setTemplates((prev) => {
-                          const existingIndex = prev.findIndex(t => t.id === saved.id);
-                          if (existingIndex >= 0) {
-                            const next = [...prev];
-                            next[existingIndex] = saved;
-                            return next;
+                        try {
+                          const saved = await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
+                          setTemplate(saved);
+                          setTemplates((prev) => {
+                            const existingIndex = prev.findIndex(t => t.id === saved.id);
+                            if (existingIndex >= 0) {
+                              const next = [...prev];
+                              next[existingIndex] = saved;
+                              return next;
+                            }
+                            return [saved, ...prev];
+                          });
+                          if (isNewTemplate) {
+                            setOrgUsage((prev) => ({
+                              ...prev,
+                              templatesUsed: (prev.templatesUsed || 0) + 1
+                            }));
                           }
-                          return [saved, ...prev];
-                        });
-                        if (isNewTemplate) {
-                          setOrgUsage((prev) => ({
-                            ...prev,
-                            templatesUsed: (prev.templatesUsed || 0) + 1
-                          }));
+                          toast("Template salvo com sucesso!", { type: 'success' });
+                        } catch (err) {
+                          console.error('Erro ao salvar template:', err);
+                          const msg = err?.code === 'permission-denied'
+                            ? 'Sem permissão para salvar. Verifique se você é administrador da organização.'
+                            : 'Erro ao salvar template. Tente novamente.';
+                          toast(msg, { type: 'error' });
                         }
-                        toast("Template de engenharia salvo com sucesso!", { type: 'success' });
                       }}
                     />
                   ) : (
