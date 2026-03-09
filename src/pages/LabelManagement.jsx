@@ -167,12 +167,19 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     let cancelled = false;
 
     const load = async () => {
-      // Provisiona schema/template caso ainda não existam (só cria o que falta)
-      await provisionForPoint(tenantId, currentStockPoint).catch((err) =>
-        console.error('Erro ao auto-provisionar ponto:', err)
-      );
+      // 1. Tenta carregar dados diretamente do Firestore
+      const result = await loadStockPointData(currentStockPoint.id);
       if (cancelled) return;
-      await loadStockPointData(currentStockPoint.id);
+
+      // 2. Se não encontrou schema ou templates, provisiona e recarrega
+      const needsProvision = !result.schema || result.templates.length === 0;
+      if (needsProvision) {
+        await provisionForPoint(tenantId, currentStockPoint).catch((err) =>
+          console.error('Erro ao auto-provisionar ponto:', err)
+        );
+        if (cancelled) return;
+        await loadStockPointData(currentStockPoint.id);
+      }
     };
     load();
     return () => { cancelled = true; };
