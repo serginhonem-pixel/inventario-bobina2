@@ -68,36 +68,57 @@ export const meetsMinPlan = (currentPlanId, requiredPlanId) => {
 
 // ── Trial helpers ──────────────────────────────────────────────────
 const TRIAL_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+
+const getTrialTimeLabels = (msLeft) => {
+  const fullDaysLeft = Math.floor(msLeft / DAY_MS);
+  const hoursLeft = Math.floor((msLeft % DAY_MS) / HOUR_MS);
+
+  if (fullDaysLeft > 0) {
+    const long = hoursLeft > 0
+      ? `${fullDaysLeft} dia${fullDaysLeft !== 1 ? 's' : ''} e ${hoursLeft} hora${hoursLeft !== 1 ? 's' : ''} restantes`
+      : `${fullDaysLeft} dia${fullDaysLeft !== 1 ? 's' : ''} restantes`;
+    const short = hoursLeft > 0 ? `${fullDaysLeft}d ${hoursLeft}h` : `${fullDaysLeft}d`;
+    return { long, short };
+  }
+
+  const hoursRemaining = Math.max(1, Math.ceil(msLeft / HOUR_MS));
+  return {
+    long: `${hoursRemaining} hora${hoursRemaining !== 1 ? 's' : ''} restantes`,
+    short: `${hoursRemaining}h`
+  };
+};
 
 export const getTrialInfo = (org) => {
-  if (!org) return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: 'trial' };
+  if (!org) return { isTrial: false, expired: false, canceled: false, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: 'trial' };
 
   const status = org.status || 'active';
   const trialEndsAt = org.trialEndsAt;
 
   // Assinatura cancelada — acesso revogado
   if (status === 'canceled') {
-    return { isTrial: false, expired: false, canceled: true, daysLeft: 0, effectivePlanId: 'expired', previousPlanId: org.planId };
+    return { isTrial: false, expired: false, canceled: true, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: 'expired', previousPlanId: org.planId };
   }
 
   // Inadimplente — acesso revogado
   if (status === 'past_due') {
-    return { isTrial: false, expired: false, canceled: false, pastDue: true, daysLeft: 0, effectivePlanId: 'expired', previousPlanId: org.planId };
+    return { isTrial: false, expired: false, canceled: false, pastDue: true, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: 'expired', previousPlanId: org.planId };
   }
 
   // Trial expirado via Cloud Function (status setado por expireTrials)
   if (status === 'expired_trial') {
-    return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
+    return { isTrial: false, expired: true, canceled: false, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: 'expired' };
   }
 
   // Plano "free" no Firestore → tratar como trial expirado (dados preservados)
   if (org.planId === 'free') {
-    return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
+    return { isTrial: false, expired: true, canceled: false, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: 'expired' };
   }
 
   // Paid user or superAdmin — not on trial
   if (status === 'active' && !trialEndsAt) {
-    return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
+    return { isTrial: false, expired: false, canceled: false, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: org.planId || 'pro' };
   }
 
   // Has a trial date
@@ -112,18 +133,19 @@ export const getTrialInfo = (org) => {
 
     const now = Date.now();
     const msLeft = endMs - now;
-    const daysLeft = Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+    const daysLeft = Math.max(0, Math.ceil(msLeft / DAY_MS));
     const expired = msLeft <= 0;
 
     if (expired) {
-      return { isTrial: false, expired: true, canceled: false, daysLeft: 0, effectivePlanId: 'expired' };
+      return { isTrial: false, expired: true, canceled: false, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: 'expired' };
     }
 
-    return { isTrial: true, expired: false, canceled: false, daysLeft, effectivePlanId: org.planId || 'pro' };
+    const { long, short } = getTrialTimeLabels(msLeft);
+    return { isTrial: true, expired: false, canceled: false, daysLeft, timeLeftLabel: long, timeLeftShortLabel: short, effectivePlanId: org.planId || 'pro' };
   }
 
   // Fallback
-  return { isTrial: false, expired: false, canceled: false, daysLeft: 0, effectivePlanId: org.planId || 'pro' };
+  return { isTrial: false, expired: false, canceled: false, daysLeft: 0, timeLeftLabel: '', timeLeftShortLabel: '', effectivePlanId: org.planId || 'pro' };
 };
 
 export const TRIAL_DURATION_DAYS = TRIAL_DAYS;

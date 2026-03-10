@@ -20,7 +20,7 @@ import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoo
 import Dashboard from '../components/dashboard/Dashboard';
 import TourGuide from '../components/ui/TourGuideBubbles';
 import OnboardingPanel from '../components/ui/OnboardingPanel';
-import { getPlanConfig, isUnlimited, getTrialInfo, meetsMinPlan } from '../core/plansConfig';
+import { getPlanConfig, hasFeature, isUnlimited, getTrialInfo, meetsMinPlan } from '../core/plansConfig';
 import { toast } from '../components/ui/toast';
 import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
@@ -76,7 +76,8 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
   const trialInfo = getTrialInfo(org);
   const effectivePlanId = trialInfo.effectivePlanId;
   const planConfig = getPlanConfig(effectivePlanId);
-  const canAccessStock = meetsMinPlan(effectivePlanId, 'business');
+  const canAccessInventory = hasFeature(effectivePlanId, 'inventory');
+  const canAccessStockMovement = hasFeature(effectivePlanId, 'stock_movement');
   const isBlocked = trialInfo.expired || trialInfo.canceled || trialInfo.pastDue;
   const canSaveDefault = user?.superAdmin === true;
   const hasNotifications = pendingMovementsCount > 0;
@@ -612,7 +613,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         </div>
                       </div>
                       <div className="flex gap-3">
-                        {canAccessStock && (
+                        {canAccessStockMovement && (
                           <button 
                             onClick={() => setActiveTab('movement_internal')}
                             className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center gap-2 transition-all"
@@ -769,7 +770,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
               {activeTab === 'movement_internal' && (
                 <UpgradeGate
-                  allowed={canAccessStock}
+                  allowed={canAccessStockMovement}
                   requiredPlanLabel="Business"
                   featureLabel="Movimentação de Carga (Entrada/Saída em lote)"
                 >
@@ -933,8 +934,8 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
 
               {activeTab === 'operation' && (
                 <UpgradeGate
-                  allowed={canAccessStock}
-                  requiredPlanLabel="Business"
+                  allowed={canAccessInventory}
+                  requiredPlanLabel="Trial Pro"
                   featureLabel="Ajuste Rápido de Estoque"
                 >
                 <div className="animate-in slide-in-from-bottom-4 duration-500">

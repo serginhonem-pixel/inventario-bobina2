@@ -6,7 +6,7 @@ const ROUTES = [
   { id: 'dashboard',          path: '/app',                   label: 'Dashboard' },
   { id: 'stock_points',       path: '/app/pontos',            label: 'Ponto de Estocagem' },
   { id: 'designer',           path: '/app/designer',          label: 'Engenharia de Etiquetas' },
-  { id: 'operation',          path: '/app/ajuste',            label: 'Ajuste Rápido',            minPlan: 'business' },
+  { id: 'operation',          path: '/app/ajuste',            label: 'Ajuste Rápido' },
   { id: 'movement_internal',  path: '/app/movimentacao',      label: 'Movimentação de Carga',    minPlan: 'business' },
   { id: 'reports',            path: '/app/relatorios',        label: 'Relatórios' },
   { id: 'team',               path: '/app/equipe',            label: 'Equipe' },

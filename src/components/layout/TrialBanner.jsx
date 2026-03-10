@@ -12,7 +12,7 @@ const TrialBanner = ({ trialInfo, org }) => (
           </div>
           <div>
             <p className="text-sm font-bold text-white">
-              Trial Pro — {trialInfo.daysLeft} dia{trialInfo.daysLeft !== 1 ? 's' : ''} restante{trialInfo.daysLeft !== 1 ? 's' : ''}
+              Trial Pro — {trialInfo.timeLeftLabel}
             </p>
             <p className="text-xs text-zinc-400">
               Aproveite todos os recursos Pro por 7 dias. Após o trial, assine para continuar.

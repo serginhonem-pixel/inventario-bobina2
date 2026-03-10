@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import plansConfig, {
   getPlanConfig,
   isUnlimited,
   getTrialInfo,
   TRIAL_DURATION_DAYS
 } from '../plansConfig';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // ── getPlanConfig ───────────────────────────────────────────────────
 
@@ -214,6 +218,36 @@ describe('getTrialInfo', () => {
     const info = getTrialInfo({ status: 'expired_trial', planId: 'expired' });
     expect(info.expired).toBe(true);
     expect(info.effectivePlanId).toBe('expired');
+  });
+
+  it('gera labels precisos para o tempo restante do trial', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00.000Z'));
+
+    const info = getTrialInfo({
+      status: 'trialing',
+      planId: 'pro',
+      trialEndsAt: new Date('2026-03-17T10:00:00.000Z').toISOString()
+    });
+
+    expect(info.isTrial).toBe(true);
+    expect(info.timeLeftLabel).toBe('6 dias e 22 horas restantes');
+    expect(info.timeLeftShortLabel).toBe('6d 22h');
+  });
+
+  it('mostra horas quando falta menos de um dia para o trial acabar', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00.000Z'));
+
+    const info = getTrialInfo({
+      status: 'trialing',
+      planId: 'pro',
+      trialEndsAt: new Date('2026-03-10T17:00:00.000Z').toISOString()
+    });
+
+    expect(info.isTrial).toBe(true);
+    expect(info.timeLeftLabel).toBe('5 horas restantes');
+    expect(info.timeLeftShortLabel).toBe('5h');
   });
 
   it('fallback retorna planId da org ou pro', () => {

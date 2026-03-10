@@ -27,7 +27,6 @@ const NAV_ITEMS = ROUTES.filter((r) => ICON_MAP[r.id]).map((r) => ({
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo, onLogout, onStartTour }) => (
   <>
-    {/* Overlay mobile */}
     {sidebarOpen && (
       <div
         className="fixed inset-0 bg-black/70 z-40 md:hidden"
@@ -36,7 +35,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
     )}
 
     <aside className={`w-72 bg-zinc-950 border-r border-zinc-900 flex flex-col p-6 fixed h-full z-50 transform transition-transform duration-300 md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-      {/* Fechar (mobile) */}
       <div className="md:hidden flex justify-between items-center mb-4">
         <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Menu</span>
         <button
@@ -48,7 +46,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
         </button>
       </div>
 
-      {/* Logo */}
       <div className="mb-12 px-2">
         <img
           src="/logo.png"
@@ -57,7 +54,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
         />
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 space-y-2">
         {NAV_ITEMS.map((item) => {
           const locked = item.minPlan && !meetsMinPlan(effectivePlanId, item.minPlan);
@@ -91,7 +87,6 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
         })}
       </nav>
 
-      {/* Footer */}
       <div className="mt-auto pt-6 border-t border-zinc-900 space-y-4">
         <div className="flex items-center gap-3 px-2">
           <div className="w-10 h-10 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800">
@@ -101,7 +96,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, user, effectivePlanId, trialInfo
             <p className="text-xs font-bold text-white truncate">{user?.email || 'Usuário'}</p>
             <p className="text-xs text-zinc-500 uppercase font-bold">
               {trialInfo.isTrial
-                ? <span className="text-emerald-400">Trial Pro — {trialInfo.daysLeft}d</span>
+                ? <span className="text-emerald-400">Trial Pro — {trialInfo.timeLeftShortLabel}</span>
                 : trialInfo.expired
                   ? <span className="text-rose-400">Trial Expirado</span>
                   : <>Plano {effectivePlanId.charAt(0).toUpperCase() + effectivePlanId.slice(1)}</>
