@@ -172,7 +172,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
           tenantId,
           currentSchema.id,
           currentSchema.version || 1,
-          builtIn
+          { ...builtIn, stockPointId: currentStockPoint.id }
         );
         setTemplate(saved);
         setTemplates([saved]);
@@ -297,7 +297,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       setCurrentStockPoint(point);
       setCurrentSchema(schema);
 
-      const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id);
+      const existingTemplates = await templateService.getTemplatesBySchema(tenantId, schema.id, { stockPointId: point.id });
 
       // Se já tem template com elementos, usa o existente
       const hasUsableTemplate = existingTemplates.some((tpl) => (tpl.elements || []).length > 0);
@@ -326,7 +326,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
         tenantId,
         schema.id,
         schema.version || 1,
-        defaultTemplate
+        { ...defaultTemplate, stockPointId: point.id }
       );
       setTemplate(saved);
       setTemplates([saved]);
@@ -367,7 +367,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
           tenantId,
           currentSchema.id,
           currentSchema.version || 1,
-          templateData
+          { ...templateData, stockPointId: currentStockPoint?.id || null }
         );
         setTemplate(saved);
         setTemplates((prev) => {
@@ -882,11 +882,16 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                         }
 
                         try {
-                          const saved = await templateService.saveTemplate(tenantId, currentSchema.id, currentSchema.version || 1, newTemplate);
+                          const saved = await templateService.saveTemplate(
+                            tenantId,
+                            currentSchema.id,
+                            currentSchema.version || 1,
+                            { ...newTemplate, stockPointId: currentStockPoint?.id || null }
+                          );
 
                           // Verificação: re-lê do banco para garantir persistência
                           if (isNewTemplate && saved?.id) {
-                            const persisted = await templateService.getTemplatesBySchema(tenantId, currentSchema.id);
+                            const persisted = await templateService.getTemplatesBySchema(tenantId, currentSchema.id, { stockPointId: currentStockPoint?.id || null });
                             const found = persisted.some(t => t.id === saved.id);
                             if (!found) {
                               console.warn('[onSaveTemplate] Template salvo mas não encontrado na releitura. schemaId:', currentSchema.id, 'templateId:', saved.id);
@@ -911,10 +916,17 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                           }
                           toast("Template salvo com sucesso!", { type: 'success' });
                         } catch (err) {
-                          console.error('Erro ao salvar template:', err);
+                          console.error('[LabelManagement.onSaveTemplate] Erro ao salvar template:', {
+                            tenantId,
+                            schemaId: currentSchema?.id,
+                            stockPointId: currentStockPoint?.id || null,
+                            code: err?.code,
+                            message: err?.message,
+                            err
+                          });
                           const msg = err?.code === 'permission-denied'
-                            ? 'Sem permissão para salvar. Verifique se você é administrador da organização.'
-                            : 'Erro ao salvar template. Tente novamente.';
+                            ? `Sem permissão para salvar. Verifique se você é administrador da organização. (${err?.code})`
+                            : `Erro ao salvar template${err?.code ? ` (${err.code})` : ''}${err?.message ? `: ${err.message}` : '.'}`;
                           toast(msg, { type: 'error' });
                         }
                       }}

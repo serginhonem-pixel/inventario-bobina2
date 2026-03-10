@@ -22,11 +22,12 @@ const getTimestampMs = (value) => {
 };
 
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
-  const { id, name, size, padding, elements, logistics } = templateData;
+  const { id, name, size, padding, elements, logistics, stockPointId = null } = templateData;
   const baseParts = {
     tenantId,
     schemaId,
     schemaVersion,
+    stockPointId,
     name,
     size,
     padding: padding ?? 0,
@@ -57,6 +58,16 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
   }
 
   try {
+    console.info('[templateService.saveTemplate] saving', {
+      mode: isLocalhost() ? 'mock' : 'firestore',
+      tenantId,
+      schemaId,
+      schemaVersion,
+      stockPointId,
+      templateId: id || null,
+      name,
+      elementsCount: Array.isArray(elements) ? elements.length : 0,
+    });
     if (id) {
       // Atualizar template existente
       const docRef = doc(db, TEMPLATE_COLLECTION, id);
@@ -81,18 +92,40 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
       return { id: templateRef.id, ...newTemplate };
     }
   } catch (error) {
-    console.error("Erro ao salvar template:", error);
+    console.error('[templateService.saveTemplate] error', {
+      tenantId,
+      schemaId,
+      schemaVersion,
+      stockPointId,
+      templateId: id || null,
+      name,
+      code: error?.code,
+      message: error?.message,
+      error
+    });
     throw error;
   }
 };
 
 export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => {
+  const { stockPointId = null } = options;
   if (isLocalhost()) {
-    const templates = await mockGetDocs(TEMPLATE_COLLECTION, [
-      { field: 'tenantId', value: tenantId },
-      { field: 'schemaId', value: schemaId }
-    ]);
-    return [...templates].sort((a, b) => {
+    const byStockPoint = stockPointId
+      ? await mockGetDocs(TEMPLATE_COLLECTION, [
+          { field: 'tenantId', value: tenantId },
+          { field: 'stockPointId', value: stockPointId }
+        ])
+      : [];
+    const bySchema = schemaId
+      ? await mockGetDocs(TEMPLATE_COLLECTION, [
+          { field: 'tenantId', value: tenantId },
+          { field: 'schemaId', value: schemaId }
+        ])
+      : [];
+    const merged = [...byStockPoint, ...bySchema].filter(
+      (template, index, all) => all.findIndex((candidate) => candidate.id === template.id) === index
+    );
+    return [...merged].sort((a, b) => {
       const aMs = Math.max(getTimestampMs(a?.updatedAt), getTimestampMs(a?.createdAt));
       const bMs = Math.max(getTimestampMs(b?.updatedAt), getTimestampMs(b?.createdAt));
       return bMs - aMs;
@@ -100,42 +133,87 @@ export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => 
   }
 
   try {
-    let templates = [];
-    let cursor = null;
+    console.info('[templateService.getTemplatesBySchema] loading', {
+      mode: isLocalhost() ? 'mock' : 'firestore',
+      tenantId,
+      schemaId,
+      stockPointId
+    });
+    const runTemplateQuery = async (filters) => {
+      try {
+        const q = query(
+          collection(db, TEMPLATE_COLLECTION),
+          ...filters.map(({ field, value }) => where(field, '==', value)),
+          orderBy('createdAt', 'desc')
+        );
 
-    try {
-      const q = query(
-        collection(db, TEMPLATE_COLLECTION),
-        where('tenantId', '==', tenantId),
-        where('schemaId', '==', schemaId),
-        orderBy('createdAt', 'desc')
-      );
+        const result = await getDocsWithPagination(q, options);
+        return {
+          templates: result.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+          cursor: result.cursor
+        };
+      } catch (error) {
+        if (!isMissingIndexError(error)) throw error;
+        const fallbackQ = query(
+          collection(db, TEMPLATE_COLLECTION),
+          ...filters.map(({ field, value }) => where(field, '==', value))
+        );
+        const snapshot = await getDocsWithPagination(fallbackQ, { ...options, fetchAll: true });
+        const templates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        templates.sort((a, b) => {
+          const aMs = Math.max(getTimestampMs(a?.updatedAt), getTimestampMs(a?.createdAt));
+          const bMs = Math.max(getTimestampMs(b?.updatedAt), getTimestampMs(b?.createdAt));
+          return bMs - aMs;
+        });
+        return { templates, cursor: null };
+      }
+    };
 
-      const result = await getDocsWithPagination(q, options);
-      templates = result.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      cursor = result.cursor;
-    } catch (error) {
-      if (!isMissingIndexError(error)) throw error;
-      const fallbackQ = query(
-        collection(db, TEMPLATE_COLLECTION),
-        where('tenantId', '==', tenantId),
-        where('schemaId', '==', schemaId)
-      );
-      const snapshot = await getDocsWithPagination(fallbackQ, { ...options, fetchAll: true });
-      templates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      templates.sort((a, b) => {
-        const aMs = a?.createdAt?.toMillis?.() || 0;
-        const bMs = b?.createdAt?.toMillis?.() || 0;
+    const queryGroups = [];
+    if (stockPointId) {
+      queryGroups.push([
+        { field: 'tenantId', value: tenantId },
+        { field: 'stockPointId', value: stockPointId }
+      ]);
+    }
+    if (schemaId) {
+      queryGroups.push([
+        { field: 'tenantId', value: tenantId },
+        { field: 'schemaId', value: schemaId }
+      ]);
+    }
+
+    const results = await Promise.all(queryGroups.map((filters) => runTemplateQuery(filters)));
+    const templates = results
+      .flatMap((result) => result.templates)
+      .filter((template, index, all) => all.findIndex((candidate) => candidate.id === template.id) === index)
+      .sort((a, b) => {
+        const aMs = Math.max(getTimestampMs(a?.updatedAt), getTimestampMs(a?.createdAt));
+        const bMs = Math.max(getTimestampMs(b?.updatedAt), getTimestampMs(b?.createdAt));
         return bMs - aMs;
       });
-    }
+    const cursor = results[0]?.cursor ?? null;
 
     if (options.fetchAll === false) {
       return { templates, cursor };
     }
+    console.info('[templateService.getTemplatesBySchema] loaded', {
+      tenantId,
+      schemaId,
+      stockPointId,
+      total: templates.length,
+      templateIds: templates.map((template) => template.id)
+    });
     return templates;
   } catch (error) {
-    console.error("Erro ao buscar templates:", error);
+    console.error('[templateService.getTemplatesBySchema] error', {
+      tenantId,
+      schemaId,
+      stockPointId,
+      code: error?.code,
+      message: error?.message,
+      error
+    });
     throw error;
   }
 };

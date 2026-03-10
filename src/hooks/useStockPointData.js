@@ -22,7 +22,7 @@ export default function useStockPointData(tenantId, _currentStockPoint) {
       if (schema) {
         const [loadedItems, loadedTemplates] = await Promise.all([
           itemService.getItemsByStockPoint(tenantId, stockPointId),
-          templateService.getTemplatesBySchema(tenantId, schema.id),
+          templateService.getTemplatesBySchema(tenantId, schema.id, { stockPointId }),
         ]);
         setItems(loadedItems);
         setTemplates(loadedTemplates);

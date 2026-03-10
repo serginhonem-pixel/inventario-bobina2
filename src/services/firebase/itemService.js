@@ -6,6 +6,18 @@ import {
 } from 'firebase/firestore';
 
 const ITEM_COLLECTION = 'items';
+const isMissingIndexError = (error) =>
+  error?.code === 'failed-precondition'
+  || /requires an index/i.test(error?.message || '');
+
+const getTimestampMs = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value === 'number') return value;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 export const createItem = async (tenantId, schemaId, schemaVersion, itemData, stockPointId = null) => {
   if (isLocalhost()) {
@@ -40,15 +52,32 @@ export const getItemsBySchema = async (tenantId, schemaId, options = {}) => {
   }
 
   try {
-    const q = query(
-      collection(db, ITEM_COLLECTION),
-      where('tenantId', '==', tenantId),
-      where('schemaId', '==', schemaId),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const { docs, cursor } = await getDocsWithPagination(q, options);
-    const items = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let items = [];
+    let cursor = null;
+
+    try {
+      const q = query(
+        collection(db, ITEM_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('schemaId', '==', schemaId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const result = await getDocsWithPagination(q, options);
+      items = result.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cursor = result.cursor;
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const fallbackQ = query(
+        collection(db, ITEM_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('schemaId', '==', schemaId)
+      );
+      const snapshot = await getDocsWithPagination(fallbackQ, { ...options, fetchAll: true });
+      items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      items.sort((a, b) => getTimestampMs(b?.createdAt) - getTimestampMs(a?.createdAt));
+    }
+
     if (options.fetchAll === false) {
       return { items, cursor };
     }
@@ -68,15 +97,32 @@ export const getItemsByStockPoint = async (tenantId, stockPointId, options = {})
   }
 
   try {
-    const q = query(
-      collection(db, ITEM_COLLECTION),
-      where('tenantId', '==', tenantId),
-      where('stockPointId', '==', stockPointId),
-      orderBy('createdAt', 'desc')
-    );
-    
-    const { docs, cursor } = await getDocsWithPagination(q, options);
-    const items = docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let items = [];
+    let cursor = null;
+
+    try {
+      const q = query(
+        collection(db, ITEM_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('stockPointId', '==', stockPointId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const result = await getDocsWithPagination(q, options);
+      items = result.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      cursor = result.cursor;
+    } catch (error) {
+      if (!isMissingIndexError(error)) throw error;
+      const fallbackQ = query(
+        collection(db, ITEM_COLLECTION),
+        where('tenantId', '==', tenantId),
+        where('stockPointId', '==', stockPointId)
+      );
+      const snapshot = await getDocsWithPagination(fallbackQ, { ...options, fetchAll: true });
+      items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      items.sort((a, b) => getTimestampMs(b?.createdAt) - getTimestampMs(a?.createdAt));
+    }
+
     if (options.fetchAll === false) {
       return { items, cursor };
     }
@@ -139,5 +185,4 @@ export const deleteItem = async (itemId) => {
   await deleteDoc(docRef);
   return true;
 };
-
 

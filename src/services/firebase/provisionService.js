@@ -44,7 +44,7 @@ export const provisionForPoint = async (tenantId, point) => {
     }
 
     // Template
-    const existing = await templateService.getTemplatesBySchema(tenantId, schema.id);
+    const existing = await templateService.getTemplatesBySchema(tenantId, schema.id, { stockPointId: point.id });
     const hasTemplate = existing.some((t) => (t.elements || []).length > 0);
 
     let template = hasTemplate ? existing[0] : null;
@@ -58,7 +58,12 @@ export const provisionForPoint = async (tenantId, point) => {
       } catch { /* sem global default */ }
 
       if (!def) def = buildDefaultTemplate(schema);
-      template = await templateService.saveTemplate(tenantId, schema.id, schema.version || 1, def);
+      template = await templateService.saveTemplate(
+        tenantId,
+        schema.id,
+        schema.version || 1,
+        { ...def, stockPointId: point.id }
+      );
     }
 
     return { schema, template };
