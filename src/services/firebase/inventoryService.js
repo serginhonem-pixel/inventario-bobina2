@@ -166,8 +166,15 @@ export const applyInventoryAdjustments = async (
   for (let i = 0; i < pending.length; i += batchSize) {
     const slice = pending.slice(i, i + batchSize);
     const batch = writeBatch(db);
+    const itemSnapshots = await Promise.all(
+      slice.map(async (entry) => {
+        const itemRef = doc(db, ITEM_COLLECTION, entry.itemId);
+        const itemSnap = await getDoc(itemRef);
+        return { entry, itemRef, itemSnap };
+      })
+    );
 
-    for (const entry of slice) {
+    for (const { entry, itemRef, itemSnap } of itemSnapshots) {
       // Documento de ajuste
       const adjRef = doc(collection(db, STOCK_ADJ_COLLECTION));
       batch.set(adjRef, {
@@ -184,9 +191,9 @@ export const applyInventoryAdjustments = async (
         createdAt: serverTimestamp(),
       });
 
-      // Atualiza saldo do item
-      const itemRef = doc(db, ITEM_COLLECTION, entry.itemId);
-      const newData = setItemQty({}, entry.nextQty);
+      // Atualiza saldo do item preservando os demais campos do cadastro.
+      const currentData = itemSnap.exists() ? (itemSnap.data()?.data || {}) : {};
+      const newData = setItemQty(currentData, entry.nextQty);
       batch.update(itemRef, { data: newData, updatedAt: serverTimestamp() });
 
       updates.set(entry.itemId, entry.nextQty);
