@@ -185,9 +185,114 @@ export const exportToPDF = (data, schema, _filename = 'inventario_qtdapp.pdf') =
   printWindow.document.close();
 };
 
+export const exportInventoryReportToExcel = (rows, meta = {}) => {
+  const headers = ['CODIGO', 'DESCRICAO', 'CONGELADO', 'CONTADO', 'DIFERENCA', 'STATUS'];
+  const csvRows = ['\uFEFF' + headers.join(';')];
+
+  rows.forEach((row) => {
+    const values = [
+      row.codigo || '',
+      row.descricao || '',
+      row.baselineQty ?? '',
+      row.countedQty ?? '',
+      row.difference ?? '',
+      row.status || '',
+    ].map((value) => {
+      const text = String(value ?? '');
+      return text.includes(';') || text.includes('\n')
+        ? `"${text.replace(/"/g, '""')}"`
+        : text;
+    });
+    csvRows.push(values.join(';'));
+  });
+
+  csvRows.push('');
+  csvRows.push(`Ponto;${meta.stockPointName || ''}`);
+  csvRows.push(`Sessão;${meta.sessionId || ''}`);
+  csvRows.push(`Gerado em;${new Date().toLocaleString('pt-BR')}`);
+
+  downloadFile(
+    csvRows.join('\n'),
+    `relatorio_inventario_${(meta.stockPointName || 'qtdapp').replace(/\s+/g, '_').toLowerCase()}.csv`,
+    'text/csv;charset=utf-8;'
+  );
+};
+
+export const exportInventoryReportToPDF = (rows, meta = {}) => {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    toast('Permita pop-ups para exportar PDF.', { type: 'warning' });
+    return;
+  }
+
+  const tableRows = rows.map((row) => `
+    <tr>
+      <td>${row.codigo || '-'}</td>
+      <td>${row.descricao || '-'}</td>
+      <td>${row.baselineQty ?? '-'}</td>
+      <td>${row.countedQty ?? '-'}</td>
+      <td>${row.difference ?? '-'}</td>
+      <td>${row.status || '-'}</td>
+    </tr>
+  `).join('');
+
+  const divergences = rows.filter((row) => Number(row.difference || 0) !== 0).length;
+  const counted = rows.filter((row) => row.countedQty !== null && row.countedQty !== undefined).length;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório de Inventário</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+        h1 { font-size: 18px; margin-bottom: 8px; }
+        .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; }
+        th { background: #111; color: #fff; }
+        tr:nth-child(even) { background: #f5f5f5; }
+        .summary { margin: 16px 0; font-size: 12px; }
+        .summary span { margin-right: 18px; }
+      </style>
+    </head>
+    <body>
+      <h1>Relatório de Inventário</h1>
+      <div class="meta">
+        <strong>Ponto:</strong> ${meta.stockPointName || '-'}<br />
+        <strong>Sessão:</strong> ${meta.sessionId || '-'}<br />
+        <strong>Gerado em:</strong> ${new Date().toLocaleString('pt-BR')}
+      </div>
+      <div class="summary">
+        <span><strong>Itens:</strong> ${rows.length}</span>
+        <span><strong>Contados:</strong> ${counted}</span>
+        <span><strong>Divergências:</strong> ${divergences}</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Descrição</th>
+            <th>Congelado</th>
+            <th>Contado</th>
+            <th>Diferença</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+      <script>window.onload = function() { window.print(); }</script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.write(html);
+  printWindow.document.close();
+};
+
 // Mantém funções antigas para compatibilidade
 export const exportToCSV = exportToExcel;
 export const exportToText = exportToPDF;
-
 
 

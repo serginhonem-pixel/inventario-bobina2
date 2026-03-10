@@ -225,3 +225,32 @@ export const getInventorySummary = async (tenantId, sessionId, options = {}) => 
 
   return { total, counted, divergences };
 };
+
+export const getInventoryReport = async (tenantId, sessionId, options = {}) => {
+  if (!tenantId || !sessionId) return [];
+  if (isLocalhost()) return [];
+
+  const countsRef = collection(db, ORG_COLLECTION, tenantId, INVENTORY_COLLECTION, sessionId, COUNT_COLLECTION);
+  const q = query(countsRef, orderBy('createdAt', 'asc'));
+  const { docs } = await getDocsWithPagination(q, { pageSize: options.pageSize || 200, fetchAll: true });
+
+  return docs.map((docSnap) => {
+    const data = docSnap.data() || {};
+    const baselineQty = Number(data.baselineQty || 0);
+    const countedQty = data.countedQty !== null && data.countedQty !== undefined
+      ? Number(data.countedQty)
+      : null;
+    const difference = countedQty === null || Number.isNaN(countedQty)
+      ? null
+      : countedQty - baselineQty;
+
+    return {
+      id: docSnap.id,
+      itemId: data.itemId || docSnap.id,
+      baselineQty,
+      countedQty,
+      difference,
+      updatedAt: data.updatedAt || null,
+    };
+  });
+};

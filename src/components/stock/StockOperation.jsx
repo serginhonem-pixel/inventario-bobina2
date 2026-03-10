@@ -1,11 +1,12 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Camera, Package, Plus, Minus, Save, CheckCircle2, Loader2, History, ArrowRight, ShieldCheck, ScanLine } from 'lucide-react';
+import { Search, Camera, Package, Plus, Minus, Save, CheckCircle2, Loader2, History, ArrowRight, ShieldCheck, ScanLine, FileSpreadsheet, FileText } from 'lucide-react';
 import { saveAdjustment, getStockLogs } from '../../services/firebase/stockService';
 import { findItemByTerm } from '../../core/utils';
 import { ClipboardList, Play, Check } from 'lucide-react';
 import { 
   applyInventoryAdjustments,
   closeInventorySession,
+  getInventoryReport,
   getActiveInventorySession,
   getInventoryCount,
   getInventorySummary,
@@ -15,6 +16,7 @@ import {
 import BarcodeScanner from './BarcodeScanner';
 import { toast } from '../ui/toast';
 import { resolveItemQty } from '../../core/utils';
+import { exportInventoryReportToExcel, exportInventoryReportToPDF } from '../../services/export/exportService';
 
 const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpdated, currentUserId }) => {
   const [mode, setMode] = useState('adjust'); // adjust | inventory
@@ -33,6 +35,8 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
   const [applyArmed, setApplyArmed] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
   const [inventorySummary, setInventorySummary] = useState({ total: 0, counted: 0, divergences: 0 });
+  const [inventoryReport, setInventoryReport] = useState([]);
+  const [lastClosedInventoryReport, setLastClosedInventoryReport] = useState(null);
 
   // resolveItemQty importado de core/utils
 
@@ -50,9 +54,12 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
         if (session) {
           setMode('inventory');
           const summary = await getInventorySummary(tenantId, session.id);
+          const report = await getInventoryReport(tenantId, session.id);
           if (active) setInventorySummary(summary);
+          if (active) setInventoryReport(report);
         } else {
           setInventorySummary({ total: 0, counted: 0, divergences: 0 });
+          setInventoryReport([]);
         }
       } catch (error) {
         console.error('Erro ao carregar sessão de inventário:', error);
@@ -208,7 +215,10 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
       setInventorySession(session);
       setMode('inventory');
       const summary = await getInventorySummary(tenantId, session.id);
+      const report = await getInventoryReport(tenantId, session.id);
       setInventorySummary(summary);
+      setInventoryReport(report);
+      setLastClosedInventoryReport(null);
       toast('Inventário iniciado. Quantidades congeladas.', { type: 'success' });
     } catch (error) {
       console.error('Erro ao iniciar inventário:', error);
@@ -224,7 +234,9 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
     try {
       await saveInventoryCount(tenantId, inventorySession.id, selectedItem.id, countedQty);
       const summary = await getInventorySummary(tenantId, inventorySession.id);
+      const report = await getInventoryReport(tenantId, inventorySession.id);
       setInventorySummary(summary);
+      setInventoryReport(report);
       toast('Contagem salva.', { type: 'success' });
     } catch (error) {
       console.error('Erro ao salvar contagem:', error);
@@ -243,6 +255,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
     }
     setApplyLoading(true);
     try {
+      const reportSnapshot = await getInventoryReport(tenantId, inventorySession.id);
       const result = await applyInventoryAdjustments(
         tenantId,
         inventorySession.id,
@@ -256,10 +269,16 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
         closedBy: currentUserId || null,
         adjustmentsApplied: true
       });
+      setLastClosedInventoryReport({
+        rows: reportSnapshot,
+        sessionId: inventorySession.id,
+        stockPointName: currentStockPoint?.name || 'Ponto de Estocagem'
+      });
       setInventorySession(null);
       setSelectedItem(null);
       setApplyArmed(false);
       setInventorySummary({ total: 0, counted: 0, divergences: 0 });
+      setInventoryReport([]);
       toast(`Inventário encerrado. Ajustes aplicados: ${result?.applied || 0}.`, { type: 'success' });
     } catch (error) {
       console.error('Erro ao aplicar inventário:', error);
@@ -268,6 +287,40 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
       setApplyLoading(false);
     }
   };
+
+  const inventoryReportRows = useMemo(() => {
+    const baseRows = (inventorySession?.id ? inventoryReport : lastClosedInventoryReport?.rows) || [];
+    const itemMap = new Map((items || []).map((item) => [item.id, item]));
+
+    return baseRows.map((row) => {
+      const item = itemMap.get(row.itemId);
+      const codigo = item?.data?.codigo || item?.data?.sku || row.itemId;
+      const descricao = item?.data?.descricao || item?.data?.nome || 'Item';
+      const difference = row.difference ?? (row.countedQty === null || row.countedQty === undefined
+        ? null
+        : Number(row.countedQty) - Number(row.baselineQty || 0));
+      const status = row.countedQty === null || row.countedQty === undefined
+        ? 'Nao contado'
+        : difference === 0
+          ? 'Sem divergencia'
+          : 'Divergencia';
+
+      return {
+        itemId: row.itemId,
+        codigo,
+        descricao,
+        baselineQty: row.baselineQty,
+        countedQty: row.countedQty,
+        difference,
+        status,
+      };
+    });
+  }, [inventoryReport, inventorySession?.id, items, lastClosedInventoryReport]);
+
+  const exportMeta = useMemo(() => ({
+    stockPointName: currentStockPoint?.name || lastClosedInventoryReport?.stockPointName || 'Ponto de Estocagem',
+    sessionId: inventorySession?.id || lastClosedInventoryReport?.sessionId || 'sem_sessao',
+  }), [currentStockPoint?.name, inventorySession?.id, lastClosedInventoryReport]);
 
   return (
     <div className="space-y-8 p-4 max-w-6xl mx-auto">
@@ -542,6 +595,24 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
                 <p className="text-xl font-black text-white">{inventorySummary.divergences}</p>
               </div>
             </div>
+            {inventoryReportRows.length > 0 && (
+              <div className="flex flex-wrap gap-3 mb-6">
+                <button
+                  type="button"
+                  onClick={() => exportInventoryReportToExcel(inventoryReportRows, exportMeta)}
+                  className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-500/20 transition-all"
+                >
+                  <FileSpreadsheet size={14} /> Excel do Inventário
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exportInventoryReportToPDF(inventoryReportRows, exportMeta)}
+                  className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-rose-500/20 transition-all"
+                >
+                  <FileText size={14} /> PDF do Inventário
+                </button>
+              </div>
+            )}
             <button
               onClick={handleApplyInventory}
               disabled={!inventorySession || applyLoading}
@@ -553,7 +624,11 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
               {applyArmed ? 'Confirmar Ajustes e Encerrar' : 'Aplicar Ajustes e Encerrar'}
             </button>
             {!inventorySession && (
-              <p className="text-xs text-zinc-500 mt-3 text-center">Nenhum inventário ativo neste ponto.</p>
+              <p className="text-xs text-zinc-500 mt-3 text-center">
+                {lastClosedInventoryReport
+                  ? 'Último relatório de inventário disponível para exportação acima.'
+                  : 'Nenhum inventário ativo neste ponto.'}
+              </p>
             )}
           </>
         )}
