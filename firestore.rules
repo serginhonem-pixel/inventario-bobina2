@@ -9,11 +9,29 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
     }
 
+    function userBelongsToOrg(orgId) {
+      return isSignedIn()
+        && (
+          isOrgMember(orgId)
+          || (
+            exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId == orgId
+          )
+          || (
+            exists(/databases/$(database)/documents/organizations/$(orgId))
+            && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
+          )
+        );
+    }
+
     function isOrgAdmin(orgId) {
       return isSignedIn()
-        && isOrgMember(orgId)
+        && userBelongsToOrg(orgId)
         && (
-          get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin'
+          (
+            exists(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid))
+            && get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid)).data.role == 'admin'
+          )
           || (
             exists(/databases/$(database)/documents/organizations/$(orgId))
             && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
@@ -22,7 +40,7 @@ service cloud.firestore {
     }
 
     function tenantMatch(tenantId) {
-      return tenantId != null && isOrgMember(tenantId);
+      return tenantId != null && userBelongsToOrg(tenantId);
     }
 
     function orgData(orgId) {
@@ -101,13 +119,13 @@ service cloud.firestore {
     }
 
     match /organizations/{orgId} {
-      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow read: if isSignedIn() && userBelongsToOrg(orgId);
       allow create: if isSignedIn();
       allow update: if isOrgAdmin(orgId);
     }
 
     match /organizations/{orgId}/members/{uid} {
-      allow read: if isSignedIn() && isOrgMember(orgId);
+      allow read: if isSignedIn() && userBelongsToOrg(orgId);
       allow create: if isSignedIn()
         && (
           (uid == request.auth.uid
@@ -125,14 +143,14 @@ service cloud.firestore {
     }
 
     match /organizations/{orgId}/inventorySessions/{sessionId} {
-      allow read: if isSignedIn() && isOrgMember(orgId);
-      allow create: if isSignedIn() && isOrgMember(orgId);
-      allow update, delete: if isSignedIn() && isOrgMember(orgId);
+      allow read: if isSignedIn() && userBelongsToOrg(orgId);
+      allow create: if isSignedIn() && userBelongsToOrg(orgId);
+      allow update, delete: if isSignedIn() && userBelongsToOrg(orgId);
 
       match /counts/{countId} {
-        allow read: if isSignedIn() && isOrgMember(orgId);
-        allow create, update: if isSignedIn() && isOrgMember(orgId);
-        allow delete: if isSignedIn() && isOrgMember(orgId);
+        allow read: if isSignedIn() && userBelongsToOrg(orgId);
+        allow create, update: if isSignedIn() && userBelongsToOrg(orgId);
+        allow delete: if isSignedIn() && userBelongsToOrg(orgId);
       }
     }
 
