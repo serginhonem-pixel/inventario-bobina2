@@ -263,3 +263,23 @@ export const getInventoryReport = async (tenantId, sessionId, options = {}) => {
     };
   });
 };
+
+export const getInventorySessionsHistory = async (tenantId, stockPointId, options = {}) => {
+  if (!tenantId) return [];
+  if (isLocalhost()) return [];
+
+  const sessionsRef = collection(db, ORG_COLLECTION, tenantId, INVENTORY_COLLECTION);
+  const q = query(
+    sessionsRef,
+    orderBy('startedAt', 'desc'),
+    limit(options.limitCount || 20)
+  );
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs
+    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+    .filter((session) => {
+      if (stockPointId && session.stockPointId !== stockPointId) return false;
+      return session.status === 'closed';
+    });
+};

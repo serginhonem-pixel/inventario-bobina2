@@ -7,6 +7,7 @@ import {
   applyInventoryAdjustments,
   closeInventorySession,
   getInventoryReport,
+  getInventorySessionsHistory,
   getActiveInventorySession,
   getInventoryCount,
   getInventorySummary,
@@ -37,19 +38,24 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
   const [inventorySummary, setInventorySummary] = useState({ total: 0, counted: 0, divergences: 0 });
   const [inventoryReport, setInventoryReport] = useState([]);
   const [lastClosedInventoryReport, setLastClosedInventoryReport] = useState(null);
+  const [inventoryHistory, setInventoryHistory] = useState([]);
+  const [historyExportingId, setHistoryExportingId] = useState('');
 
   // resolveItemQty importado de core/utils
 
   useEffect(() => {
     if (!currentStockPoint?.id || !tenantId) {
       setInventorySession(null);
+      setInventoryHistory([]);
       return;
     }
     let active = true;
     const loadSession = async () => {
       try {
+        const historyList = await getInventorySessionsHistory(tenantId, currentStockPoint.id);
         const session = await getActiveInventorySession(tenantId, currentStockPoint.id);
         if (!active) return;
+        setInventoryHistory(historyList);
         setInventorySession(session);
         if (session) {
           setMode('inventory');
@@ -219,6 +225,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
       setInventorySummary(summary);
       setInventoryReport(report);
       setLastClosedInventoryReport(null);
+      setInventoryHistory((prev) => prev.filter((entry) => entry.id !== session.id));
       toast('Inventário iniciado. Quantidades congeladas.', { type: 'success' });
     } catch (error) {
       console.error('Erro ao iniciar inventário:', error);
@@ -274,6 +281,18 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
         sessionId: inventorySession.id,
         stockPointName: currentStockPoint?.name || 'Ponto de Estocagem'
       });
+      setInventoryHistory((prev) => ([
+        {
+          id: inventorySession.id,
+          stockPointId: currentStockPoint?.id || null,
+          status: 'closed',
+          startedAt: inventorySession?.startedAt || null,
+          closedAt: new Date(),
+          adjustmentsApplied: true,
+          itemsTotal: inventorySummary.total || items.length,
+        },
+        ...prev.filter((entry) => entry.id !== inventorySession.id)
+      ]));
       setInventorySession(null);
       setSelectedItem(null);
       setApplyArmed(false);
@@ -321,6 +340,53 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
     stockPointName: currentStockPoint?.name || lastClosedInventoryReport?.stockPointName || 'Ponto de Estocagem',
     sessionId: inventorySession?.id || lastClosedInventoryReport?.sessionId || 'sem_sessao',
   }), [currentStockPoint?.name, inventorySession?.id, lastClosedInventoryReport]);
+
+  const formatSessionDate = (value) => {
+    if (!value) return '-';
+    const date = typeof value?.toDate === 'function'
+      ? value.toDate()
+      : value instanceof Date
+        ? value
+        : new Date(value);
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('pt-BR');
+  };
+
+  const handleExportHistoryReport = async (sessionId, format) => {
+    if (!sessionId) return;
+    setHistoryExportingId(`${sessionId}:${format}`);
+    try {
+      const rows = await getInventoryReport(tenantId, sessionId);
+      const normalizedRows = rows.map((row) => {
+        const item = (items || []).find((entry) => entry.id === row.itemId);
+        return {
+          codigo: item?.data?.codigo || item?.data?.sku || row.itemId,
+          descricao: item?.data?.descricao || item?.data?.nome || 'Item',
+          baselineQty: row.baselineQty,
+          countedQty: row.countedQty,
+          difference: row.difference,
+          status: row.countedQty === null || row.countedQty === undefined
+            ? 'Nao contado'
+            : row.difference === 0
+              ? 'Sem divergencia'
+              : 'Divergencia',
+        };
+      });
+      const meta = {
+        stockPointName: currentStockPoint?.name || 'Ponto de Estocagem',
+        sessionId,
+      };
+      if (format === 'excel') {
+        exportInventoryReportToExcel(normalizedRows, meta);
+      } else {
+        exportInventoryReportToPDF(normalizedRows, meta);
+      }
+    } catch (error) {
+      console.error('Erro ao exportar histórico de inventário:', error);
+      toast('Erro ao exportar relatório do histórico.', { type: 'error' });
+    } finally {
+      setHistoryExportingId('');
+    }
+  };
 
   return (
     <div className="space-y-8 p-4 max-w-6xl mx-auto">
@@ -630,6 +696,51 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
                   : 'Nenhum inventário ativo neste ponto.'}
               </p>
             )}
+            <div className="mt-8 pt-6 border-t border-zinc-800">
+              <h4 className="text-white font-bold mb-4 text-sm uppercase tracking-widest">
+                Histórico de Inventários
+              </h4>
+              {inventoryHistory.length === 0 ? (
+                <p className="text-xs text-zinc-500">Nenhum inventário encerrado neste ponto ainda.</p>
+              ) : (
+                <div className="space-y-3">
+                  {inventoryHistory.map((session) => (
+                    <div
+                      key={session.id}
+                      className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-white">Sessão {session.id.slice(0, 8)}</p>
+                        <p className="text-xs text-zinc-400">
+                          Início: {formatSessionDate(session.startedAt)} | Encerrado: {formatSessionDate(session.closedAt)}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          Itens: {session.itemsTotal || '-'} {session.adjustmentsApplied ? '| Ajustes aplicados' : ''}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleExportHistoryReport(session.id, 'excel')}
+                          disabled={historyExportingId === `${session.id}:excel`}
+                          className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-emerald-500/20 transition-all disabled:opacity-60"
+                        >
+                          <FileSpreadsheet size={14} /> Excel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportHistoryReport(session.id, 'pdf')}
+                          disabled={historyExportingId === `${session.id}:pdf`}
+                          className="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2 hover:bg-rose-500/20 transition-all disabled:opacity-60"
+                        >
+                          <FileText size={14} /> PDF
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
       </div>
