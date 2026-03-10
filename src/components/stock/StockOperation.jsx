@@ -193,9 +193,33 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
     return resolveItemQty(selectedItem);
   }, [selectedItem]);
 
+  const visibleItems = useMemo(() => {
+    const term = String(searchTerm || '').trim().toLowerCase();
+    if (!term) return items || [];
+
+    return (items || []).filter((item) => {
+      const values = [
+        item.id,
+        item.data?.codigo,
+        item.data?.sku,
+        item.data?.descricao,
+        item.data?.nome,
+      ];
+      return values.some((value) => String(value || '').toLowerCase().includes(term));
+    });
+  }, [items, searchTerm]);
+
   const lastMovement = history?.[0] || null;
   const statusQty = mode === 'inventory' ? baselineQty : currentQty;
   const statusLabel = mode === 'inventory' ? 'Quantidade congelada' : 'Quantidade no sistema';
+
+  const handleSelectItem = (item) => {
+    if (mode === 'inventory' && !inventorySession) {
+      toast('Inicie o inventário para liberar a contagem.', { type: 'warning' });
+      return;
+    }
+    setSelectedItem(item);
+  };
 
   const handleStartInventory = async () => {
     if (!currentStockPoint?.id) {
@@ -499,6 +523,44 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
                 ? 'Inicie o inventário, bipe os itens e salve a contagem. Depois aplique os ajustes.'
                 : 'Use o leitor para ganhar velocidade. Depois confirme a quantidade física e salve o ajuste.'}
             </p>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Itens do Ponto</h3>
+            {visibleItems.length === 0 ? (
+              <p className="text-xs text-zinc-500">Nenhum item encontrado para a busca atual.</p>
+            ) : (
+              <div className="space-y-2 max-h-[360px] overflow-y-auto">
+                {visibleItems.map((item) => {
+                  const qty = resolveItemQty(item);
+                  const isActive = selectedItem?.id === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelectItem(item)}
+                      className={`w-full text-left rounded-2xl border px-4 py-3 transition-all ${
+                        isActive
+                          ? 'bg-emerald-500/10 border-emerald-500/40'
+                          : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-white truncate">
+                            {item.data?.descricao || item.data?.nome || 'Item'}
+                          </p>
+                          <p className="text-xs text-zinc-500 font-mono truncate">
+                            {item.data?.codigo || item.data?.sku || item.id}
+                          </p>
+                        </div>
+                        <span className="text-sm font-black text-white">{qty}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
