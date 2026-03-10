@@ -916,14 +916,6 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                           }
                           toast("Template salvo com sucesso!", { type: 'success' });
                         } catch (err) {
-                          console.error('[LabelManagement.onSaveTemplate] Erro ao salvar template:', {
-                            tenantId,
-                            schemaId: currentSchema?.id,
-                            stockPointId: currentStockPoint?.id || null,
-                            code: err?.code,
-                            message: err?.message,
-                            err
-                          });
                           const msg = err?.code === 'permission-denied'
                             ? `Sem permissão para salvar. Verifique se você é administrador da organização. (${err?.code})`
                             : `Erro ao salvar template${err?.code ? ` (${err.code})` : ''}${err?.message ? `: ${err.message}` : '.'}`;

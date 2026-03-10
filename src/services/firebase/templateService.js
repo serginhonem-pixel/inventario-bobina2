@@ -58,16 +58,6 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
   }
 
   try {
-    console.info('[templateService.saveTemplate] saving', {
-      mode: isLocalhost() ? 'mock' : 'firestore',
-      tenantId,
-      schemaId,
-      schemaVersion,
-      stockPointId,
-      templateId: id || null,
-      name,
-      elementsCount: Array.isArray(elements) ? elements.length : 0,
-    });
     if (id) {
       // Atualizar template existente
       const docRef = doc(db, TEMPLATE_COLLECTION, id);
@@ -92,17 +82,7 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
       return { id: templateRef.id, ...newTemplate };
     }
   } catch (error) {
-    console.error('[templateService.saveTemplate] error', {
-      tenantId,
-      schemaId,
-      schemaVersion,
-      stockPointId,
-      templateId: id || null,
-      name,
-      code: error?.code,
-      message: error?.message,
-      error
-    });
+    console.error("Erro ao salvar template:", error);
     throw error;
   }
 };
@@ -133,12 +113,6 @@ export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => 
   }
 
   try {
-    console.info('[templateService.getTemplatesBySchema] loading', {
-      mode: isLocalhost() ? 'mock' : 'firestore',
-      tenantId,
-      schemaId,
-      stockPointId
-    });
     const runTemplateQuery = async (filters) => {
       try {
         const q = query(
@@ -197,23 +171,9 @@ export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => 
     if (options.fetchAll === false) {
       return { templates, cursor };
     }
-    console.info('[templateService.getTemplatesBySchema] loaded', {
-      tenantId,
-      schemaId,
-      stockPointId,
-      total: templates.length,
-      templateIds: templates.map((template) => template.id)
-    });
     return templates;
   } catch (error) {
-    console.error('[templateService.getTemplatesBySchema] error', {
-      tenantId,
-      schemaId,
-      stockPointId,
-      code: error?.code,
-      message: error?.message,
-      error
-    });
+    console.error("Erro ao buscar templates:", error);
     throw error;
   }
 };
