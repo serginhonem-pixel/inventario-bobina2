@@ -12,6 +12,15 @@ const isMissingIndexError = (error) =>
   error?.code === 'failed-precondition'
   || /requires an index/i.test(error?.message || '');
 
+const getTimestampMs = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toMillis === 'function') return value.toMillis();
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value === 'number') return value;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
   const { id, name, size, padding, elements, logistics } = templateData;
   const baseParts = {
@@ -79,10 +88,15 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
 
 export const getTemplatesBySchema = async (tenantId, schemaId, options = {}) => {
   if (isLocalhost()) {
-    return await mockGetDocs(TEMPLATE_COLLECTION, [
+    const templates = await mockGetDocs(TEMPLATE_COLLECTION, [
       { field: 'tenantId', value: tenantId },
       { field: 'schemaId', value: schemaId }
     ]);
+    return [...templates].sort((a, b) => {
+      const aMs = Math.max(getTimestampMs(a?.updatedAt), getTimestampMs(a?.createdAt));
+      const bMs = Math.max(getTimestampMs(b?.updatedAt), getTimestampMs(b?.createdAt));
+      return bMs - aMs;
+    });
   }
 
   try {

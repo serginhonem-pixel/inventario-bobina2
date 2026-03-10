@@ -95,21 +95,13 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
       return Number.isFinite(parsed) ? parsed : 0;
     };
 
-    const grouped = new Map();
-    templates.forEach((tpl) => {
-      if (!tpl) return;
-      const key = (tpl.name || '').trim().toLowerCase() || tpl.id;
-      const existing = grouped.get(key);
-      if (!existing) {
-        grouped.set(key, tpl);
-        return;
-      }
-      const existingTs = Math.max(toMs(existing.updatedAt), toMs(existing.createdAt));
-      const nextTs = Math.max(toMs(tpl.updatedAt), toMs(tpl.createdAt));
-      if (nextTs >= existingTs) grouped.set(key, tpl);
-    });
-
-    return Array.from(grouped.values());
+    return [...templates]
+      .filter(Boolean)
+      .sort((a, b) => {
+        const aTs = Math.max(toMs(a.updatedAt), toMs(a.createdAt));
+        const bTs = Math.max(toMs(b.updatedAt), toMs(b.createdAt));
+        return bTs - aTs;
+      });
   }, [templates]);
 
   useEffect(() => {
