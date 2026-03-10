@@ -143,7 +143,7 @@ export const applyInventoryAdjustments = async (
   if (isLocalhost()) return { updates: new Map(), applied: 0 };
 
   const countsRef = collection(db, ORG_COLLECTION, tenantId, INVENTORY_COLLECTION, sessionId, COUNT_COLLECTION);
-  const q = query(countsRef, orderBy('createdAt', 'asc'));
+  const q = query(countsRef);
   const { docs } = await getDocsWithPagination(q, { pageSize: options.pageSize || 200, fetchAll: true });
 
   const updates = new Map();
@@ -192,7 +192,9 @@ export const applyInventoryAdjustments = async (
       });
 
       // Atualiza saldo do item preservando os demais campos do cadastro.
-      const currentData = itemSnap.exists() ? (itemSnap.data()?.data || {}) : {};
+      const currentData = itemSnap && typeof itemSnap.exists === 'function' && itemSnap.exists()
+        ? (itemSnap.data()?.data || {})
+        : {};
       const newData = setItemQty(currentData, entry.nextQty);
       batch.update(itemRef, { data: newData, updatedAt: serverTimestamp() });
 
@@ -210,7 +212,7 @@ export const getInventorySummary = async (tenantId, sessionId, options = {}) => 
   if (isLocalhost()) return { total: 0, counted: 0, divergences: 0 };
 
   const countsRef = collection(db, ORG_COLLECTION, tenantId, INVENTORY_COLLECTION, sessionId, COUNT_COLLECTION);
-  const q = query(countsRef, orderBy('createdAt', 'asc'));
+  const q = query(countsRef);
   const { docs } = await getDocsWithPagination(q, { pageSize: options.pageSize || 200, fetchAll: true });
 
   let total = 0;
@@ -238,7 +240,7 @@ export const getInventoryReport = async (tenantId, sessionId, options = {}) => {
   if (isLocalhost()) return [];
 
   const countsRef = collection(db, ORG_COLLECTION, tenantId, INVENTORY_COLLECTION, sessionId, COUNT_COLLECTION);
-  const q = query(countsRef, orderBy('createdAt', 'asc'));
+  const q = query(countsRef);
   const { docs } = await getDocsWithPagination(q, { pageSize: options.pageSize || 200, fetchAll: true });
 
   return docs.map((docSnap) => {
