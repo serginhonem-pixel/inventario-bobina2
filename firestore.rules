@@ -126,13 +126,13 @@ service cloud.firestore {
 
     match /organizations/{orgId}/inventorySessions/{sessionId} {
       allow read: if isSignedIn() && isOrgMember(orgId);
-      allow create: if isSignedIn() && isOrgAdmin(orgId);
-      allow update, delete: if isSignedIn() && isOrgAdmin(orgId);
+      allow create: if isSignedIn() && isOrgMember(orgId);
+      allow update, delete: if isSignedIn() && isOrgMember(orgId);
 
       match /counts/{countId} {
         allow read: if isSignedIn() && isOrgMember(orgId);
         allow create, update: if isSignedIn() && isOrgMember(orgId);
-        allow delete: if isSignedIn() && isOrgAdmin(orgId);
+        allow delete: if isSignedIn() && isOrgMember(orgId);
       }
     }
 
