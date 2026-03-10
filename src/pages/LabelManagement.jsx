@@ -20,7 +20,7 @@ import { printViaBluetooth, isBluetoothAvailable } from '../services/pdf/bluetoo
 import Dashboard from '../components/dashboard/Dashboard';
 import TourGuide from '../components/ui/TourGuideBubbles';
 import OnboardingPanel from '../components/ui/OnboardingPanel';
-import { getPlanConfig, hasFeature, isUnlimited, getTrialInfo, meetsMinPlan } from '../core/plansConfig';
+import { getPlanConfig, hasFeature, isUnlimited, getTrialInfo } from '../core/plansConfig';
 import { toast } from '../components/ui/toast';
 import { setItemQty } from '../core/utils';
 import { pathToTabId, tabIdToPath } from '../core/routes';
