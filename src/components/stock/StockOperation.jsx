@@ -676,35 +676,8 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
         </div>
       </div>
 
+      {mode === 'inventory' && (
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 shadow-lg">
-        {mode === 'adjust' ? (
-          <>
-            <h3 className="text-white font-bold mb-6 flex items-center gap-2 text-sm uppercase tracking-widest">
-              <History size={20} className="text-emerald-500" /> Histórico de Ajustes
-            </h3>
-            <div className="space-y-4">
-              {history.length > 0 ? history.map((log, idx) => (
-                <div key={idx} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex justify-between items-center group hover:border-emerald-500/30 transition-all">
-                  <div>
-                    <p className="text-xs text-zinc-500 uppercase font-bold">Ajuste Manual</p>
-                    <p className="text-xs text-zinc-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-lg font-black ${log.difference > 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                      {log.difference > 0 ? '+' : ''}{log.difference}
-                    </p>
-                    <p className="text-xs text-zinc-600 font-bold">Saldo: {log.newQty}</p>
-                  </div>
-                </div>
-              )) : (
-                <div className="text-center py-12 space-y-3">
-                  <History size={32} className="text-zinc-800 mx-auto" />
-                  <p className="text-zinc-600 text-xs">Nenhuma movimentação registrada para este item.</p>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
           <>
             <h3 className="text-white font-bold mb-6 flex items-center gap-2 text-sm uppercase tracking-widest">
               <ClipboardList size={20} className="text-emerald-500" /> Resumo do Inventário
@@ -804,8 +777,8 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
               )}
             </div>
           </>
-        )}
       </div>
+      )}
     </div>
   );
 };
