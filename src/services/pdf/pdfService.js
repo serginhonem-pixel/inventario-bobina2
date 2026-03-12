@@ -245,7 +245,6 @@ export const printLabels = async (template, items, options = {}) => {
                 const qrDataUrl = qrCache.get(String(qrValue || '')) || '';
                 content = `<div class="qr-container">
                   ${qrDataUrl ? `<img class="qr-img" src="${qrDataUrl}" />` : ''}
-                  <span style="font-size: 6px; margin-top: 2px;">${qrValue}</span>
                 </div>`;
               } else if (el.type === 'barcode') {
                 const codeVal = el.barcodeCodeKey ? (item[el.barcodeCodeKey] || '') : '';

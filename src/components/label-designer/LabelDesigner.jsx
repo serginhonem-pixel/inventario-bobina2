@@ -601,7 +601,6 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
                     ) : (
                       <QrCode size={el.width * 2} className="text-zinc-400" />
                     )}
-                    <span className="text-[7px] text-zinc-400 mt-0.5 font-bold truncate w-full text-center">{el.previewValue}</span>
                   </div>
                 ) : el.type === 'barcode' ? (
                   <div className="w-full h-full bg-zinc-50 flex flex-col items-center justify-center border border-zinc-200">
