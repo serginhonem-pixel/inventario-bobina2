@@ -22,7 +22,20 @@ const getTimestampMs = (value) => {
 };
 
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
-  const { id, name, size, padding, elements, logistics, stockPointId = null } = templateData;
+  const { id, name, size, padding, labelBorder, elements, logistics, stockPointId = null } = templateData;
+
+  // Remove propriedades de runtime que não devem ir para o Firestore
+  const RUNTIME_KEYS = ['qrDataUrl', 'barcodeDataUrl'];
+  const sanitizedElements = (elements || []).map((el) => {
+    const clean = {};
+    for (const [k, v] of Object.entries(el)) {
+      if (RUNTIME_KEYS.includes(k)) continue;
+      if (v === undefined) continue;
+      clean[k] = v;
+    }
+    return clean;
+  });
+
   const baseParts = {
     tenantId,
     schemaId,
@@ -31,7 +44,8 @@ export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateDa
     name,
     size,
     padding: padding ?? 0,
-    elements,
+    labelBorder: labelBorder ?? false,
+    elements: sanitizedElements,
     logistics,
   };
 
