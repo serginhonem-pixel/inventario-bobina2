@@ -8,6 +8,12 @@ import { auth } from "./services/firebase/config";
 import { ensureUserOrganization, subscribeOrganization } from "./services/firebase/orgService";
 import { provisionDefaults } from "./services/firebase/provisionService";
 import {
+  ensureLocalDemoData,
+  isLocalhost,
+  LOCAL_DEMO_ORG_ID,
+  LOCAL_DEMO_USER_ID
+} from "./services/firebase/mockPersistence";
+import {
   onAuthStateChanged,
   signOut,
   signInWithEmailAndPassword,
@@ -136,6 +142,7 @@ const OrgErrorScreen = ({ orgError, onSignOut }) => (
 );
 
 const App = () => {
+  const localDemoMode = isLocalhost();
   const [user, setUser] = useState(null);
   const [, setShowLanding] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -147,7 +154,37 @@ const App = () => {
   const [orgError, setOrgError] = useState("");
   const [org, setOrg] = useState(null);
   const { isOnline, pendingMovementsCount, updatePendingCount } = useNetworkStatus();
+
   useEffect(() => {
+    if (!localDemoMode) return;
+
+    const demoDb = ensureLocalDemoData();
+    const demoUser = {
+      uid: LOCAL_DEMO_USER_ID,
+      email: "demo@qtdapp.local",
+      displayName: "Demo Local",
+      superAdmin: true,
+    };
+    const demoOrg = demoDb?.organizations?.find((entry) => entry.id === LOCAL_DEMO_ORG_ID) || {
+      id: LOCAL_DEMO_ORG_ID,
+      name: "QtdApp Demo Local",
+      planId: "business",
+      status: "active",
+      seatsUsed: 3,
+      stockPointsUsed: 3,
+      templatesUsed: 3,
+      ownerId: LOCAL_DEMO_USER_ID,
+    };
+
+    setUser(demoUser);
+    setOrg(demoOrg);
+    setOrgError("");
+    setOrgLoading(false);
+    setLoading(false);
+  }, [localDemoMode]);
+
+  useEffect(() => {
+    if (localDemoMode) return;
     let unsubscribe = () => {};
     setPersistence(auth, browserLocalPersistence)
       .then(() => {
@@ -181,9 +218,10 @@ const App = () => {
         });
       });
     return () => unsubscribe();
-  }, []);
+  }, [localDemoMode]);
 
   useEffect(() => {
+    if (localDemoMode) return;
     if (!user) {
       setOrg(null);
       setOrgError("");
@@ -219,7 +257,7 @@ const App = () => {
       .finally(() => setOrgLoading(false));
 
     return () => unsubOrg();
-  }, [user]);
+  }, [user, localDemoMode]);
 
   const navigate = useNavigate();
 
@@ -231,6 +269,10 @@ const App = () => {
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     setAuthError("");
+    if (localDemoMode) {
+      navigate("/app");
+      return;
+    }
     try {
       if (authMode === "login") {
         await signInWithEmailAndPassword(auth, email, password);
@@ -245,6 +287,10 @@ const App = () => {
 
   const handleGoogleAuth = async () => {
     setAuthError("");
+    if (localDemoMode) {
+      navigate("/app");
+      return;
+    }
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
@@ -255,6 +301,10 @@ const App = () => {
   };
 
   const handlePasswordReset = async () => {
+    if (localDemoMode) {
+      toast("Modo demo local ativo. Nao ha recuperacao de senha no localhost.", { type: "warning" });
+      return;
+    }
     if (!email) {
       toast("Digite seu e-mail para recuperar a senha.", { type: "warning" });
       return;
@@ -269,6 +319,11 @@ const App = () => {
   };
 
   const handleLogout = async () => {
+    if (localDemoMode) {
+      setShowLanding(true);
+      navigate("/");
+      return;
+    }
     try {
       await signOut(auth);
     } catch (error) {
@@ -355,5 +410,4 @@ const App = () => {
 };
 
 export default App;
-
 
