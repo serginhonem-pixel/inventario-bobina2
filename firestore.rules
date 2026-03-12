@@ -39,12 +39,32 @@ service cloud.firestore {
         );
     }
 
+    function isBootstrapOwner(orgId, uid) {
+      return isSignedIn()
+        && uid == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/organizations/$(orgId))
+        && getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid;
+    }
+
     function tenantMatch(tenantId) {
       return tenantId != null && userBelongsToOrg(tenantId);
     }
 
     function orgData(orgId) {
-      return get(/databases/$(database)/documents/organizations/$(orgId)).data;
+      return exists(/databases/$(database)/documents/organizations/$(orgId))
+        ? get(/databases/$(database)/documents/organizations/$(orgId)).data
+        : null;
+    }
+
+    function userProfileHasOrg(orgId) {
+      return (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId == orgId
+      ) || (
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/users/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.orgId == orgId
+      );
     }
 
     function orgUsage(orgId, field) {
@@ -53,6 +73,7 @@ service cloud.firestore {
 
     function planMaxStockPoints(planId) {
       return planId == 'expired' ? 0
+        : planId == 'trial' ? 1
         : planId == 'pro' ? 1
         : planId == 'business' ? 3
         : null; // enterprise
@@ -60,12 +81,14 @@ service cloud.firestore {
 
     function planMaxTemplates(planId) {
       return planId == 'expired' ? 0
+        : planId == 'trial' ? 3
         : planId == 'pro' ? 3
         : null; // business/enterprise
     }
 
     function planMaxSeats(planId) {
       return planId == 'expired' ? 1
+        : planId == 'trial' ? 3
         : planId == 'pro' ? 3
         : planId == 'business' ? 10
         : null; // enterprise
@@ -119,22 +142,30 @@ service cloud.firestore {
     }
 
     match /organizations/{orgId} {
-      allow read: if isSignedIn() && userBelongsToOrg(orgId);
-      allow create: if isSignedIn();
-      allow update: if isOrgAdmin(orgId);
+      allow read: if isSignedIn() && (
+        userBelongsToOrg(orgId)
+        || (
+          existsAfter(/databases/$(database)/documents/organizations/$(orgId))
+          && getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
+        )
+      );
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isOrgAdmin(orgId)
+        || (
+          isSignedIn()
+          && exists(/databases/$(database)/documents/organizations/$(orgId))
+          && get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
+        );
     }
 
     match /organizations/{orgId}/members/{uid} {
       allow read: if isSignedIn() && userBelongsToOrg(orgId);
       allow create: if isSignedIn()
         && (
-          (uid == request.auth.uid
-            && (
-              !exists(/databases/$(database)/documents/organizations/$(orgId))
-              || get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid
-            )
-          )
+          isBootstrapOwner(orgId, uid)
           || isOrgAdmin(orgId)
+          || (uid == request.auth.uid && userProfileHasOrg(orgId))
         )
         && canAddSeat(orgId)
         && hasUsageIncrement(orgId, 'seatsUsed');

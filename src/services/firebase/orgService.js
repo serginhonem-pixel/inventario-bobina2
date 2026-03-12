@@ -29,11 +29,12 @@ export const getUserProfile = async (uid) => {
 };
 
 export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
-  if (!user?.uid) return null;
+  if (!user?.uid || typeof user.uid !== 'string') return null;
+  const uid = user.uid;
   const isSuperAdmin = user?.superAdmin === true;
   const effectivePlanId = isSuperAdmin ? 'enterprise' : defaultPlanId;
   const plan = getPlanConfig(effectivePlanId);
-  const userRef = doc(db, USER_COLLECTION, user.uid);
+  const userRef = doc(db, USER_COLLECTION, uid);
 
   return runTransaction(db, async (tx) => {
     const userSnap = await tx.get(userRef);
@@ -63,9 +64,9 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
       // Auto-repara organizações legadas sem membership do usuário atual.
       // Sem esse documento, regras do Firestore bloqueiam criação de template/ponto.
       if (orgSnap.exists()) {
-        const memberRef = doc(db, ORG_COLLECTION, profile.orgId, 'members', user.uid);
+        const memberRef = doc(db, ORG_COLLECTION, profile.orgId, 'members', uid);
         const memberSnap = await tx.get(memberRef);
-        const shouldBeAdmin = nextOrg?.ownerId === user.uid || profile?.role === 'admin';
+        const shouldBeAdmin = nextOrg?.ownerId === uid || profile?.role === 'admin';
         if (!memberSnap.exists()) {
           const currentSeatsUsed = orgSnap.data()?.seatsUsed ?? 0;
           tx.set(memberRef, {
@@ -91,7 +92,7 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
       }
 
       return {
-        userProfile: { id: user.uid, ...profile },
+        userProfile: { id: uid, ...profile },
         org: nextOrg
       };
     }
@@ -113,7 +114,7 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
       billingProvider: 'cartpanda',
       billingCustomerId: null,
       currentPeriodEnd: null,
-      ownerId: user.uid,
+      ownerId: uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -126,7 +127,7 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
-    tx.set(doc(db, ORG_COLLECTION, orgRef.id, 'members', user.uid), {
+    tx.set(doc(db, ORG_COLLECTION, orgRef.id, 'members', uid), {
       email: user.email || '',
       role: 'admin',
       status: 'active',
@@ -134,7 +135,7 @@ export const ensureUserOrganization = async (user, defaultPlanId = 'pro') => {
     });
 
     return {
-      userProfile: { id: user.uid, orgId: orgRef.id, email: user.email || '', role: 'admin' },
+      userProfile: { id: uid, orgId: orgRef.id, email: user.email || '', role: 'admin' },
       org: { id: orgRef.id, ...orgData }
     };
   });
