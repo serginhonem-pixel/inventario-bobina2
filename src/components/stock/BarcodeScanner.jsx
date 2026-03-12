@@ -37,10 +37,30 @@ const safeStop = async (scanner) => {
 const BarcodeScanner = ({ onScan, onClose }) => {
   const scannerRef = useRef(null);
   const startTokenRef = useRef(0);
+  const lastResultRef = useRef('');
+  const confirmCountRef = useRef(0);
   const [cameras, setCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState('');
   const [useFacingMode, setUseFacingMode] = useState(false);
   const [error, setError] = useState('');
+
+  // Exige 2 leituras iguais consecutivas para confirmar (reduz leituras falsas)
+  const CONFIRM_THRESHOLD = 2;
+
+  const handleDecode = (decodedText) => {
+    if (decodedText === lastResultRef.current) {
+      confirmCountRef.current += 1;
+    } else {
+      lastResultRef.current = decodedText;
+      confirmCountRef.current = 1;
+    }
+    if (confirmCountRef.current >= CONFIRM_THRESHOLD) {
+      confirmCountRef.current = 0;
+      lastResultRef.current = '';
+      onScan(decodedText);
+      safeStop(scannerRef.current);
+    }
+  };
 
   const startScanner = async (cameraConfig) => {
     const scanner = scannerRef.current;
@@ -52,11 +72,16 @@ const BarcodeScanner = ({ onScan, onClose }) => {
       if (token != startTokenRef.current) return;
       await scanner.start(
         cameraConfig,
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
-        (decodedText) => {
-          onScan(decodedText);
-          safeStop(scanner);
+        {
+          fps: 15,
+          qrbox: { width: 280, height: 180 },
+          aspectRatio: 1.333,
+          disableFlip: false,
+          // 0=QR, 2=CODABAR, 3=CODE_39, 4=CODE_93, 5=CODE_128,
+          // 8=ITF, 9=EAN_13, 10=EAN_8, 14=UPC_A, 15=UPC_E
+          formatsToSupport: [0, 2, 3, 4, 5, 8, 9, 10, 14, 15],
         },
+        handleDecode,
         () => {}
       );
     } catch (err) {
