@@ -78,8 +78,9 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
         onStockPointDeleted(point);
       }
     } catch (err) {
-      setError("Erro ao excluir ponto de estocagem.");
-      console.error(err);
+      const detail = err?.message || err?.code || '';
+      setError(`Erro ao excluir ponto de estocagem.${detail ? ` (${detail})` : ''}`);
+      console.error('Falha ao excluir stock point:', err);
     } finally {
       setLoading(false);
     }
@@ -108,6 +109,12 @@ const StockPointManager = ({ tenantId, onSelectStockPoint, currentStockPoint, pl
           {loading ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
         </button>
       </form>
+
+      {limitReached && (
+        <p className="text-amber-400 text-xs">
+          Limite de {stockPointsLimit} ponto(s) atingido. Para adicionar mais, faça upgrade do plano.
+        </p>
+      )}
 
       {error && <p className="text-rose-500 text-xs">{error}</p>}
 

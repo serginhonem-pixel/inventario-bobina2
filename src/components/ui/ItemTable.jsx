@@ -1,13 +1,25 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
-import { Printer, FileSpreadsheet, FileText, ChevronDown, ChevronRight, Layers } from 'lucide-react';
+import { Printer, FileSpreadsheet, FileText, ChevronDown, ChevronRight, Layers, Trash2 } from 'lucide-react';
 import { exportToExcel, exportToPDF } from '../../services/export/exportService';
 import { toast } from './toast';
 import { groupItems } from '../../core/utils';
+import ConfirmModal from './ConfirmModal';
 
-const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBluetooth, searchTerm = '' }) => {
+/** Converte qualquer valor (inclusive Firestore Timestamp) em string segura para renderização. */
+const formatCellValue = (value) => {
+  if (value == null) return '-';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value) || '-';
+  if (typeof value?.toDate === 'function') return value.toDate().toLocaleDateString();
+  if (value?.seconds !== undefined) return new Date(value.seconds * 1000).toLocaleDateString();
+  if (value instanceof Date) return value.toLocaleDateString();
+  return JSON.stringify(value);
+};
+
+const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBluetooth, searchTerm = '', onDeleteSelected }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const pageSize = 10;
   const isSkuOnly = schema?.fields?.length === 1 && schema.fields[0]?.key === 'sku';
 
@@ -133,6 +145,15 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
           >
             <Printer size={14} /> Imprimir PDF ({selectedIds.size})
           </button>
+          {onDeleteSelected && (
+            <button 
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={selectedIds.size === 0}
+              className="bg-rose-500/10 disabled:bg-zinc-700/50 text-rose-500 text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 border border-rose-500/30 hover:bg-rose-500/20"
+            >
+              <Trash2 size={14} /> Excluir ({selectedIds.size})
+            </button>
+          )}
         </div>
       </div>
       
@@ -199,7 +220,7 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
                     {schema.fields.slice(0, 4).map((field, idx) => (
                       <td key={field.key} className="p-4 text-zinc-200">
                         <span className="flex items-center gap-2">
-                          {item.data[field.key]?.toString() || '-'}
+                          {formatCellValue(item.data[field.key])}
                           {idx === 0 && hasMultiple && (
                             <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full flex items-center gap-1">
                               <Layers size={10} /> {originals.length}
@@ -219,7 +240,7 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
                       <td className="p-2 text-zinc-600 text-xs pl-4">#{idx + 1}</td>
                       {schema.fields.slice(0, 4).map(field => (
                         <td key={field.key} className="p-3 text-zinc-400 text-xs">
-                          {orig.data?.[field.key]?.toString() || '-'}
+                          {formatCellValue(orig.data?.[field.key])}
                         </td>
                       ))}
                       <td className="p-3 text-zinc-600 text-xs">
@@ -262,6 +283,27 @@ const ItemTable = ({ items, schema, onPrintSelected, onBluetoothPrint, hasBlueto
           </button>
         </div>
       </div>
+      {onDeleteSelected && (
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          title="Excluir itens"
+          message={`Tem certeza que deseja excluir ${selectedIds.size} item(ns) selecionado(s)? Essa ação não pode ser desfeita.`}
+          confirmText="Excluir"
+          variant="danger"
+          onConfirm={() => {
+            setConfirmDeleteOpen(false);
+            // Coletar IDs originais (de todos os lotes do grupo)
+            const selectedGrouped = groupedItems.filter(item => selectedIds.has(item.id));
+            const originalIds = [];
+            selectedGrouped.forEach(item => {
+              (item._originalIds || [item.id]).forEach(id => originalIds.push(id));
+            });
+            onDeleteSelected(originalIds);
+            setSelectedIds(new Set());
+          }}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+      )}
     </div>
   );
 };

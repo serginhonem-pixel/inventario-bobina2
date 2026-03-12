@@ -591,7 +591,14 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
                 {Object.entries(selectedItem.data).slice(0, 4).map(([key, value]) => (
                   <div key={key} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800/50">
                     <p className="text-xs text-zinc-600 uppercase font-bold mb-1">{key}</p>
-                    <p className="text-sm text-zinc-300 truncate font-medium">{String(value)}</p>
+                    <p className="text-sm text-zinc-300 truncate font-medium">
+                      {value != null && typeof value === 'object' && (typeof value.toDate === 'function'
+                        ? value.toDate().toLocaleDateString()
+                        : value.seconds !== undefined
+                          ? new Date(value.seconds * 1000).toLocaleDateString()
+                          : String(value))
+                      || String(value ?? '-')}
+                    </p>
                   </div>
                 ))}
               </div>

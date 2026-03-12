@@ -494,6 +494,18 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
     }
   };
 
+  const handleDeleteItems = async (itemIds) => {
+    if (!itemIds?.length) return;
+    try {
+      await Promise.all(itemIds.map((id) => itemService.deleteItem(id)));
+      setItems((prev) => prev.filter((item) => !itemIds.includes(item.id)));
+      toast(`${itemIds.length} item(ns) excluído(s).`, { type: 'success' });
+    } catch (err) {
+      console.error('Erro ao excluir itens:', err);
+      toast('Erro ao excluir itens.', { type: 'error' });
+    }
+  };
+
 
 
   return (
@@ -757,6 +769,7 @@ const LabelManagement = ({ user, tenantId: tenantIdProp, org, onLogout, isOnline
                           onBluetoothPrint={handleBluetoothPrint}
                           hasBluetooth={isBluetoothAvailable()}
                           searchTerm={globalSearch}
+                          onDeleteSelected={handleDeleteItems}
                         />
                       ) : (
                         <div className="bg-zinc-900 border border-zinc-800 border-dashed rounded-3xl p-20 text-center">
