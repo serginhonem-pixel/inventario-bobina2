@@ -24,31 +24,26 @@ const getTimestampMs = (value) => {
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
   const { id, name, size, padding, labelBorder, elements, logistics, stockPointId = null } = templateData;
 
-  // Deep-clone via JSON para garantir que só dados serializáveis vão pro Firestore
-  // (remove undefined, funções, refs, classes especiais etc.)
-  const RUNTIME_KEYS = new Set(['qrDataUrl', 'barcodeDataUrl']);
-  const sanitizedElements = JSON.parse(JSON.stringify(
-    (elements || []).map((el) => {
-      const clean = {};
-      for (const [k, v] of Object.entries(el)) {
-        if (RUNTIME_KEYS.has(k)) continue;
-        clean[k] = v;
-      }
-      return clean;
-    })
-  ));
+  // Garante que nenhum valor undefined vá para o Firestore (ele rejeita undefined em arrays)
+  const cleanElements = (elements || []).map((el) => {
+    const clean = {};
+    for (const [k, v] of Object.entries(el)) {
+      if (v !== undefined) clean[k] = v;
+    }
+    return clean;
+  });
 
   const baseParts = {
     tenantId,
     schemaId,
     schemaVersion,
-    stockPointId: stockPointId ?? null,
-    name: name || 'Sem nome',
-    size: size || { width: 100, height: 50 },
+    stockPointId,
+    name,
+    size,
     padding: padding ?? 0,
     labelBorder: labelBorder ?? false,
-    elements: sanitizedElements,
-    logistics: logistics || { street: '', shelf: '', level: '' },
+    elements: cleanElements,
+    logistics,
   };
 
   // Para mock local usa Date; para Firestore usa serverTimestamp
