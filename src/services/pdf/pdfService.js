@@ -8,7 +8,7 @@ import JsBarcode from 'jsbarcode';
 export const printLabels = async (template, items, options = {}) => {
   if (!template || !items || items.length === 0) return;
 
-  const { size, elements } = template;
+  const { size, elements, labelBorder } = template;
   const usePreview = !!options.usePreview;
   const normalizeKey = (value = '') =>
     String(value)
@@ -142,6 +142,10 @@ export const printLabels = async (template, items, options = {}) => {
       overflow: hidden;
       page-break-after: always;
       background: white;
+      box-sizing: border-box;
+    }
+    .label-page.with-border {
+      border: 0.3mm solid black;
     }
     .element {
       position: absolute;
@@ -218,7 +222,7 @@ export const printLabels = async (template, items, options = {}) => {
             Object.keys(item || {}).map((key) => [normalizeKey(key), key])
           );
           return `
-          <div class="label-page">
+          <div class="label-page${labelBorder ? ' with-border' : ''}">
             ${elements.map(el => {
               let content = '';
               const labelKey = el.label ? keyMap.get(normalizeKey(el.label)) : null;

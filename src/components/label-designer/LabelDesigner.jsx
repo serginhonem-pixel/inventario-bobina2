@@ -52,6 +52,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
   const [editingTemplateId, setEditingTemplateId] = useState(initialTemplate?.id || null);
   const [labelSize, setLabelSize] = useState(initialTemplate?.size || { width: 100, height: 50 });
   const [labelPadding, setLabelPadding] = useState(initialTemplate?.padding ?? 0);
+  const [labelBorder, setLabelBorder] = useState(initialTemplate?.labelBorder ?? false);
   const [elements, setElements] = useState(initialTemplate?.elements || []);
   const [selectedId, setSelectedId] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -86,6 +87,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     setTemplateName(initialTemplate.name || 'Novo Modelo');
     setLabelSize(initialTemplate.size || { width: 100, height: 50 });
     setLabelPadding(initialTemplate.padding ?? 0);
+    setLabelBorder(initialTemplate.labelBorder ?? false);
     setElements(initialTemplate.elements || []);
     setLogistics(initialTemplate.logistics || { street: '', shelf: '', level: '' });
   }, [initialTemplate?.id, initialTemplate?.updatedAt]);
@@ -329,6 +331,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     name: templateName,
     size: labelSize,
     padding: labelPadding,
+    labelBorder,
     elements,
     logistics
   });
@@ -342,6 +345,7 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
     setTemplateName('Novo Modelo');
     setLabelSize({ width: 100, height: 50 });
     setLabelPadding(0);
+    setLabelBorder(false);
     setElements([]);
     setSelectedId(null);
     setLogistics({ street: '', shelf: '', level: '' });
@@ -483,6 +487,9 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
             <button onClick={autoOrganize} className="p-1.5 rounded text-zinc-500 hover:text-emerald-400 hover:bg-zinc-800 transition-colors" title="Organizar Automaticamente">
               <LayoutGrid size={16} />
             </button>
+            <button onClick={() => setLabelBorder(!labelBorder)} className={`p-1.5 rounded transition-colors ${labelBorder ? 'bg-emerald-500 text-black' : 'text-zinc-500 hover:text-white'}`} title={labelBorder ? "Remover borda da etiqueta" : "Adicionar borda na etiqueta"}>
+              <Square size={16} />
+            </button>
           </div>
         </div>
 
@@ -561,7 +568,9 @@ const LabelDesigner = ({ schema, onSaveTemplate, onSaveAsDefault, canSaveAsDefau
                 width: `${labelSize.width * BASE_SCALE}px`,
                 height: `${labelSize.height * BASE_SCALE}px`,
                 transform: `scale(${zoom})`,
-                transformOrigin: 'top left'
+                transformOrigin: 'top left',
+                border: labelBorder ? '2px solid black' : 'none',
+                boxSizing: 'border-box'
               }}
             >
             {labelPadding > 0 && (
