@@ -40,6 +40,8 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
   const [lastClosedInventoryReport, setLastClosedInventoryReport] = useState(null);
   const [inventoryHistory, setInventoryHistory] = useState([]);
   const [historyExportingId, setHistoryExportingId] = useState('');
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [zeroUncounted, setZeroUncounted] = useState(false);
 
   // resolveItemQty importado de core/utils
 
@@ -279,11 +281,12 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
 
   const handleApplyInventory = async () => {
     if (!inventorySession?.id) return;
+    // Primeiro clique: abre modal de confirmação
     if (!applyArmed) {
-      setApplyArmed(true);
-      setTimeout(() => setApplyArmed(false), 4000);
+      setShowCloseModal(true);
       return;
     }
+    setShowCloseModal(false);
     setApplyLoading(true);
     try {
       const reportSnapshot = await getInventoryReport(tenantId, inventorySession.id);
@@ -291,7 +294,8 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
         tenantId,
         inventorySession.id,
         schema.id,
-        currentStockPoint.id
+        currentStockPoint.id,
+        { zeroUncounted }
       );
       if (typeof onItemsUpdated === 'function' && result?.updates) {
         onItemsUpdated(result.updates);
@@ -320,6 +324,7 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
       setInventorySession(null);
       setSelectedItem(null);
       setApplyArmed(false);
+      setZeroUncounted(false);
       setInventorySummary({ total: 0, counted: 0, divergences: 0 });
       setInventoryReport([]);
       toast(`Inventário encerrado. Ajustes aplicados: ${result?.applied || 0}.`, { type: 'success' });
@@ -731,6 +736,66 @@ const StockOperation = ({ items, schema, tenantId, currentStockPoint, onItemsUpd
               {applyLoading ? <Loader2 className="animate-spin" size={24} /> : (applyArmed ? <Check size={24} /> : <ClipboardList size={24} />)}
               {applyArmed ? 'Confirmar Ajustes e Encerrar' : 'Aplicar Ajustes e Encerrar'}
             </button>
+
+            {/* Modal de confirmação de encerramento do inventário */}
+            {showCloseModal && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60" onClick={() => setShowCloseModal(false)}>
+                <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-md w-full mx-4 space-y-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-white font-bold text-lg">Encerrar Inventário</h3>
+                  {inventorySummary.total - inventorySummary.counted > 0 && (
+                    <p className="text-amber-400 text-sm">
+                      ⚠ {inventorySummary.total - inventorySummary.counted} item(ns) não foram contados.
+                    </p>
+                  )}
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-800 cursor-pointer hover:bg-zinc-800/50 transition-colors">
+                      <input
+                        type="radio"
+                        name="uncountedAction"
+                        checked={!zeroUncounted}
+                        onChange={() => setZeroUncounted(false)}
+                        className="mt-1 accent-emerald-500"
+                      />
+                      <div>
+                        <p className="text-white text-sm font-bold">Manter quantidades</p>
+                        <p className="text-zinc-400 text-xs">Itens não contados mantêm a quantidade original (inventário parcial).</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 p-3 rounded-xl border border-zinc-800 cursor-pointer hover:bg-zinc-800/50 transition-colors">
+                      <input
+                        type="radio"
+                        name="uncountedAction"
+                        checked={zeroUncounted}
+                        onChange={() => setZeroUncounted(true)}
+                        className="mt-1 accent-rose-500"
+                      />
+                      <div>
+                        <p className="text-white text-sm font-bold">Zerar não contados</p>
+                        <p className="text-zinc-400 text-xs">Itens não encontrados na contagem terão quantidade zerada (inventário total).</p>
+                      </div>
+                    </label>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowCloseModal(false)}
+                      className="flex-1 py-3 rounded-xl border border-zinc-700 text-zinc-300 font-bold text-sm hover:bg-zinc-800 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCloseModal(false);
+                        setApplyArmed(true);
+                        setTimeout(() => setApplyArmed(false), 5000);
+                      }}
+                      className="flex-1 py-3 rounded-xl bg-emerald-500 text-black font-bold text-sm hover:bg-emerald-400 transition-all"
+                    >
+                      Prosseguir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {!inventorySession && (
               <p className="text-xs text-zinc-500 mt-3 text-center">
                 {lastClosedInventoryReport

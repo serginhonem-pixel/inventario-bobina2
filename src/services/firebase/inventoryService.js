@@ -148,12 +148,21 @@ export const applyInventoryAdjustments = async (
 
   const updates = new Map();
   const pending = []; // { itemId, baselineQty, nextQty }
+  const shouldZeroUncounted = !!options.zeroUncounted;
 
   for (const docSnap of docs) {
     const data = docSnap.data();
     const countedQty = data?.countedQty;
-    if (countedQty === null || countedQty === undefined) continue;
     const baselineQty = Number(data?.baselineQty || 0);
+
+    if (countedQty === null || countedQty === undefined) {
+      // Item não contado: zerar se o usuário escolheu essa opção
+      if (shouldZeroUncounted && baselineQty !== 0) {
+        pending.push({ itemId: data.itemId, baselineQty, nextQty: 0 });
+      }
+      continue;
+    }
+
     const nextQty = Number(countedQty);
     if (!Number.isFinite(nextQty)) continue;
     if (baselineQty === nextQty) continue;
