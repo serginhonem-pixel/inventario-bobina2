@@ -98,19 +98,24 @@ export const deleteStockPoint = async (stockPointId) => {
   try {
     const stockPointRef = doc(db, STOCK_POINT_COLLECTION, stockPointId);
     await runTransaction(db, async (tx) => {
+      // Todas as leituras primeiro (exigência do Firestore)
       const stockPointSnap = await tx.get(stockPointRef);
       if (!stockPointSnap.exists()) {
         return;
       }
       const tenantId = stockPointSnap.data()?.tenantId;
-      tx.delete(stockPointRef);
+      let orgRef = null;
+      let orgSnap = null;
       if (tenantId) {
-        const orgRef = doc(db, ORG_COLLECTION, tenantId);
-        const orgSnap = await tx.get(orgRef);
-        if (orgSnap.exists()) {
-          const current = orgSnap.data()?.stockPointsUsed ?? 0;
-          tx.update(orgRef, { stockPointsUsed: Math.max(0, current - 1), updatedAt: serverTimestamp() });
-        }
+        orgRef = doc(db, ORG_COLLECTION, tenantId);
+        orgSnap = await tx.get(orgRef);
+      }
+
+      // Escritas depois de todas as leituras
+      tx.delete(stockPointRef);
+      if (orgRef && orgSnap?.exists()) {
+        const current = orgSnap.data()?.stockPointsUsed ?? 0;
+        tx.update(orgRef, { stockPointsUsed: Math.max(0, current - 1), updatedAt: serverTimestamp() });
       }
     });
 
