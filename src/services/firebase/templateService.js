@@ -24,29 +24,31 @@ const getTimestampMs = (value) => {
 export const saveTemplate = async (tenantId, schemaId, schemaVersion, templateData) => {
   const { id, name, size, padding, labelBorder, elements, logistics, stockPointId = null } = templateData;
 
-  // Remove propriedades de runtime que não devem ir para o Firestore
-  const RUNTIME_KEYS = ['qrDataUrl', 'barcodeDataUrl'];
-  const sanitizedElements = (elements || []).map((el) => {
-    const clean = {};
-    for (const [k, v] of Object.entries(el)) {
-      if (RUNTIME_KEYS.includes(k)) continue;
-      if (v === undefined) continue;
-      clean[k] = v;
-    }
-    return clean;
-  });
+  // Deep-clone via JSON para garantir que só dados serializáveis vão pro Firestore
+  // (remove undefined, funções, refs, classes especiais etc.)
+  const RUNTIME_KEYS = new Set(['qrDataUrl', 'barcodeDataUrl']);
+  const sanitizedElements = JSON.parse(JSON.stringify(
+    (elements || []).map((el) => {
+      const clean = {};
+      for (const [k, v] of Object.entries(el)) {
+        if (RUNTIME_KEYS.has(k)) continue;
+        clean[k] = v;
+      }
+      return clean;
+    })
+  ));
 
   const baseParts = {
     tenantId,
     schemaId,
     schemaVersion,
-    stockPointId,
-    name,
-    size,
+    stockPointId: stockPointId ?? null,
+    name: name || 'Sem nome',
+    size: size || { width: 100, height: 50 },
     padding: padding ?? 0,
     labelBorder: labelBorder ?? false,
     elements: sanitizedElements,
-    logistics,
+    logistics: logistics || { street: '', shelf: '', level: '' },
   };
 
   // Para mock local usa Date; para Firestore usa serverTimestamp
